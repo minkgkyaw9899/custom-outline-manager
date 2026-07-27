@@ -12,6 +12,15 @@ const config = defineConfig({
     // hard-coding one specific random subdomain.
     allowedHosts: [".ngrok-free.dev", ".ngrok-free.app", ".ngrok.io", ".ngrok.app"],
   },
+  preview: {
+    // The build's prerender step (spa.enabled forces it on) spins up this
+    // preview server internally and fetches it back via Bun's fetch(). Some
+    // container network setups (BuildKit's docker-container driver) resolve
+    // the hostname "localhost" to ::1 on the client side while this server
+    // only binds IPv4, so the fetch gets ECONNREFUSED. Pinning a literal
+    // loopback IP sidesteps hostname resolution entirely.
+    host: "127.0.0.1",
+  },
   plugins: [
     devtools(),
     tailwindcss(),

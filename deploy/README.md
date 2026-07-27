@@ -20,8 +20,12 @@ frontend, and an edge nginx that TLS-terminates and routes three domains:
    `deploy/` directory to it (the CI workflow does this on every deploy; for
    the very first run, `scp -r deploy/ user@host:/opt/outline-manager`
    works too).
-4. `cp .env.example .env` and fill in the blanks (`JWT_SECRET` via
-   `openssl rand -hex 32`, SMTP app password, etc.).
+4. `.env` is written automatically by the GitHub Actions deploy workflow
+   from the `DEPLOY_ENV_FILE` secret (see below) — trigger it once
+   (`workflow_dispatch` or a push to `main`) before continuing, or for a
+   fully manual first run, `cp .env.example .env` and fill in the blanks
+   yourself (`JWT_SECRET` via `openssl rand -hex 32`, SMTP app password,
+   etc.).
 5. Bring up everything except nginx first, since nginx's config points at a
    certificate that doesn't exist yet:
    ```
@@ -47,5 +51,9 @@ GitHub secrets it needs.
 
 Config changes (`nginx/nginx.conf`, `docker-compose.yml` itself) also ship
 through that same sync, since the workflow rsyncs this whole directory to the
-server before pulling images. `.env` is excluded from that sync — it only
-ever exists on the server, edited by hand over SSH.
+server before pulling images. `.env` is excluded from that rsync and instead
+written fresh on every deploy from the `DEPLOY_ENV_FILE` GitHub secret (whole
+file contents, piped over SSH stdin — never interpolated into a shell
+string). Update that secret and redeploy to change any runtime value
+(`ALLOWED_ORIGINS`, `JWT_SECRET`, SMTP creds, ...); there's no reason to edit
+`.env` on the server by hand anymore.

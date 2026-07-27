@@ -106,6 +106,14 @@ jobs:
             -e "ssh -p ${{ vars.LIGHTSAIL_SSH_PORT || 22 }}" \
             deploy/ "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:${{ vars.DEPLOY_DIR || '/opt/outline-manager' }}/"
 
+      - name: Write .env
+        # Piped over stdin rather than interpolated into the ssh command
+        # string, so nothing in the secret (quotes, $, etc.) needs escaping.
+        run: |
+          printf '%s' "${{ secrets.DEPLOY_ENV_FILE }}" | \
+            ssh -p "${{ vars.LIGHTSAIL_SSH_PORT || 22 }}" "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
+              "cat > '${{ vars.DEPLOY_DIR || '/opt/outline-manager' }}/.env'"
+
       - name: Pull images and restart
         run: |
           ssh -p "${{ vars.LIGHTSAIL_SSH_PORT || 22 }}" "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" "
