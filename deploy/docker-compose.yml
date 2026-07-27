@@ -1,0 +1,88 @@
+# Production stack for a single Lightsail instance: postgres + api +
+# frontend + an edge nginx doing TLS/routing for all three domains, plus
+# certbot for cert issuance/renewal. This whole directory is what gets
+# synced to the server — see README.md for first-time setup.
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-outline}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-outline}
+      POSTGRES_DB: ${POSTGRES_DB:-outline_manager}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-outline}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    # Built by .github/workflows/deploy.yml and pulled from GHCR in
+    # production; `build` is only used for local `docker compose build`.
+    image: ${BACKEND_IMAGE:-ghcr.io/minkgkyaw9899/custom-outline-manager-backend:latest}
+    build: ../backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-outline}:${POSTGRES_PASSWORD:-outline}@postgres:5432/${POSTGRES_DB:-outline_manager}?sslmode=disable
+      PORT: 8080
+      CRON_INTERVAL: ${CRON_INTERVAL:-30m}
+      # Frontend is its own container behind nginx, not mounted here.
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://light-speed.invisigate.asia}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-dynamic-access-light-speed.invisigate.asia}
+      ROOT_ADMIN_EMAIL: ${ROOT_ADMIN_EMAIL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_TTL: ${JWT_TTL:-168h}
+      OTP_TTL: ${OTP_TTL:-10m}
+      OTP_MAX_ATTEMPTS: ${OTP_MAX_ATTEMPTS:-5}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-.invisigate.asia}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Invisigate VPN}
+      SMTP_TIMEOUT: ${SMTP_TIMEOUT:-10s}
+
+  frontend:
+    # VITE_API_URL is baked into the JS bundle at build time (see
+    # frontend/Dockerfile), so it's a build arg there, not a runtime env var
+    # here.
+    image: ${FRONTEND_IMAGE:-ghcr.io/minkgkyaw9899/custom-outline-manager-frontend:latest}
+    build: ../frontend
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+      - frontend
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - certbot_conf:/etc/letsencrypt:ro
+      - certbot_www:/var/www/certbot:ro
+    # Certs can be renewed underneath it without a restart; picks up the
+    # renewed file on the next TLS handshake after a reload.
+    command: sh -c "while :; do sleep 12h & wait $${!}; nginx -s reload; done & nginx -g 'daemon off;'"
+
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    volumes:
+      - certbot_conf:/etc/letsencrypt
+      - certbot_www:/var/www/certbot
+    entrypoint: sh -c "trap exit TERM; while :; do certbot renew --webroot -w /var/www/certbot --quiet; sleep 12h & wait $${!}; done"
+
+volumes:
+  postgres_data:
+  certbot_conf:
+  certbot_www:

@@ -334,18 +334,28 @@ same-origin production setup.
 
 ## 11. Deployment
 
-`docker-compose.yml` runs two services: `postgres` (named volume) and
-`backend` (multi-stage Dockerfile: `golang:1.25` builder →
-`debian:bookworm-slim` runtime, running as a non-root user). The build context
-is `./backend`, so the image contains the API only; the UI is bind-mounted
-read-only at `/app/web`, letting a UI change ship without rebuilding Go.
+Two independent images, each with its own multi-stage Dockerfile:
 
-The backend runs DB migrations automatically on boot (`internal/db.Migrate`),
-then starts the HTTP server and the cron scheduler in the same process, and
-shuts both down gracefully on SIGTERM (10s grace for in-flight requests;
-in-flight syncs are cancelled).
+- `backend/Dockerfile`: `golang:1.25` builder → `debian:bookworm-slim`
+  runtime, non-root user. Runs DB migrations automatically on boot
+  (`internal/db.Migrate`), then the HTTP server and the cron scheduler in the
+  same process, shutting both down gracefully on SIGTERM (10s grace for
+  in-flight requests; in-flight syncs are cancelled).
+- `frontend/Dockerfile`: `oven/bun` builder (`VITE_API_URL` baked in as a
+  build arg, since Vite inlines it at build time) → `nginx:alpine` runtime
+  serving the static SPA build, with `/assets/*` cached immutably and
+  everything else falling back to the prerendered SPA shell for client-side
+  routing.
 
-### Not yet addressed
+Root `docker-compose.yml` is for local dev only (single origin: backend
+serves the frontend directly via `STATIC_DIR`/`FRONTEND_DIR`, or the frontend
+runs on its own Vite dev server with `ALLOWED_ORIGINS` set for cross-origin
+calls).
 
-The frontend (`frontend/`) hasn't been built yet — see
-[docs/FRONTEND_HANDOFF.md](FRONTEND_HANDOFF.md). The backend, including auth, is complete and tested.
+Production deploys both containers on one host behind a shared edge nginx —
+see [deploy/README.md](../deploy/README.md). That stack splits the surface
+across three subdomains (dashboard UI, full API, and a
+dynamic-access-key-only host for `ssconf://` links, kept separate from the
+API domain so a shared link never reveals it), TLS via Let's Encrypt/certbot,
+and is what `.github/workflows/deploy.yml` builds, pushes to GHCR, and
+rsyncs/redeploys on every push to `main`.
