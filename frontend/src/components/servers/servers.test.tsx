@@ -1,0 +1,300 @@
+import { describe, expect, it } from "vitest"
+import { fireEvent, render, screen } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
+
+import { AddServerDialog } from "./add-server-dialog"
+import { AsShareList } from "./as-share-list"
+import { EditServerDialog } from "./edit-server-dialog"
+import { ServerCard } from "./server-card"
+import { Button } from "@/components/ui/button"
+import type { ASUsage, ServerDetail, ServerWithUsage } from "@/lib/types"
+
+// Values here mirror a real response from the live LSD 1 Yamin server, so the
+// card is pinned against the actual API shape rather than an invented one.
+const frontiir: ASUsage = {
+  asn: 58952,
+  asOrg: "Frontiir Co., Ltd",
+  countryCode: "MM",
+  bytesTransferred: 6115628839,
+  tunnelTimeHours: 9.1532,
+  sharePct: 100,
+}
+
+function makeServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
+  return {
+    id: "70cfad3a-b8d6-44f7-8543-5934de3d0f33",
+    name: "LSD 1 Yamin",
+    apiUrl: "https://light-speed-data1.invisigate.asia:26574/secret",
+    certSha256: "f5d4b4e6",
+    costUsdPerMonth: 7,
+    lastSyncedAt: new Date().toISOString(),
+    lastSyncError: null,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    maxKeys: null,
+    defaultLimitBytes: null,
+    hostname: "light-speed-data1.invisigate.asia",
+    health: "healthy",
+    // 2 keys, both valid, but only 1 connected — the live shape of this server,
+    // and the case that distinguishes "connected" from "valid".
+    keyCount: 2,
+    activeKeys: 2,
+    totalUsedBytes: 6115628839,
+    metrics: {
+      window: "30d",
+      totalBytes: 6115628839,
+      currentBandwidthBps: 34119,
+      peakBandwidthBps: 8646047,
+      peakBandwidthAt: new Date().toISOString(),
+      tunnelTimeHours: 9.1532,
+      ases: [frontiir],
+      peakDevicesTotal: 2,
+      onlineKeys: 1,
+    },
+    dailySeries: [],
+    ...overrides,
+  }
+}
+
+// ServerCard renders a router Link and runs mutations, so it needs both a
+// router and a query client to mount.
+function renderCard(server: ServerWithUsage) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  const rootRoute = createRootRoute()
+  const indexRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/",
+    component: () => <ServerCard server={server} />,
+  })
+  const detailRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/admin/servers/$serverId",
+    component: () => null,
+  })
+  const router = createRouter({
+    routeTree: rootRoute.addChildren([indexRoute, detailRoute]),
+    history: createMemoryHistory({ initialEntries: ["/"] }),
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>,
+  )
+}
+
+/** The rendered value of one card Metric, read via its label. */
+function metricValue(label: string): string | undefined {
+  return screen.getByText(label).nextElementSibling?.textContent ?? undefined
+}
+
+describe("server card", () => {
+  it("renders identity, health and cost from the API shape", async () => {
+    renderCard(makeServer())
+    expect(await screen.findByText("LSD 1 Yamin")).toBeTruthy()
+    expect(screen.getByText("Healthy")).toBeTruthy()
+    expect(
+      screen.getByText("light-speed-data1.invisigate.asia · $7/mo"),
+    ).toBeTruthy()
+  })
+
+  // Outline exposes no inbound/outbound split, so the two slots the design drew
+  // as directional traffic show the live rate and the window total instead.
+  it("shows current bandwidth as a rate and total bandwidth as a volume", async () => {
+    renderCard(makeServer())
+    expect(await screen.findByText("Current bandwidth")).toBeTruthy()
+    expect(screen.getByText("34 kB/s")).toBeTruthy()
+    expect(screen.getByText("Total bandwidth")).toBeTruthy()
+    expect(screen.getByText("6.1 GB")).toBeTruthy()
+    expect(screen.queryByText("Inbound")).toBeNull()
+    expect(screen.queryByText("Outbound")).toBeNull()
+  })
+
+  // "Connected keys" is the live count, not the number of non-expired keys —
+  // the fixture has 2 valid keys but only 1 connected.
+  it("shows how many keys are connected right now, not how many are valid", async () => {
+    renderCard(makeServer())
+    await screen.findByText("Connected keys")
+    // Read each value next to its own label: bare "1" also appears as the AS
+    // count, and asserting on it loosely would pass for the wrong reason.
+    expect(metricValue("Connected keys")).toBe("1")
+    expect(metricValue("Total keys")).toBe("2")
+    expect(screen.queryByText("Active keys")).toBeNull()
+  })
+
+  it("falls back to synced usage and dashes when live metrics are missing", async () => {
+    renderCard(makeServer({ metrics: null, health: "degraded" }))
+    expect(await screen.findByText("Degraded")).toBeTruthy()
+    // Connected keys, peak devices, current bandwidth and tunnel time are all
+    // live-only, so they have no fallback and read as dashes. A "0" there would
+    // claim nobody is connected when we simply could not ask.
+    expect(screen.getAllByText("—")).toHaveLength(4)
+    // Key counts and the total still come from the last sync.
+    expect(screen.getByText("6.1 GB")).toBeTruthy()
+    expect(screen.getByText("Total keys")).toBeTruthy()
+  })
+
+  it("omits the cost segment when no cost is recorded", async () => {
+    renderCard(makeServer({ costUsdPerMonth: null }))
+    expect(
+      await screen.findByText("light-speed-data1.invisigate.asia"),
+    ).toBeTruthy()
+  })
+
+  it("shows key counts, peak devices, tunnel time and the AS count", async () => {
+    renderCard(makeServer())
+    expect(await screen.findByText("Total keys")).toBeTruthy()
+    expect(screen.getByText("Connected keys")).toBeTruthy()
+    expect(metricValue("Peak devices")).toBe("2")
+    expect(screen.getByText("Tunnel time")).toBeTruthy()
+    expect(screen.getByText("9.153 hours")).toBeTruthy()
+    expect(screen.getByText("ASes")).toBeTruthy()
+  })
+
+  // The chart needs two days of snapshots to produce a single delta, so a
+  // freshly-added server must explain itself rather than render an empty box.
+  it("explains the chart instead of drawing one without enough history", async () => {
+    renderCard(makeServer({ dailySeries: [{ date: "2026-07-25", bytes: 1e9 }] }))
+    expect(
+      await screen.findByText(/Daily traffic appears once this server has/),
+    ).toBeTruthy()
+  })
+
+  it("asks for confirmation before removing a server, and says what survives", async () => {
+    renderCard(makeServer())
+    fireEvent.click(await screen.findByRole("button", { name: "Remove LSD 1 Yamin" }))
+
+    expect(await screen.findByText("Remove LSD 1 Yamin?")).toBeTruthy()
+    // Deleting our record must not imply tearing down the Outline server.
+    expect(screen.getByText(/The Outline server itself keeps running/)).toBeTruthy()
+    expect(screen.getByRole("button", { name: "Remove server" })).toBeTruthy()
+  })
+})
+
+describe("add server dialog", () => {
+  function openDialog() {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <AddServerDialog>
+          <Button>Add server</Button>
+        </AddServerDialog>
+      </QueryClientProvider>,
+    )
+    fireEvent.click(screen.getByRole("button", { name: "Add server" }))
+  }
+
+  // The Outline installer emits the fingerprint as a separate JSON field, not
+  // embedded in the URL, so the field must take the whole blob — hence one
+  // free-text field for the management key rather than a URL input.
+  it("takes the whole management key in one field", () => {
+    openDialog()
+    expect(screen.getByText("Add Outline server")).toBeTruthy()
+    expect(screen.getByLabelText("Outline management key")).toBeTruthy()
+  })
+
+  // Both are optional and mean "no ceiling" / "no default" when left blank,
+  // which is why neither can be a plain zero.
+  it("offers a key ceiling and a default quota", () => {
+    openDialog()
+    expect(screen.getByLabelText("Total key limit (optional)")).toBeTruthy()
+    expect(screen.getByLabelText("Default data limit")).toBeTruthy()
+  })
+
+  it("converts the USD cost to MMK at the static rate", () => {
+    openDialog()
+    expect(screen.getByText("= 27,000 MMK")).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText("Instance cost (USD / month)"), {
+      target: { value: "7" },
+    })
+    expect(screen.getByText("= 31,500 MMK")).toBeTruthy()
+  })
+})
+
+describe("edit server dialog", () => {
+  function makeDetail(overrides: Partial<ServerDetail> = {}): ServerDetail {
+    const { hostname, health, keyCount, activeKeys, totalUsedBytes, metrics, dailySeries, ...server } =
+      makeServer()
+    return {
+      server,
+      hostname,
+      // The live LSD 1 Yamin server as it looks before anyone has set
+      // "hostname for access keys" on it: reachable over its domain, but no
+      // key carries a host yet.
+      accessKeyHostname: "",
+      health,
+      metrics,
+      keys: [],
+      keyMetrics: null,
+      dailySeries,
+      ...overrides,
+    }
+  }
+
+  function openDialog(detail: ServerDetail) {
+    const queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    })
+    render(
+      <QueryClientProvider client={queryClient}>
+        <EditServerDialog
+          serverId={detail.server.id}
+          detail={detail}
+          open
+          onOpenChange={() => {}}
+        />
+      </QueryClientProvider>,
+    )
+    return screen.getByLabelText<HTMLInputElement>("Hostname for access keys")
+  }
+
+  const saveButton = () =>
+    screen.getByRole<HTMLButtonElement>("button", { name: "Save changes" })
+
+  // Nothing has stamped a host into a key yet, so rather than open on a blank
+  // field the dialog binds the domain the server is already reachable on.
+  it("auto-binds the server's own domain when no key carries a host yet", () => {
+    const field = openDialog(makeDetail())
+    expect(field.value).toBe("light-speed-data1.invisigate.asia")
+    expect(
+      screen.getByText(/prefilled with this server's own domain/),
+    ).toBeTruthy()
+  })
+
+  // The auto-bound domain is a pending change, not a settled value — Save has
+  // to be live or the bind would never reach Outline.
+  it("leaves Save enabled so the auto-bound domain is actually pushed", () => {
+    openDialog(makeDetail())
+    expect(saveButton().disabled).toBe(false)
+  })
+
+  // Outline is the source of truth once it has stamped a host: an API URL that
+  // has since moved to a domain must not silently overwrite the IP in the
+  // links every existing client is already using.
+  it("prefers the host Outline actually stamps over the API URL", () => {
+    const field = openDialog(makeDetail({ accessKeyHostname: "49.12.88.4" }))
+    expect(field.value).toBe("49.12.88.4")
+    expect(screen.queryByText(/prefilled with this server's own domain/)).toBe(
+      null,
+    )
+    expect(saveButton().disabled).toBe(true)
+  })
+})
+
+describe("AS share list", () => {
+  it("renders the AS org and share", () => {
+    render(<AsShareList ases={[frontiir]} />)
+    expect(screen.getByText("Top ASes")).toBeTruthy()
+    expect(screen.getByText(/Frontiir Co., Ltd · 100%/)).toBeTruthy()
+  })
+
+  it("explains an empty window rather than rendering nothing", () => {
+    render(<AsShareList ases={[]} />)
+    expect(screen.getByText("No AS traffic reported in this window.")).toBeTruthy()
+  })
+})

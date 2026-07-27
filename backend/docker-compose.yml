@@ -1,0 +1,66 @@
+# Standalone backend stack: postgres + api + nginx reverse proxy. Deployable
+# on its own — this whole directory is all that needs to be copied to a
+# server. The frontend is a static build hosted separately (e.g. S3) and
+# talks to this stack over its public URL/CORS, so there is no frontend
+# volume mount here (contrast the repo-root docker-compose.yml, which is for
+# local dev with both served together).
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-outline}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-outline}
+      POSTGRES_DB: ${POSTGRES_DB:-outline_manager}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-outline}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    # Pulled from GHCR in production (built by .github/workflows/backend-docker.yml).
+    # `build: .` is only used for local `docker compose build`/`up --build`.
+    image: ${BACKEND_IMAGE:-ghcr.io/minkgkyaw9899/custom-outline-manager-backend:latest}
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-outline}:${POSTGRES_PASSWORD:-outline}@postgres:5432/${POSTGRES_DB:-outline_manager}?sslmode=disable
+      PORT: 8080
+      CRON_INTERVAL: ${CRON_INTERVAL:-30m}
+      # No frontend mounted — API-only, non-API routes 404. STATIC_DIR is left
+      # at its default and simply won't resolve to anything inside the image.
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      ROOT_ADMIN_EMAIL: ${ROOT_ADMIN_EMAIL}
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_TTL: ${JWT_TTL:-168h}
+      OTP_TTL: ${OTP_TTL:-10m}
+      OTP_MAX_ATTEMPTS: ${OTP_MAX_ATTEMPTS:-5}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Outline VPN Manager}
+      SMTP_TIMEOUT: ${SMTP_TIMEOUT:-10s}
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - api
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+
+volumes:
+  postgres_data:

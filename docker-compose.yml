@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-outline}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-outline}
+      POSTGRES_DB: ${POSTGRES_DB:-outline_manager}
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-outline}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-outline}:${POSTGRES_PASSWORD:-outline}@postgres:5432/${POSTGRES_DB:-outline_manager}?sslmode=disable
+      PORT: 8080
+      CRON_INTERVAL: ${CRON_INTERVAL:-30m}
+      STATIC_DIR: /app/web
+      # Set when the frontend is served from its own origin (e.g. the Vite dev
+      # server). Empty means same-origin only, and no CORS headers.
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
+      ROOT_ADMIN_EMAIL: ${ROOT_ADMIN_EMAIL:-minkgkyaw9899@gmail.com}
+      JWT_SECRET: ${JWT_SECRET:-}
+      JWT_TTL: ${JWT_TTL:-168h}
+      OTP_TTL: ${OTP_TTL:-10m}
+      OTP_MAX_ATTEMPTS: ${OTP_MAX_ATTEMPTS:-5}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-minkgkyaw1999@gmail.com}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-minkgkyaw1999@gmail.com}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Invisigate VPN}
+      SMTP_TIMEOUT: ${SMTP_TIMEOUT:-10s}
+    volumes:
+      # The UI is static: mount it read-only rather than baking it into the
+      # image. Point FRONTEND_DIR at ./frontend/dist once the React build lands.
+      - ${FRONTEND_DIR:-./frontend}:/app/web:ro
+    ports:
+      - "${APP_PORT:-8080}:8080"
+
+volumes:
+  postgres_data:

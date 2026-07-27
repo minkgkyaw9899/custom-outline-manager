@@ -1,0 +1,326 @@
+export type AdminStatus = "active" | "suspended"
+
+export interface AdminUser {
+  id: string
+  email: string
+  status: AdminStatus
+  isRoot: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type UserStatus = "active" | "inactive"
+
+/**
+ * A key holder — the person a key is handed to, as opposed to an `AdminUser`,
+ * who operates this dashboard. One record per person, however many servers
+ * they end up on.
+ *
+ * A name and a free-text note are the whole record: nothing here ever contacts
+ * the holder, so there are no contact fields to keep up to date.
+ */
+export interface User {
+  id: string
+  name: string
+  note: string
+  status: UserStatus
+  createdAt: string
+  updatedAt: string
+  /**
+   * The key this user's dynamic link resolves to. Null for a user with no key
+   * yet — their link exists but resolves to nothing.
+   */
+  primaryKeyId: string | null
+  /**
+   * The ssconf:// link to hand this user. It belongs to the person, so
+   * changing which key backs them leaves it untouched. Empty when the backend
+   * has no PUBLIC_BASE_URL configured.
+   */
+  dynamicAccessUrl: string
+}
+
+export interface UserWithKeys extends User {
+  keys: Key[]
+  keyCount: number
+  activeKeys: number
+  totalUsedBytes: number
+  /**
+   * The `keys` entry matching `primaryKeyId`, lifted out so the users table can
+   * show one server / key name / usage / expiry per row. Null when the user
+   * holds no keys.
+   */
+  primaryKey: Key | null
+}
+
+export type KeyStatus = "active" | "expired" | "limit_exceeded" | "disabled"
+
+export interface Key {
+  id: string
+  serverId: string
+  outlineKeyId: string
+  name: string
+  accessUrl: string
+  /**
+   * The ssconf:// link to share instead of accessUrl — resolves through this
+   * server to the key's live connection info, so it survives Outline-side
+   * key rotation. Empty when the backend has no PUBLIC_BASE_URL configured;
+   * see keyShareUrl, which falls back to accessUrl in that case.
+   */
+  dynamicAccessUrl: string
+  port: number | null
+  method: string | null
+  usedBytes: number
+  customLimitBytes: number | null
+  endDate: string | null
+  enabled: boolean
+  status: KeyStatus
+  createdAt: string
+  updatedAt: string
+  daysLeft: number | null
+  remainingBytes: number | null
+  serverName?: string
+  /** The holder this key belongs to; null for a key adopted from Outline. */
+  userId: string | null
+  /** Joined in on list endpoints; empty when the key has no holder. */
+  userName?: string
+}
+
+export interface Server {
+  id: string
+  name: string
+  apiUrl: string
+  certSha256: string
+  costUsdPerMonth: number | null
+  lastSyncedAt: string | null
+  lastSyncError: string | null
+  createdAt: string
+  updatedAt: string
+  /**
+   * How many keys may be created on this server. Null means no ceiling.
+   * Enforced at creation only — lowering it below the current count blocks new
+   * keys rather than deleting any.
+   */
+  maxKeys: number | null
+  /**
+   * The quota a new key on this server starts on, and the figure applied to
+   * already-unlimited keys when the admin sets it. Null means no default.
+   */
+  defaultLimitBytes: number | null
+}
+
+export type ServerHealth = "healthy" | "degraded" | "offline"
+
+/**
+ * One autonomous system's share of a server's traffic — Outline's "ASes with
+ * most bandwidth usage". This is what the design called "top operators";
+ * Outline reports the AS org directly, so there is no carrier field to enter.
+ */
+export interface ASUsage {
+  asn: number
+  asOrg: string
+  countryCode: string
+  bytesTransferred: number
+  tunnelTimeHours: number
+  sharePct: number
+}
+
+/**
+ * Live metrics for one server over `window`.
+ *
+ * Outline exposes no inbound/outbound split — only a single transfer total —
+ * so `currentBandwidthBps` (a live rate) and `totalBytes` occupy the two slots
+ * the design drew as Inbound/Outbound.
+ */
+export interface ServerMetrics {
+  window: MetricsWindow
+  totalBytes: number
+  currentBandwidthBps: number
+  peakBandwidthBps: number
+  peakBandwidthAt: string | null
+  tunnelTimeHours: number
+  ases: ASUsage[]
+  /**
+   * Sum of each key's peak device count. An upper bound on simultaneous
+   * devices, not a true concurrent peak — each key's peak may be from a
+   * different moment.
+   */
+  peakDevicesTotal: number
+  /**
+   * Keys that moved traffic within the last 5 minutes, i.e. connected right
+   * now. A snapshot, so unlike the other figures it does not scale with
+   * `window`.
+   */
+  onlineKeys: number
+}
+
+/** One day of measured traffic, from our own snapshot history. */
+export interface DailyUsage {
+  date: string
+  bytes: number
+}
+
+/**
+ * "day" for the normal per-calendar-day chart; "hour" for a key under a day
+ * old, where day buckets would show at most one point. When "hour", each
+ * `DailyUsage.date` is a full timestamp rather than a plain "YYYY-MM-DD".
+ */
+export type UsageGranularity = "day" | "hour"
+
+/** GET /keys/:id/daily — a key's traffic chart, at whichever granularity fits its age. */
+export interface KeyUsageSeries {
+  granularity: UsageGranularity
+  series: DailyUsage[]
+}
+
+/** Outline rejects windows longer than 30 days. */
+export type MetricsWindow = "1d" | "7d" | "30d"
+
+export interface ServerWithUsage extends Server {
+  hostname: string
+  health: ServerHealth
+  keyCount: number
+  activeKeys: number
+  totalUsedBytes: number
+  /** Null when the server could not be reached for a live read. */
+  metrics: ServerMetrics | null
+  /** Empty until the cron has recorded at least two days of snapshots. */
+  dailySeries: DailyUsage[]
+}
+
+export interface KeyMetrics {
+  bytesTransferred: number
+  tunnelTimeHours: number
+  lastTrafficSeen: string | null
+  peakDeviceCount: number
+  /**
+   * The VPN is in use right now: `lastTrafficSeen` falls inside the last 5
+   * minutes. Computed by the backend against its own clock, matching the rule
+   * Outline Manager uses for the green dot on a key.
+   */
+  isOnline: boolean
+}
+
+export interface ServerDetail {
+  server: Server
+  hostname: string
+  /**
+   * The host currently baked into this server's static ss:// links (Outline's
+   * "hostname for access keys"). Empty when the server has no keys yet.
+   */
+  accessKeyHostname: string
+  health: ServerHealth
+  metrics: ServerMetrics | null
+  keys: Key[]
+  /** Keyed by `Key.outlineKeyId`; null when metrics are unavailable. */
+  keyMetrics: Record<string, KeyMetrics> | null
+  /** Empty until the cron has recorded at least two days of snapshots. */
+  dailySeries: DailyUsage[]
+}
+
+export interface RenewalLog {
+  id: string
+  keyId: string
+  addedGb: number
+  addedDays: number
+  newLimitBytes: number | null
+  newEndDate: string | null
+  createdAt: string
+}
+
+export interface DashboardStats {
+  totalServers: number
+  totalKeys: number
+  activeKeys: number
+  expiredKeys: number
+  limitExceededKeys: number
+  combinedUsedBytes: number
+}
+
+export interface ServerUsage {
+  serverId: string
+  from: string
+  to: string
+  bytesUsed: number
+}
+
+/** The admin-facing "share view" link for one user. */
+export interface UserShare {
+  slug: string
+  passcodeSet: boolean
+}
+
+export interface ShareTokenResponse {
+  token: string
+  expiresAt: string
+}
+
+/**
+ * The trimmed, read-only payload behind a share link. Deliberately a subset
+ * of `Key` + `KeyMetrics`: no port/method/outlineKeyId/server link, and no
+ * renewal or limit history — those stay admin-only.
+ *
+ * `name` is the holder's own name, from the user record rather than the key,
+ * so re-provisioning them doesn't retitle their page. When `hasKey` is false
+ * they have no key attached and every figure below is empty.
+ */
+export interface ShareKeyView {
+  name: string
+  hasKey: boolean
+  usedBytes: number
+  customLimitBytes: number | null
+  remainingBytes: number | null
+  endDate: string | null
+  daysLeft: number | null
+  status: KeyStatus
+  accessUrl: string
+  dynamicAccessUrl: string
+  host: string
+  createdAt: string
+  updatedAt: string
+  metrics: KeyMetrics | null
+  dailySeries: DailyUsage[]
+  dailyGranularity: UsageGranularity
+}
+
+export interface RequestOtpResponse {
+  email: string
+  expiresInSeconds: number
+}
+
+export interface VerifyOtpResponse {
+  admin: AdminUser
+  token: string
+}
+
+export interface ApiErrorDetail {
+  field: string
+  message: string
+}
+
+export interface ApiError {
+  code:
+    | "VALIDATION_ERROR"
+    | "UNAUTHORIZED"
+    | "FORBIDDEN"
+    | "NOT_FOUND"
+    | "CONFLICT"
+    | "BAD_GATEWAY"
+    | "INTERNAL_SERVER_ERROR"
+  message: string
+  details?: ApiErrorDetail[]
+}
+
+export interface ApiSuccess<T> {
+  success: true
+  data: T
+  message: string
+  timestamp: string
+}
+
+export interface ApiFailure {
+  success: false
+  error: ApiError
+  timestamp: string
+}
+
+export type ApiEnvelope<T> = ApiSuccess<T> | ApiFailure

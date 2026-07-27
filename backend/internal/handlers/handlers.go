@@ -1,0 +1,134 @@
+// Package handlers wires the REST API (Fiber) to the repository, the Outline
+// client cache, and the enforcement reconciler. It contains no business logic:
+// quota/date math lives in internal/models, and anything that talks to an
+// Outline server goes through internal/enforcement or internal/outline.
+//
+// Every response — success or error — goes through internal/apiresponse so
+// the frontend can rely on one envelope shape across the entire API.
+package handlers
+
+import (
+	"errors"
+	"time"
+
+	"github.com/gofiber/fiber/v3"
+
+	"outline-manager/internal/apiresponse"
+	"outline-manager/internal/config"
+	"outline-manager/internal/enforcement"
+	"outline-manager/internal/outline"
+	"outline-manager/internal/repository"
+)
+
+type API struct {
+	repo     *repository.Repository
+	cache    *outline.Cache
+	enforcer *enforcement.Enforcer
+	cfg      *config.Config
+	timeout  time.Duration
+}
+
+func New(repo *repository.Repository, cache *outline.Cache, enforcer *enforcement.Enforcer, cfg *config.Config) *API {
+	return &API{repo: repo, cache: cache, enforcer: enforcer, cfg: cfg, timeout: cfg.RequestTimeout}
+}
+
+// RegisterRoutes mounts the JSON API under /api/v1. Auth endpoints are public;
+// everything else requires a valid admin session.
+func (a *API) RegisterRoutes(r fiber.Router) {
+	v1 := r.Group("/api/v1")
+	{
+		v1.Get("/health", a.health)
+
+		// Public dynamic access key resolution (see internal/handlers/dynamic_key.go):
+		// fetched directly by Outline client apps, never by this dashboard's UI.
+		v1.Get("/dkey/:token", a.dynamicKey)
+
+		auth := v1.Group("/auth")
+		{
+			auth.Post("/request-otp", a.requestOTP)
+			auth.Post("/verify-otp", a.verifyOTP)
+			auth.Post("/logout", a.logout)
+			auth.Get("/me", a.RequireAuth(), a.me)
+		}
+
+		// Public share-view session: the key holder's passcode-gated status
+		// page. Not behind RequireAuth — this is a separate, unauthenticated
+		// visitor session scoped to one slug (see RequireShareAuth).
+		share := v1.Group("/share/:slug")
+		{
+			share.Get("/status", a.shareStatus)
+			share.Post("/setup", a.shareSetup)
+			share.Post("/verify", a.shareVerify)
+			share.Get("/view", a.RequireShareAuth(), a.shareView)
+		}
+
+		protected := v1.Group("")
+		protected.Use(a.RequireAuth())
+		{
+			protected.Get("/stats", a.getStats)
+
+			protected.Get("/admins", a.listAdmins)
+			protected.Post("/admins", a.addAdmin)
+			protected.Delete("/admins/:email", a.deleteAdmin)
+			protected.Patch("/admins/:email/status", a.setAdminStatus)
+
+			protected.Get("/users", a.listUsers)
+			protected.Post("/users", a.createUser)
+			protected.Get("/users/:id", a.getUser)
+			protected.Patch("/users/:id", a.updateUser)
+			protected.Delete("/users/:id", a.deleteUser)
+			protected.Post("/users/:id/keys", a.createUserKey)
+			protected.Post("/users/:id/keys/link", a.linkUserKey)
+			protected.Post("/users/:id/keys/replace", a.replaceUserKey)
+			protected.Patch("/users/:id/primary-key", a.setUserPrimaryKey)
+			protected.Delete("/users/:id/keys/:keyId", a.unlinkUserKey)
+			protected.Post("/users/:id/share", a.createUserShare)
+			protected.Post("/users/:id/share/reset", a.resetUserShare)
+
+			protected.Post("/servers", a.createServer)
+			protected.Get("/servers", a.listServers)
+			protected.Get("/servers/:id", a.getServer)
+			protected.Patch("/servers/:id/config", a.updateServerConfig)
+			protected.Patch("/servers/:id/default-limit", a.setServerDefaultLimit)
+			protected.Delete("/servers/:id", a.deleteServer)
+			protected.Post("/servers/:id/sync", a.syncServer)
+			protected.Get("/servers/:id/usage", a.getServerUsage)
+			protected.Post("/servers/:id/keys", a.createKey)
+
+			protected.Get("/keys", a.listKeys)
+			protected.Get("/keys/:id", a.getKey)
+			protected.Patch("/keys/:id", a.updateKey)
+			protected.Delete("/keys/:id", a.deleteKey)
+			protected.Post("/keys/:id/renew", a.renewKey)
+			protected.Get("/keys/:id/renewals", a.listRenewals)
+			protected.Get("/keys/:id/daily", a.getKeyDaily)
+		}
+	}
+}
+
+// health reports process liveness plus whether Postgres is reachable, so
+// container orchestration and the frontend can distinguish "app down" from
+// "database down". Intentionally public.
+func (a *API) health(c fiber.Ctx) error {
+	if err := a.repo.Ping(c.Context()); err != nil {
+		return apiresponse.Error(c, 503, apiresponse.CodeInternalServerErr, "Database is unreachable")
+	}
+	return apiresponse.Success(c, fiber.Map{"status": "ok", "database": "ok"}, "Service is healthy")
+}
+
+func (a *API) getStats(c fiber.Ctx) error {
+	stats, err := a.repo.DashboardStats(c.Context())
+	if err != nil {
+		return apiresponse.Internal(c, "")
+	}
+	return apiresponse.Success(c, stats, "Dashboard stats retrieved")
+}
+
+// respondRepoErr maps a repository error to the standardized envelope: a
+// missing row is 404, anything else is a 500.
+func respondRepoErr(c fiber.Ctx, err error) error {
+	if errors.Is(err, repository.ErrNotFound) {
+		return apiresponse.NotFound(c, "The requested resource does not exist")
+	}
+	return apiresponse.Internal(c, "")
+}

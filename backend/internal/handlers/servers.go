@@ -1,0 +1,521 @@
+package handlers
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/gofiber/fiber/v3"
+
+	"outline-manager/internal/apiresponse"
+	"outline-manager/internal/models"
+	"outline-manager/internal/outline"
+)
+
+// usageRangeDefaultDays is the window GET /servers/:id/usage reports when the
+// caller doesn't pass from/to.
+const usageRangeDefaultDays = 30
+
+// listMetricsTimeout caps the whole live-metrics fan-out on GET /servers, so
+// the list stays responsive even when several servers are unreachable.
+const listMetricsTimeout = 8 * time.Second
+
+// sparklineDays is how much snapshot history each server card's chart covers.
+const sparklineDays = 14
+
+type createServerRequest struct {
+	Name string `json:"name" validate:"required"`
+	// APIURL accepts either a bare management API URL or the whole JSON blob
+	// the Outline installer prints — see parseManagementKey.
+	APIURL          string   `json:"apiUrl" validate:"required"`
+	CertSHA256      string   `json:"certSha256"`
+	CostUSDPerMonth *float64 `json:"costUsdPerMonth"`
+	// MaxKeys caps how many keys may be created here; nil means no ceiling.
+	MaxKeys *int `json:"maxKeys"`
+	// DefaultLimitGB is the quota new keys on this server start on; nil falls
+	// back to the per-key plan floor.
+	DefaultLimitGB *float64 `json:"defaultLimitGb"`
+}
+
+// managementKey is the JSON the Outline installer prints at the end of setup:
+//
+//	{"apiUrl":"https://host:port/secret","certSha256":"ABC..."}
+//
+// The fingerprint is a *separate field*, not embedded in the URL, so pasting
+// only the URL is not enough to pin the certificate.
+type managementKey struct {
+	APIURL     string `json:"apiUrl"`
+	CertSHA256 string `json:"certSha256"`
+}
+
+// parseManagementKey lets the operator paste the installer's whole JSON blob
+// into the single "Outline API URL" field, which is what they actually have on
+// their clipboard. A bare URL still works, but then certSha256 must be supplied
+// separately — without a fingerprint there is nothing to pin the self-signed
+// certificate against.
+func parseManagementKey(apiURLField, certField string) (apiURL, certSHA256 string) {
+	apiURL = strings.TrimSpace(apiURLField)
+	certSHA256 = certField
+
+	if strings.HasPrefix(apiURL, "{") {
+		var mk managementKey
+		if err := json.Unmarshal([]byte(apiURL), &mk); err == nil && mk.APIURL != "" {
+			apiURL = strings.TrimSpace(mk.APIURL)
+			if mk.CertSHA256 != "" {
+				certSHA256 = mk.CertSHA256
+			}
+		}
+	}
+	return apiURL, outline.NormalizeFingerprint(certSHA256)
+}
+
+func (a *API) createServer(c fiber.Ctx) error {
+	var req createServerRequest
+	if !bindJSON(c, &req) {
+		return nil
+	}
+	req.Name = strings.TrimSpace(req.Name)
+	req.APIURL, req.CertSHA256 = parseManagementKey(req.APIURL, req.CertSHA256)
+
+	if req.CostUSDPerMonth != nil && *req.CostUSDPerMonth < 0 {
+		return apiresponse.Validation(c, apiresponse.FieldError{
+			Field: "costUsdPerMonth", Message: "Cost cannot be negative",
+		})
+	}
+	if req.MaxKeys != nil && *req.MaxKeys < 1 {
+		return apiresponse.Validation(c, apiresponse.FieldError{
+			Field: "maxKeys", Message: "Key limit must be at least 1 — leave it blank for no limit",
+		})
+	}
+	if req.DefaultLimitGB != nil && *req.DefaultLimitGB <= 0 {
+		return apiresponse.Validation(c, apiresponse.FieldError{
+			Field: "defaultLimitGb", Message: "Default data limit must be greater than zero",
+		})
+	}
+	var defaultLimitBytes *int64
+	if req.DefaultLimitGB != nil {
+		v := int64(*req.DefaultLimitGB * models.BytesPerGB)
+		defaultLimitBytes = &v
+	}
+
+	// Validate reachability + cert pin before persisting a broken server.
+	client, err := outline.New(req.APIURL, req.CertSHA256, a.timeout)
+	if err != nil {
+		return apiresponse.Validation(c, apiresponse.FieldError{
+			Field:   "apiUrl",
+			Message: "Paste the full management key JSON from your Outline install output, including certSha256",
+		})
+	}
+	if _, err := client.GetServerInfo(c.Context()); err != nil {
+		return apiresponse.Validation(c, apiresponse.FieldError{
+			Field:   "apiUrl",
+			Message: "Invalid Outline API Management Key or cert connection failed",
+		})
+	}
+
+	server, err := a.repo.CreateServer(c.Context(), req.Name, req.APIURL, req.CertSHA256, req.CostUSDPerMonth, req.MaxKeys, defaultLimitBytes)
+	if err != nil {
+		return apiresponse.Internal(c, "")
+	}
+
+	// Adopt the server's existing keys in the background: a server with many
+	// keys would otherwise make this request hang on a full sync. Deliberately
+	// detached from the request context so it isn't cancelled when we respond.
+	go func(s models.Server) {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		a.enforcer.SyncServer(ctx, s)
+	}(*server)
+
+	return apiresponse.Created(c, server, "Server added")
+}
+
+// metricsWindow reads the ?window= query parameter. Outline only supports
+// 1d/7d/30d (it 500s on anything longer), so an unrecognised value falls back
+// to 30d rather than being forwarded and failing upstream.
+func metricsWindow(c fiber.Ctx) outline.MetricsWindow {
+	switch c.Query("window") {
+	case "1d":
+		return outline.Window1d
+	case "7d":
+		return outline.Window7d
+	default:
+		return outline.Window30d
+	}
+}
+
+// liveMetrics reads one server's metrics straight from Outline. A failure is
+// not an error for the caller: the server row still renders, just without live
+// numbers, and its health drops to "degraded".
+func (a *API) liveMetrics(ctx context.Context, server models.Server, window outline.MetricsWindow) (*models.ServerMetrics, map[string]models.KeyMetrics) {
+	client, err := a.cache.Get(server.ID, server.APIURL, server.CertSHA256)
+	if err != nil {
+		return nil, nil
+	}
+	raw, err := client.GetServerMetrics(ctx, window)
+	if err != nil {
+		log.Printf("server %s: live metrics: %v", server.Name, err)
+		return nil, nil
+	}
+	now := time.Now()
+	return models.BuildServerMetrics(now, string(window), raw), models.BuildKeyMetrics(now, raw)
+}
+
+func (a *API) listServers(c fiber.Ctx) error {
+	servers, err := a.repo.ListServers(c.Context())
+	if err != nil {
+		return apiresponse.Internal(c, "")
+	}
+
+	window := metricsWindow(c)
+
+	// One query for every server's sparkline, rather than one per card.
+	series, err := a.repo.DailyUsageAllServers(c.Context(), sparklineDays)
+	if err != nil {
+		log.Printf("list servers: daily usage: %v", err)
+		series = nil // a missing sparkline must not fail the whole list
+	}
+
+	// Fan out across servers rather than fetching serially: one slow or
+	// unreachable server would otherwise add its full timeout to every server
+	// behind it in the list.
+	ctx, cancel := context.WithTimeout(c.Context(), listMetricsTimeout)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	for i := range servers {
+		wg.Add(1)
+		go func(s *models.ServerWithUsage) {
+			defer wg.Done()
+			s.Hostname = s.Server.Hostname()
+			s.Metrics, _ = a.liveMetrics(ctx, s.Server, window)
+			s.Health = models.DeriveServerHealth(s.LastSyncError, s.LastSyncedAt, s.Metrics != nil)
+			if s.DailySeries = series[s.ID]; s.DailySeries == nil {
+				s.DailySeries = []models.DailyUsage{}
+			}
+		}(&servers[i])
+	}
+	wg.Wait()
+
+	return apiresponse.Success(c, servers, "")
+}
+
+// accessKeyHostname reads the host baked into the first key with a non-empty
+// accessUrl — every key on a server shares the same host, so the first one
+// found is representative of all of them. Empty when the server has no keys
+// yet, in which case the dialog falls back to placeholder text.
+func accessKeyHostname(keys []models.Key) string {
+	for _, k := range keys {
+		if h := models.AccessKeyHostname(k.AccessURL); h != "" {
+			return h
+		}
+	}
+	return ""
+}
+
+func (a *API) getServer(c fiber.Ctx) error {
+	id := c.Params("id")
+	server, err := a.repo.GetServer(c.Context(), id)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+
+	keys, err := a.repo.ListKeysByServer(c.Context(), id)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+
+	window := metricsWindow(c)
+	metrics, keyMetrics := a.liveMetrics(c.Context(), *server, window)
+
+	// Same span as the server list's sparkline and a key's daily chart, so all
+	// three read as one consistent "recent history" window across the app.
+	dailySeries, err := a.repo.DailyUsageByServer(c.Context(), id, sparklineDays)
+	if err != nil {
+		log.Printf("get server %s: daily usage: %v", id, err)
+		dailySeries = []models.DailyUsage{}
+	}
+
+	return apiresponse.Success(c, fiber.Map{
+		"server":   server,
+		"hostname": server.Hostname(),
+		// accessKeyHostname is the host actually baked into this server's
+		// static ss:// links right now (Outline's "hostname for access
+		// keys"), which is not necessarily the same as the API URL's own
+		// host above — the edit-server dialog prefills its domain field
+		// with this, not with hostname.
+		"accessKeyHostname": accessKeyHostname(keys),
+		"health":            models.DeriveServerHealth(server.LastSyncError, server.LastSyncedAt, metrics != nil),
+		"metrics":           metrics,
+		"keys":              a.enrichKeys(keys),
+		"keyMetrics":        keyMetrics,
+		"dailySeries":       dailySeries,
+	}, "")
+}
+
+// updateServerConfigRequest carries everything the "edit server" dialog can
+// change. Every field is nil-to-skip, so the dialog sends only what actually
+// changed and a partial update never blanks a field it wasn't asked about.
+type updateServerConfigRequest struct {
+	// HostnameForAccessKeys is pushed straight to the Outline server, which
+	// rewrites the host in every static ss:// link (existing keys included).
+	// Nil leaves it untouched; a non-nil empty string is rejected rather than
+	// silently ignored, since Outline itself requires a non-empty hostname.
+	HostnameForAccessKeys *string `json:"hostnameForAccessKeys"`
+
+	// Name and CostUSDPerMonth are local display/accounting metadata — neither
+	// is pushed to Outline, which has its own unrelated server name.
+	Name            *string  `json:"name"`
+	CostUSDPerMonth *float64 `json:"costUsdPerMonth"`
+
+	// MaxKeys caps key creation on this server. A nil pointer leaves the
+	// current ceiling alone; ClearMaxKeys is how the dialog removes one, since
+	// "absent" and "explicitly none" cannot both be expressed by nil.
+	MaxKeys      *int `json:"maxKeys"`
+	ClearMaxKeys bool `json:"clearMaxKeys"`
+}
+
+// stripURLScheme mirrors config.normalizeBaseURL: operators naturally paste a
+// full "https://1.2.3.4:443" even though the ssconf:// link only wants the
+// bare host[:port] to prefix its own scheme onto.
+func stripURLScheme(raw string) string {
+	s := strings.TrimSpace(raw)
+	s = strings.TrimPrefix(s, "https://")
+	s = strings.TrimPrefix(s, "http://")
+	return strings.TrimRight(s, "/")
+}
+
+// updateServerConfig applies the edit-server dialog: the display name, the
+// monthly cost, the key ceiling, and the domain/IP baked into this server's
+// static ss:// links. Only the hostname leaves this process — it is pushed to
+// Outline, which rewrites every existing key's link. Dynamic ssconf:// links
+// always use the deployment-wide config.PublicBaseURL, so there is no
+// per-server override for them.
+//
+// Local metadata is written first and the hostname push last, because the push
+// is the only step that can fail on someone else's server: a rejected hostname
+// then leaves the name/cost edits saved rather than silently discarding them.
+func (a *API) updateServerConfig(c fiber.Ctx) error {
+	id := c.Params("id")
+	server, err := a.repo.GetServer(c.Context(), id)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+
+	var req updateServerConfigRequest
+	if !bindJSON(c, &req) {
+		return nil
+	}
+	if req.HostnameForAccessKeys == nil && req.Name == nil && req.CostUSDPerMonth == nil &&
+		req.MaxKeys == nil && !req.ClearMaxKeys {
+		return apiresponse.Validation(c, apiresponse.FieldError{
+			Field: "name", Message: "Nothing to update",
+		})
+	}
+
+	if req.Name != nil {
+		trimmed := strings.TrimSpace(*req.Name)
+		if trimmed == "" {
+			return apiresponse.Validation(c, apiresponse.FieldError{Field: "name", Message: "Server name is required"})
+		}
+		req.Name = &trimmed
+	}
+	if req.CostUSDPerMonth != nil && *req.CostUSDPerMonth < 0 {
+		return apiresponse.Validation(c, apiresponse.FieldError{Field: "costUsdPerMonth", Message: "Cost cannot be negative"})
+	}
+	if req.MaxKeys != nil {
+		if *req.MaxKeys < 1 {
+			return apiresponse.Validation(c, apiresponse.FieldError{
+				Field: "maxKeys", Message: "Key limit must be at least 1 — leave it blank for no limit",
+			})
+		}
+		// A ceiling below the keys already on the server is accepted but
+		// reported, since it can only be honoured going forward: existing keys
+		// are never deleted to satisfy it.
+		count, cerr := a.repo.CountKeysByServer(c.Context(), id)
+		if cerr != nil {
+			return respondRepoErr(c, cerr)
+		}
+		if *req.MaxKeys < count {
+			return apiresponse.Validation(c, apiresponse.FieldError{
+				Field:   "maxKeys",
+				Message: fmt.Sprintf("This server already has %d key%s — set the limit to %d or higher, or delete keys first", count, plural(count), count),
+			})
+		}
+	}
+
+	if req.Name != nil || req.CostUSDPerMonth != nil || req.MaxKeys != nil {
+		if _, uerr := a.repo.UpdateServerDetails(c.Context(), id, req.Name, req.CostUSDPerMonth, req.MaxKeys); uerr != nil {
+			return respondRepoErr(c, uerr)
+		}
+	}
+	if req.ClearMaxKeys {
+		if cerr := a.repo.ClearServerMaxKeys(c.Context(), id); cerr != nil {
+			return respondRepoErr(c, cerr)
+		}
+	}
+
+	if req.HostnameForAccessKeys != nil {
+		hostname := stripURLScheme(*req.HostnameForAccessKeys)
+		if hostname == "" {
+			return apiresponse.Validation(c, apiresponse.FieldError{
+				Field: "hostnameForAccessKeys", Message: "Hostname is required",
+			})
+		}
+		client, cerr := a.cache.Get(server.ID, server.APIURL, server.CertSHA256)
+		if cerr != nil {
+			return apiresponse.BadGateway(c, "Could not connect to the Outline server")
+		}
+		if serr := client.SetHostnameForAccessKeys(c.Context(), hostname); serr != nil {
+			return apiresponse.BadGateway(c, "Outline rejected that hostname")
+		}
+		// Every key's accessUrl embeds the old host; resync immediately so the
+		// dashboard reflects the change without waiting for the next cron tick.
+		if serr := a.enforcer.SyncServer(c.Context(), *server); serr != nil {
+			return apiresponse.BadGateway(c, "Hostname was updated but the dashboard could not refresh key links yet — try Sync now")
+		}
+	}
+
+	updated, err := a.repo.GetServer(c.Context(), id)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+	return apiresponse.Success(c, updated, "Server settings updated")
+}
+
+// setServerDefaultLimitRequest is the "overall data limit" control above the
+// access-keys table.
+type setServerDefaultLimitRequest struct {
+	// LimitGB becomes the server's default quota. Nil (or ClearDefault) drops
+	// the default, leaving new keys on the plan floor.
+	LimitGB      *float64 `json:"limit_gb"`
+	ClearDefault bool     `json:"clear_default"`
+	// ApplyToUnlimited also pushes the new figure onto every key on this
+	// server that currently has no ceiling. Keys that already carry one are
+	// never touched — an individually-negotiated allowance must survive a
+	// change to the server default.
+	ApplyToUnlimited bool `json:"apply_to_unlimited"`
+}
+
+// setServerDefaultLimit sets the quota new keys on this server start on, and
+// optionally brings existing unlimited keys onto the same figure. Each key it
+// changes goes through the same reconciler the cron uses, so the new ceiling
+// reaches Outline immediately rather than at the next tick.
+func (a *API) setServerDefaultLimit(c fiber.Ctx) error {
+	id := c.Params("id")
+	if _, err := a.repo.GetServer(c.Context(), id); err != nil {
+		return respondRepoErr(c, err)
+	}
+
+	var req setServerDefaultLimitRequest
+	if !bindJSON(c, &req) {
+		return nil
+	}
+	if !req.ClearDefault && req.LimitGB == nil {
+		return apiresponse.Validation(c, apiresponse.FieldError{Field: "limit_gb", Message: "Enter a data limit"})
+	}
+
+	var limitBytes *int64
+	if !req.ClearDefault {
+		if *req.LimitGB <= 0 {
+			return apiresponse.Validation(c, apiresponse.FieldError{Field: "limit_gb", Message: "Data limit must be greater than zero"})
+		}
+		v := int64(*req.LimitGB * models.BytesPerGB)
+		limitBytes = &v
+	}
+
+	if err := a.repo.SetServerDefaultLimit(c.Context(), id, limitBytes); err != nil {
+		return respondRepoErr(c, err)
+	}
+
+	applied := 0
+	if req.ApplyToUnlimited && limitBytes != nil {
+		changed, err := a.repo.ApplyDefaultLimitToUnlimitedKeys(c.Context(), id, *limitBytes)
+		if err != nil {
+			return respondRepoErr(c, err)
+		}
+		applied = len(changed)
+		for _, keyID := range changed {
+			// Log and carry on: a key that can't be reached now still has the
+			// right figure in the DB, and the next cron tick pushes it.
+			if err := a.enforcer.ReconcileKeyByID(c.Context(), keyID); err != nil {
+				log.Printf("default limit: reconcile key %s: %v", keyID, err)
+			}
+		}
+	}
+
+	updated, err := a.repo.GetServer(c.Context(), id)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+	msg := "Default data limit cleared"
+	if limitBytes != nil {
+		msg = fmt.Sprintf("Default data limit set — %d existing unlimited key%s updated", applied, plural(applied))
+	}
+	return apiresponse.Success(c, fiber.Map{"server": updated, "keysUpdated": applied}, msg)
+}
+
+func (a *API) deleteServer(c fiber.Ctx) error {
+	id := c.Params("id")
+	if err := a.repo.DeleteServer(c.Context(), id); err != nil {
+		return respondRepoErr(c, err)
+	}
+	a.cache.Invalidate(id)
+	return apiresponse.NoContentOK(c, "Server removed")
+}
+
+func (a *API) syncServer(c fiber.Ctx) error {
+	id := c.Params("id")
+	server, err := a.repo.GetServer(c.Context(), id)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+	if err := a.enforcer.SyncServer(c.Context(), *server); err != nil {
+		return apiresponse.BadGateway(c, "Could not reach the Outline server to sync")
+	}
+	return apiresponse.Success(c, fiber.Map{"status": "synced"}, "Server synced")
+}
+
+func (a *API) getServerUsage(c fiber.Ctx) error {
+	id := c.Params("id")
+	if _, err := a.repo.GetServer(c.Context(), id); err != nil {
+		return respondRepoErr(c, err)
+	}
+
+	to, err := parseTimeQuery(c, "to", time.Now())
+	if err != nil {
+		return apiresponse.Validation(c, apiresponse.FieldError{Field: "to", Message: err.Error()})
+	}
+	from, err := parseTimeQuery(c, "from", to.AddDate(0, 0, -usageRangeDefaultDays))
+	if err != nil {
+		return apiresponse.Validation(c, apiresponse.FieldError{Field: "from", Message: err.Error()})
+	}
+	if from.After(to) {
+		return apiresponse.Validation(c, apiresponse.FieldError{Field: "from", Message: "from must be before to"})
+	}
+
+	total, err := a.repo.ServerUsageInRange(c.Context(), id, from, to)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+	return apiresponse.Success(c, fiber.Map{"serverId": id, "from": from, "to": to, "bytesUsed": total}, "")
+}
+
+// parseTimeQuery reads an RFC3339 query parameter, returning fallback when it
+// is absent. An unparseable value is an error rather than being silently
+// ignored, so a client bug doesn't look like a suspiciously wide date range.
+func parseTimeQuery(c fiber.Ctx, name string, fallback time.Time) (time.Time, error) {
+	v := c.Query(name)
+	if v == "" {
+		return fallback, nil
+	}
+	t, err := time.Parse(time.RFC3339, v)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("must be an RFC3339 timestamp")
+	}
+	return t, nil
+}
