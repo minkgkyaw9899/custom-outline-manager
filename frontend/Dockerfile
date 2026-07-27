@@ -19,6 +19,13 @@ RUN bun run build
 # --- runtime stage ---
 FROM nginx:1.27-alpine
 COPY nginx.conf /etc/nginx/nginx.conf
+# COPY merges into an existing directory rather than replacing it, so the
+# base image's own default page (index.html, 50x.html) would otherwise sit
+# alongside our build output. Our build never produces a file literally
+# named index.html (TanStack Start's SPA output is _shell.html), so that
+# stock file — nginx's implicit `index` default — would silently keep
+# being served instead of our app. Clear the directory first.
+RUN rm -rf /usr/share/nginx/html/*
 COPY --from=builder /src/dist/client /usr/share/nginx/html
 
 EXPOSE 80
