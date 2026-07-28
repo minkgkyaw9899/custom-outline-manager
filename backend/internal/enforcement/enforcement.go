@@ -221,13 +221,18 @@ func (e *Enforcer) RenewKey(ctx context.Context, keyID string, addGB float64, ad
 		return nil, nil, fmt.Errorf("insert renewal log: %w", err)
 	}
 
-	if err := e.ReconcileKeyByID(ctx, keyID); err != nil {
-		return nil, nil, fmt.Errorf("reconcile after renewal: %w: %w", ErrPushFailed, err)
-	}
+	// The local save above already succeeded by this point, so a push
+	// failure still returns the updated key (not nil) alongside the wrapped
+	// ErrPushFailed — callers can show what was actually saved instead of
+	// losing that detail just because the Outline push lagged behind.
+	pushErr := e.ReconcileKeyByID(ctx, keyID)
 
 	updated, err := e.repo.GetKey(ctx, keyID)
 	if err != nil {
 		return nil, nil, err
+	}
+	if pushErr != nil {
+		return updated, renewal, fmt.Errorf("reconcile after renewal: %w: %w", ErrPushFailed, pushErr)
 	}
 	return updated, renewal, nil
 }

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"time"
 
 	"github.com/gofiber/fiber/v3"
 
@@ -74,25 +73,32 @@ func (a *API) telegramWebhook(c fiber.Ctx) error {
 
 	updated, _, err := a.enforcer.RenewKey(ctx, keyID, alerts.ExtendAddGB, alerts.ExtendAddDays)
 	pushFailed := errors.Is(err, enforcement.ErrPushFailed)
-	if err != nil && !pushFailed {
-		log.Printf("telegram webhook: renew key %s: %v", keyID, err)
-		if ansErr := a.tg.AnswerCallbackQuery(ctx, cq.ID, "Failed to extend — check the dashboard"); ansErr != nil {
-			log.Printf("telegram webhook: answer failed-renew callback: %v", ansErr)
-		}
-		return apiresponse.Success(c, nil, "ignored")
-	}
 
-	toastText := "Extended"
-	messageText := "⚠️ Extended locally, but the change could not be pushed to the Outline server yet. It will retry on the next sync."
-	if pushFailed {
-		toastText = "Saved, but Outline push failed — will retry"
-	} else {
+	var toastText, messageText string
+	switch {
+	case err != nil && !pushFailed:
+		// The local save itself failed (bad key id, DB error, etc.) —
+		// nothing was changed, so there's nothing to show but the failure.
+		log.Printf("telegram webhook: renew key %s: %v", keyID, err)
+		toastText = "Failed to extend"
+		messageText = "❌ <b>Failed to extend</b>\nCould not renew this key — check the dashboard for details."
+	default:
+		// Saved locally either way; pushFailed only means the Outline server
+		// hasn't picked it up yet (next cron tick retries), so the figures
+		// below are still accurate.
 		serverName := ""
 		if server, srvErr := a.repo.GetServer(ctx, updated.ServerID); srvErr == nil {
 			serverName = server.Name
 		}
 		messageText = extendedMessageText(*updated, serverName)
+		if pushFailed {
+			toastText = "Saved, but Outline push failed — will retry"
+			messageText += "\n\n⚠️ Could not push this to the Outline server yet; it will retry on the next sync."
+		} else {
+			toastText = "Extended"
+		}
 	}
+
 	if ansErr := a.tg.AnswerCallbackQuery(ctx, cq.ID, toastText); ansErr != nil {
 		log.Printf("telegram webhook: answer callback: %v", ansErr)
 	}
@@ -106,21 +112,27 @@ func (a *API) telegramWebhook(c fiber.Ctx) error {
 }
 
 // extendedMessageText replaces the original alert once the extend action has
-// been applied, so re-opening the chat shows the outcome instead of a stale
-// "running low" warning with a now-dead button.
+// been applied, so re-opening the chat shows the outcome (used/total quota,
+// new expiry date) instead of a stale "running low" warning with a now-dead
+// button.
 func extendedMessageText(key models.Key, serverName string) string {
-	key = key.Enrich(time.Now())
+	quota := fmt.Sprintf("%s used, no limit", formatGB(key.UsedBytes))
+	if key.CustomLimitBytes != nil {
+		quota = fmt.Sprintf("%s/%s GB", formatGB(key.UsedBytes), formatGB(*key.CustomLimitBytes))
+	}
+	expiry := "no expiry"
+	if key.EndDate != nil {
+		expiry = "ends on " + key.EndDate.Format("02-Jan-2006")
+	}
 	holder := key.UserName
 	if holder == "" {
 		holder = key.Name
 	}
-	remaining := "no limit"
-	if key.RemainingBytes != nil {
-		remaining = fmt.Sprintf("%.2f GB left", float64(*key.RemainingBytes)/models.BytesPerGB)
-	}
-	daysLeft := "no expiry"
-	if key.DaysLeft != nil {
-		daysLeft = fmt.Sprintf("%d day(s) left", *key.DaysLeft)
-	}
-	return fmt.Sprintf("✅ Extended <b>%s</b>\nServer: %s\n%s · %s", holder, serverName, remaining, daysLeft)
+	return fmt.Sprintf("✅ <b>Extended %s</b>\nServer: %s\n%s, %s", holder, serverName, quota, expiry)
+}
+
+// formatGB renders bytes as a plain GB number (no unit suffix — callers
+// combine two of these into one "x/y GB" string).
+func formatGB(bytes int64) string {
+	return fmt.Sprintf("%.1f", float64(bytes)/models.BytesPerGB)
 }
