@@ -447,9 +447,6 @@ function UserDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle className="font-heading text-lg">Connection</CardTitle>
-            <CardDescription>
-              The link handed to {user.name}, and where it currently points.
-            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
             <KeyLinkField
@@ -495,10 +492,6 @@ function UserDetailPage() {
               <DetailRow label="Keys held">{user.keyCount}</DetailRow>
               <DetailRow label="Last updated">{formatDate(user.updatedAt)}</DetailRow>
             </dl>
-            <p className="text-xs text-muted-foreground">
-              The dynamic link belongs to {user.name}, not to their key —
-              changing their server or key leaves it working as it is.
-            </p>
           </CardContent>
         </Card>
       </div>

@@ -12,7 +12,6 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -103,10 +102,6 @@ export function NewUserDialog({ children }: Readonly<{ children: React.ReactNode
         >
           <DialogHeader>
             <DialogTitle className="font-heading">New user</DialogTitle>
-            <DialogDescription>
-              The person a key is handed to. They get one link that stays theirs
-              even if you move them to a different server later.
-            </DialogDescription>
           </DialogHeader>
 
           <FieldGroup className="py-4">

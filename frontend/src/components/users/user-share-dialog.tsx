@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
@@ -49,10 +48,6 @@ export function UserShareDialog({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading">Share {displayName}</DialogTitle>
-            <DialogDescription>
-              Anyone with this link can view a read-only status page for this
-              holder's key, once they set up a passcode on their first visit.
-            </DialogDescription>
           </DialogHeader>
 
           {isLoading ? (

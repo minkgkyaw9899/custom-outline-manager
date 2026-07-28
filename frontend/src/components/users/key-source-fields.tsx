@@ -1,7 +1,8 @@
+import { useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 
 import { isBelowPlanFloor, PlanFields } from "@/components/users/plan-fields"
-import { isServerFull, ServerSelect } from "@/components/users/server-select"
+import { ServerSelect } from "@/components/users/server-select"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
@@ -12,24 +13,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import {
   formatBytesCompact,
   formatDateOnly,
   MIN_PLAN_DAYS,
   MIN_PLAN_GB,
 } from "@/lib/format"
-import { serversQueryOptions, unassignedKeysQueryOptions } from "@/lib/queries"
+import { unassignedKeysQueryOptions } from "@/lib/queries"
 import type { Key } from "@/lib/types"
 
 /**
  * Where a holder's key comes from: a brand new one on the chosen server, or an
- * existing key on it that belongs to nobody.
+ * existing key on it that belongs to nobody. Not a choice the admin makes —
+ * KeySourceFields derives it from whether the server has a free key and picks
+ * accordingly, only surfacing a picker when there's more than one candidate.
  *
  * Free keys are the ones adopted from the Outline server itself, or released
- * when a previous holder was moved or deleted. Handing one of those over costs
- * nothing and keeps the allowance it already carries, so it is worth offering
- * before provisioning yet another key against the server's ceiling.
+ * when a previous holder was moved or deleted, or provisioned ahead of need
+ * and never used. Handing one of those over costs nothing and keeps the
+ * allowance it already carries, so it is used before provisioning yet
+ * another key against the server's ceiling.
  */
 export type KeySourceMode = "new" | "existing"
 
@@ -100,7 +103,6 @@ export function KeySourceFields({
   serverLabel?: string
 }>) {
   const { data: unassigned } = useQuery(unassignedKeysQueryOptions())
-  const { data: servers } = useQuery(serversQueryOptions())
 
   // Filtered client-side: the picker only offers keys on the server already
   // chosen above, and the whole unassigned list is small enough that a
@@ -117,10 +119,31 @@ export function KeySourceFields({
     {},
   )
 
-  const selectedServer = servers?.find((s) => s.id === value.serverId)
-  const selectedServerFull = selectedServer ? isServerFull(selectedServer) : false
-
   const set = (patch: Partial<KeySourceState>) => onChange({ ...value, ...patch })
+
+  // The source isn't a choice the admin makes: reusing a free key already on
+  // the server always wins over provisioning a new one. Only when more than
+  // one free key exists is there anything left to pick — which one.
+  const freeKeyIds = freeKeys.map((k) => k.id).join(",")
+  useEffect(() => {
+    if (!value.serverId) return
+    if (freeKeys.length === 0) {
+      if (value.mode !== "new" || value.keyId !== "") set({ mode: "new", keyId: "" })
+      return
+    }
+    if (freeKeys.length === 1) {
+      if (value.mode !== "existing" || value.keyId !== freeKeys[0].id) {
+        set({ mode: "existing", keyId: freeKeys[0].id })
+      }
+      return
+    }
+    const keyStillFree = freeKeys.some((k) => k.id === value.keyId)
+    if (value.mode !== "existing" || !keyStillFree) {
+      set({ mode: "existing", keyId: keyStillFree ? value.keyId : "" })
+    }
+    // Re-derive whenever the server changes or its pool of free keys does —
+    // not on every keystroke in the unrelated fields below.
+  }, [value.serverId, freeKeyIds])
 
   return (
     <>
@@ -128,64 +151,20 @@ export function KeySourceFields({
         id={`${idPrefix}-server`}
         label={serverLabel}
         value={value.serverId}
-        onValueChange={(serverId) => {
-          const server = servers?.find((s) => s.id === serverId)
-          // A full server has nothing to provision, so land straight on
-          // "use a free key" rather than a mode that can't work here — and if
-          // there's exactly one spare to offer, pick it, since a dropdown
-          // with one option is just an extra click.
-          const full = server ? isServerFull(server) : false
-          const freeForServer = (unassigned ?? []).filter((k) => k.serverId === serverId)
-          const autoKeyId = full && freeForServer.length === 1 ? freeForServer[0].id : ""
-          // The chosen key belongs to the old server, so it can't survive the
-          // switch.
-          set({ serverId, keyId: autoKeyId, mode: full ? "existing" : value.mode })
-        }}
+        onValueChange={(serverId) => set({ serverId, keyId: "" })}
         error={errors.serverId}
         claimableKeyCounts={claimableKeyCounts}
-        description="Servers at their key limit can still be chosen if they have a spare key — provisioned but never used or attached to anyone — to hand out instead."
+        description=""
       />
-
-      {value.serverId && (
-        <Field>
-          <FieldLabel>Key</FieldLabel>
-          <ToggleGroup
-            value={[value.mode]}
-            onValueChange={(v) => {
-              if (v.length) set({ mode: v[0] as KeySourceMode, keyId: "" })
-            }}
-          >
-            <ToggleGroupItem
-              value="new"
-              disabled={selectedServerFull}
-              className="rounded-full border px-4 text-sm tracking-normal normal-case aria-pressed:border-primary/30 aria-pressed:bg-primary/10 aria-pressed:text-primary disabled:pointer-events-none disabled:opacity-50"
-            >
-              Create new
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="existing"
-              className="rounded-full border px-4 text-sm tracking-normal normal-case aria-pressed:border-primary/30 aria-pressed:bg-primary/10 aria-pressed:text-primary"
-            >
-              Use a free key ({freeKeys.length})
-            </ToggleGroupItem>
-          </ToggleGroup>
-          <FieldDescription>
-            {value.mode === "new"
-              ? "Creates a key on this server, counting against its key limit."
-              : selectedServerFull
-                ? "This server is at its key limit — a spare key is used instead of creating a new one."
-                : "Takes over a key on this server that belongs to nobody, keeping the allowance it already has."}
-          </FieldDescription>
-        </Field>
-      )}
 
       {value.serverId && value.mode === "existing" && (
         <Field data-invalid={!!errors.keyId || undefined}>
-          <FieldLabel htmlFor={`${idPrefix}-free-key`}>Free key</FieldLabel>
-          {freeKeys.length === 0 ? (
+          <FieldLabel htmlFor={`${idPrefix}-free-key`}>Key</FieldLabel>
+          {freeKeys.length <= 1 ? (
             <FieldDescription>
-              Every key on this server already has a holder. Create a new one
-              instead, or release a key from its holder first.
+              {freeKeys[0]
+                ? `Using the spare key already on this server: ${freeKeyLabel(freeKeys[0])}`
+                : ""}
             </FieldDescription>
           ) : (
             <>
@@ -216,7 +195,7 @@ export function KeySourceFields({
               </Select>
               <FieldDescription>
                 {errors.keyId ??
-                  "Its limit and expiry come with it — edit them afterwards if the holder is on a different plan."}
+                  "This server has more than one spare key — its limit and expiry come with it."}
               </FieldDescription>
             </>
           )}
