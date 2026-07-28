@@ -1,9 +1,16 @@
 import { useState } from "react"
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ArrowLeftIcon, PencilIcon, Trash2Icon, UserIcon } from "lucide-react"
+import {
+  ArrowLeftIcon,
+  PencilIcon,
+  RefreshCwIcon,
+  Trash2Icon,
+  UserIcon,
+} from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { DynamicLinkRecommendedBadge } from "@/components/keys/dynamic-link-info-dialog"
 import { EditKeyDialog } from "@/components/keys/edit-key-dialog"
 import {
   KeyConnectionStatus,
@@ -28,6 +35,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Table,
   TableBody,
@@ -224,6 +232,18 @@ function KeyDetailPage() {
     ...(isMock ? { queryFn: () => mockKeyDaily(keyId) } : {}),
   })
 
+  // Resyncs just this key's server — same endpoint as the server detail
+  // page's "Sync now", scoped here so a stale usage/limit figure on this one
+  // key can be refreshed without leaving the page.
+  const sync = useMutation({
+    mutationFn: (serverId: string) =>
+      apiClient.post<{ status: string }>(`servers/${serverId}/sync`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["servers"] })
+      queryClient.invalidateQueries({ queryKey: ["keys"] })
+    },
+  })
+
   const removeKey = useMutation({
     mutationFn: () =>
       isMock ? mockDeleteKey(keyId) : apiClient.delete<null>(`keys/${keyId}`),
@@ -313,6 +333,20 @@ function KeyDetailPage() {
             >
               <UserIcon data-icon="inline-start" />
               {keyItem.userName || "Holder"}
+            </Button>
+          )}
+          {!isMock && (
+            <Button
+              variant="outline"
+              onClick={() => sync.mutate(keyItem.serverId)}
+              disabled={sync.isPending}
+            >
+              {sync.isPending ? (
+                <Spinner data-icon="inline-start" />
+              ) : (
+                <RefreshCwIcon data-icon="inline-start" />
+              )}
+              Sync
             </Button>
           )}
           <Button variant="outline" onClick={() => setEditOpen(true)}>
@@ -429,6 +463,11 @@ function KeyDetailPage() {
               label="Dynamic key"
               value={keyItem.dynamicAccessUrl}
               emptyNote="Not configured for this server — set a dynamic link host from the server's Edit menu."
+              badge={
+                keyItem.dynamicAccessUrl ? (
+                  <DynamicLinkRecommendedBadge />
+                ) : undefined
+              }
             />
             <KeyLinkField
               label="Static key"

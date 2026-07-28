@@ -298,6 +298,9 @@ PATCH  /api/v1/admins/:email/status         {status} (403 for the root admin)
 POST   /api/v1/servers                      add a server {name, apiUrl, certSha256}; revives an
                                              archived match (§3) if apiUrl+certSha256 hit one
 GET    /api/v1/servers                      list servers + aggregate usage
+POST   /api/v1/servers/sync-all             sync every server concurrently, blocking until all
+                                             finish (or perServerSyncTimeout each) — used by the
+                                             fleet-wide "Sync now" affordances
 GET    /api/v1/servers/:id                  server detail
 GET    /api/v1/servers/:id/usage?from=&to=  bandwidth usage over a date range
 DELETE /api/v1/servers/:id                  archive a server (soft delete, see §3) — its keys,

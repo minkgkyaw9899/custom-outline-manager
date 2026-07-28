@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 
+import { SyncAllButton } from "@/components/sync-all-button"
 import { AdminsTable } from "@/components/users/admins-table"
 import { UsersTable } from "@/components/users/users-table"
 import { usersQueryOptions } from "@/lib/queries"
@@ -19,9 +20,12 @@ function UsersPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <p className="text-sm text-muted-foreground">Dashboard / Users</p>
-        <h1 className="font-heading text-2xl font-semibold">Users</h1>
+      <div className="flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <p className="text-sm text-muted-foreground">Dashboard / Users</p>
+          <h1 className="font-heading text-2xl font-semibold">Users</h1>
+        </div>
+        <SyncAllButton />
       </div>
 
       <UsersTable users={users ?? []} isLoading={isLoading} />

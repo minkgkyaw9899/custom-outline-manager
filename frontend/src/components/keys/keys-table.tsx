@@ -267,7 +267,12 @@ export function KeysTable({
                 }
               />
               <TooltipContent className="max-w-sm break-all" side="top">
-                {row.original.key.accessUrl}
+                <span className="font-semibold">
+                  {row.original.key.dynamicAccessUrl
+                    ? "Dynamic link: "
+                    : "Static link: "}
+                </span>
+                {keyShareUrl(row.original.key)}
               </TooltipContent>
             </Tooltip>
             <Button

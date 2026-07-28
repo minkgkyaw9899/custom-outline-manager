@@ -512,6 +512,55 @@ func (a *API) syncServer(c fiber.Ctx) error {
 	return apiresponse.Success(c, fiber.Map{"status": "synced"}, "Server synced")
 }
 
+// perServerSyncTimeout bounds one server's sync when fanning every server out
+// at once, so a single unreachable one can't hold up the response past what
+// the caller reasonably waits on an explicit "sync now" click.
+const perServerSyncTimeout = 20 * time.Second
+
+// syncAllServers syncs every server concurrently and blocks until they all
+// finish, so the admin gets a real pass/fail count back rather than a
+// fire-and-forget "started" response. Deliberately not driven by c.Context()
+// (capped at cfg.RequestTimeout, ~15s by default) — several servers running
+// concurrently, each individually allowed up to perServerSyncTimeout, would
+// otherwise risk the whole request getting cut off before they're done. Each
+// sync gets its own context off context.Background() instead, same as
+// syncServerInBackground.
+func (a *API) syncAllServers(c fiber.Ctx) error {
+	servers, err := a.repo.ListAllServers(c.Context())
+	if err != nil {
+		return apiresponse.Internal(c, "")
+	}
+	if len(servers) == 0 {
+		return apiresponse.Success(c, fiber.Map{"total": 0, "synced": 0, "failed": 0}, "No servers to sync")
+	}
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	failed := 0
+	for _, s := range servers {
+		wg.Add(1)
+		go func(s models.Server) {
+			defer wg.Done()
+			ctx, cancel := context.WithTimeout(context.Background(), perServerSyncTimeout)
+			defer cancel()
+			if err := a.enforcer.SyncServer(ctx, s); err != nil {
+				log.Printf("sync all: server %s: %v", s.Name, err)
+				mu.Lock()
+				failed++
+				mu.Unlock()
+			}
+		}(s)
+	}
+	wg.Wait()
+
+	synced := len(servers) - failed
+	msg := fmt.Sprintf("Synced %d server%s", synced, plural(synced))
+	if failed > 0 {
+		msg = fmt.Sprintf("Synced %d of %d server%s — %d could not be reached", synced, len(servers), plural(len(servers)), failed)
+	}
+	return apiresponse.Success(c, fiber.Map{"total": len(servers), "synced": synced, "failed": failed}, msg)
+}
+
 func (a *API) getServerUsage(c fiber.Ctx) error {
 	id := c.Params("id")
 	if _, err := a.repo.GetServer(c.Context(), id); err != nil {

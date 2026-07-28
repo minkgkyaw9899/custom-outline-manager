@@ -6,10 +6,20 @@ export function KeyLinkField({
   label,
   value,
   emptyNote,
-}: Readonly<{ label: string; value: string; emptyNote?: string }>) {
+  badge,
+}: Readonly<{
+  label: string
+  value: string
+  emptyNote?: string
+  /** Extra content next to the label — e.g. a "Recommended" badge. */
+  badge?: React.ReactNode
+}>) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className="flex items-center gap-2 text-sm text-muted-foreground">
+        {label}
+        {badge}
+      </span>
       {value ? (
         <div className="flex items-center gap-2">
           <Tooltip>

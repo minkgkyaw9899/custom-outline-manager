@@ -11,9 +11,10 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import type { SortingState } from "@tanstack/react-table"
-import { PlusIcon, Trash2Icon, UsersIcon } from "lucide-react"
+import { LinkIcon, PlusIcon, Trash2Icon, UsersIcon } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
+import { CopyButton } from "@/components/copy-button"
 import { SortableHead } from "@/components/data-table-header"
 import {
   DEFAULT_PAGE_SIZE,
@@ -46,6 +47,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { apiClient } from "@/lib/api"
 import {
   formatBytesCompact,
@@ -224,6 +226,43 @@ export function UsersTable({
             className="flex items-center justify-end gap-1.5"
             onClick={(e) => e.stopPropagation()}
           >
+            {row.original.dynamicAccessUrl ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span className="inline-flex">
+                      <CopyButton value={row.original.dynamicAccessUrl} />
+                    </span>
+                  }
+                />
+                <TooltipContent className="max-w-sm break-all" side="top">
+                  <span className="font-semibold">Dynamic link: </span>
+                  {row.original.dynamicAccessUrl}
+                </TooltipContent>
+              </Tooltip>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <span className="inline-flex">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon-sm"
+                        disabled
+                        aria-label="Dynamic link not configured"
+                      >
+                        <LinkIcon className="size-3.5" />
+                      </Button>
+                    </span>
+                  }
+                />
+                <TooltipContent side="top">
+                  Not configured for this server — set a dynamic link host
+                  from the server's Edit menu.
+                </TooltipContent>
+              </Tooltip>
+            )}
             <Button
               type="button"
               variant="outline"

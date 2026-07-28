@@ -5,6 +5,7 @@ import { PlusIcon } from "lucide-react"
 
 import { AddServerDialog } from "@/components/servers/add-server-dialog"
 import { ServerCard } from "@/components/servers/server-card"
+import { SyncAllButton } from "@/components/sync-all-button"
 import { SyncPill } from "@/components/sync-pill"
 import { Button } from "@/components/ui/button"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -59,7 +60,10 @@ function ServersPage() {
           <p className="text-sm text-muted-foreground">Dashboard / Servers</p>
           <h1 className="font-heading text-2xl font-semibold">Servers</h1>
         </div>
-        <SyncPill lastSyncedAt={lastSyncedAt} />
+        <div className="flex items-center gap-2">
+          <SyncPill lastSyncedAt={lastSyncedAt} />
+          <SyncAllButton />
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-4">

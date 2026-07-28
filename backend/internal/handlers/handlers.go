@@ -87,6 +87,7 @@ func (a *API) RegisterRoutes(r fiber.Router) {
 
 			protected.Post("/servers", a.createServer)
 			protected.Get("/servers", a.listServers)
+			protected.Post("/servers/sync-all", a.syncAllServers)
 			protected.Get("/servers/:id", a.getServer)
 			protected.Patch("/servers/:id/config", a.updateServerConfig)
 			protected.Patch("/servers/:id/default-limit", a.setServerDefaultLimit)
