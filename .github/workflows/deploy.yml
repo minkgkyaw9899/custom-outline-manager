@@ -109,9 +109,18 @@ jobs:
       - name: Write .env
         # Piped over stdin rather than interpolated into the ssh command
         # string, so nothing in the secret (quotes, $, etc.) needs escaping.
+        # Telegram alerting is configured as separate secrets (rather than
+        # folded into DEPLOY_ENV_FILE) so it can be set up without touching
+        # the DB/JWT/SMTP blob; appended here, one KEY=value line each. Any
+        # left unset resolves to an empty line, which docker-compose's
+        # ${VAR:-} defaults treat the same as unset.
         run: |
-          printf '%s' "${{ secrets.DEPLOY_ENV_FILE }}" | \
-            ssh -p "${{ vars.LIGHTSAIL_SSH_PORT || 22 }}" "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
+          { printf '%s\n' "${{ secrets.DEPLOY_ENV_FILE }}"
+            printf 'TELEGRAM_BOT_TOKEN=%s\n' "${{ secrets.TELEGRAM_BOT_TOKEN }}"
+            printf 'TELEGRAM_CHAT_ID=%s\n' "${{ secrets.TELEGRAM_CHAT_ID }}"
+            printf 'TELEGRAM_ADMIN_USER_ID=%s\n' "${{ secrets.TELEGRAM_ADMIN_USER_ID }}"
+            printf 'TELEGRAM_WEBHOOK_SECRET=%s\n' "${{ secrets.TELEGRAM_WEBHOOK_SECRET }}"
+          } | ssh -p "${{ vars.LIGHTSAIL_SSH_PORT || 22 }}" "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
               "cat > '${{ vars.DEPLOY_DIR || '/opt/outline-manager' }}/.env'"
 
       - name: Pull images and restart
