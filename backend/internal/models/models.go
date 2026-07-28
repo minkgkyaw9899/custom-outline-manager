@@ -126,6 +126,17 @@ type DailyUsage struct {
 	Bytes int64  `json:"bytes"`
 }
 
+// RevenuePoint is one day's revenue/cost snapshot for a server — a level, not
+// a delta, so unlike DailyUsage a series of these is never summed, only
+// plotted or resampled to a coarser period by taking the latest of each.
+type RevenuePoint struct {
+	Date               string   `json:"date"`
+	RevenueMmk         int64    `json:"revenueMmk"`
+	CostUsdPerMonth    *float64 `json:"costUsdPerMonth"`
+	ActiveKeys         int      `json:"activeKeys"`
+	UnpricedActiveKeys int      `json:"unpricedActiveKeys"`
+}
+
 // ServerWithUsage is a Server plus rolled-up numbers for dashboard/list views.
 // Metrics is nil when the server could not be reached for a live read — the
 // row still renders, just without its live numbers.
@@ -150,6 +161,10 @@ type ServerWithUsage struct {
 	// so it only covers days since the server was added and is empty for a
 	// freshly-registered server.
 	DailySeries []DailyUsage `json:"dailySeries"`
+	// RevenueDailySeries is the same idea for revenue/cost — snapshotted once
+	// per cron tick starting from whenever this field shipped, so it is empty
+	// or thin for a while before a real trend appears.
+	RevenueDailySeries []RevenuePoint `json:"revenueDailySeries"`
 }
 
 // KeyMetrics is the per-key slice of a server's live metrics, keyed by the

@@ -33,6 +33,7 @@ function mockServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
       { date: "2026-01-01", bytes: 5_000_000_000 },
       { date: "2026-01-02", bytes: 7_000_000_000 },
     ],
+    revenueDailySeries: [],
     ...overrides,
   }
 }

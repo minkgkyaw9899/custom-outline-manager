@@ -56,6 +56,7 @@ function makeServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
       onlineKeys: 1,
     },
     dailySeries: [],
+    revenueDailySeries: [],
     ...overrides,
   }
 }

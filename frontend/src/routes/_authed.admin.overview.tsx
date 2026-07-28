@@ -5,6 +5,8 @@ import { BandwidthConsumptionCard } from "@/components/dashboard/bandwidth-consu
 import { CompareServersCard } from "@/components/dashboard/compare-servers-card"
 import { FleetHealthCard } from "@/components/dashboard/fleet-health-card"
 import { KeysAttentionCard } from "@/components/dashboard/keys-attention-card"
+import { RevenueTrendCard } from "@/components/dashboard/revenue-trend-card"
+import { MMK_PER_USD } from "@/components/servers/add-server-dialog"
 import { StatCard } from "@/components/stat-card"
 import { SyncPill } from "@/components/sync-pill"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -51,6 +53,15 @@ function DashboardPage() {
   )
   const serversWithMetrics = all.filter((s) => s.metrics !== null).length
 
+  const totalRevenueMmk = all.reduce((sum, s) => sum + s.monthlyRevenueMmk, 0)
+  const totalCostMmk = all.reduce(
+    (sum, s) => sum + (s.costUsdPerMonth ?? 0) * MMK_PER_USD,
+    0,
+  )
+  const totalProfitMmk = totalRevenueMmk - totalCostMmk
+  const totalUnpriced = all.reduce((sum, s) => sum + s.unpricedActiveKeys, 0)
+  const mmk = (n: number) => `${Math.round(n).toLocaleString("en-US")} MMK`
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -63,7 +74,7 @@ function DashboardPage() {
 
       {serversLoading || !statsLoaded ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
+          {Array.from({ length: 5 }).map((_, i) => (
             <Skeleton key={i} className="h-32" />
           ))}
         </div>
@@ -96,6 +107,20 @@ function DashboardPage() {
                   : `${serversWithMetrics} of ${all.length} servers reporting live metrics`
             }
           />
+          <StatCard
+            label="Monthly revenue"
+            value={mmk(totalRevenueMmk)}
+            note={
+              totalUnpriced > 0
+                ? `${totalUnpriced} unpriced key${totalUnpriced === 1 ? "" : "s"} — see Revenue`
+                : "Every active key priced"
+            }
+          />
+          <StatCard
+            label="Monthly profit"
+            value={mmk(totalProfitMmk)}
+            note={totalProfitMmk >= 0 ? "Revenue exceeds cost" : "Cost exceeds revenue"}
+          />
         </div>
       )}
 
@@ -108,6 +133,11 @@ function DashboardPage() {
         <Skeleton className="h-72" />
       ) : (
         <CompareServersCard servers={all} />
+      )}
+      {serversLoading ? (
+        <Skeleton className="h-72" />
+      ) : (
+        <RevenueTrendCard servers={all} />
       )}
 
       <div className="grid items-stretch gap-4 lg:grid-cols-5">

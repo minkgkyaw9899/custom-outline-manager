@@ -90,5 +90,12 @@ func (j *Job) RunOnce(ctx context.Context) {
 		}
 		cancel()
 	}
+
+	// One snapshot per tick, after every server has had a chance to sync, so
+	// today's revenue reading reflects the freshest key/price data available.
+	if err := j.repo.SnapshotRevenue(ctx); err != nil {
+		log.Printf("cron: snapshot revenue: %v", err)
+	}
+
 	log.Printf("cron: sync complete")
 }

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 import { TriangleAlertIcon, WalletIcon } from "lucide-react"
 
+import { RevenueTrendCard } from "@/components/dashboard/revenue-trend-card"
 import { MMK_PER_USD } from "@/components/servers/add-server-dialog"
 import { ServerStatusBadge } from "@/components/server-status-badge"
 import { StatCard } from "@/components/stat-card"
@@ -120,6 +121,12 @@ function RevenuePage() {
             }
           />
         </div>
+      )}
+
+      {isLoading ? (
+        <Skeleton className="h-72" />
+      ) : (
+        <RevenueTrendCard servers={all} />
       )}
 
       <Card>

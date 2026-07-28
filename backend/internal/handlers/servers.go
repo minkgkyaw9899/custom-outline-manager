@@ -29,6 +29,11 @@ const listMetricsTimeout = 8 * time.Second
 // sparklineDays is how much snapshot history each server card's chart covers.
 const sparklineDays = 14
 
+// revenueSparklineDays covers over a year, so the Revenue page's month/year
+// views have something to group once enough daily snapshots exist — unlike
+// the bandwidth sparkline, which only ever needs a couple of weeks.
+const revenueSparklineDays = 400
+
 type createServerRequest struct {
 	Name string `json:"name" validate:"required"`
 	// APIURL accepts either a bare management API URL or the whole JSON blob
@@ -219,6 +224,11 @@ func (a *API) listServers(c fiber.Ctx) error {
 		log.Printf("list servers: daily usage: %v", err)
 		series = nil // a missing sparkline must not fail the whole list
 	}
+	revenueSeries, err := a.repo.DailyRevenueAllServers(c.Context(), revenueSparklineDays)
+	if err != nil {
+		log.Printf("list servers: daily revenue: %v", err)
+		revenueSeries = nil
+	}
 
 	// Fan out across servers rather than fetching serially: one slow or
 	// unreachable server would otherwise add its full timeout to every server
@@ -236,6 +246,9 @@ func (a *API) listServers(c fiber.Ctx) error {
 			s.Health = models.DeriveServerHealth(s.LastSyncError, s.LastSyncedAt, s.Metrics != nil)
 			if s.DailySeries = series[s.ID]; s.DailySeries == nil {
 				s.DailySeries = []models.DailyUsage{}
+			}
+			if s.RevenueDailySeries = revenueSeries[s.ID]; s.RevenueDailySeries == nil {
+				s.RevenueDailySeries = []models.RevenuePoint{}
 			}
 		}(&servers[i])
 	}

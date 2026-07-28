@@ -186,6 +186,19 @@ export interface KeyUsageSeries {
 /** Outline rejects windows longer than 30 days. */
 export type MetricsWindow = "1d" | "7d" | "30d"
 
+/**
+ * One day's revenue/cost snapshot for a server — a level (what active keys
+ * are worth right now), not a delta, so a series of these is never summed,
+ * only plotted or resampled to a coarser period by taking the latest of each.
+ */
+export interface RevenuePoint {
+  date: string
+  revenueMmk: number
+  costUsdPerMonth: number | null
+  activeKeys: number
+  unpricedActiveKeys: number
+}
+
 export interface ServerWithUsage extends Server {
   hostname: string
   health: ServerHealth
@@ -207,6 +220,8 @@ export interface ServerWithUsage extends Server {
   metrics: ServerMetrics | null
   /** Empty until the cron has recorded at least two days of snapshots. */
   dailySeries: DailyUsage[]
+  /** Empty or thin until the cron has recorded enough revenue snapshots. */
+  revenueDailySeries: RevenuePoint[]
 }
 
 export interface KeyMetrics {
