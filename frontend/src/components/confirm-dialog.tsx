@@ -14,6 +14,10 @@ export function ConfirmDialog({
   title,
   description,
   confirmLabel = "Delete",
+  // Every existing caller confirms an irreversible delete, hence the red
+  // button by default — logout and similar non-destructive confirmations
+  // pass "default" so the button doesn't imply data loss that isn't there.
+  confirmVariant = "destructive",
   onConfirm,
   isPending,
 }: {
@@ -22,6 +26,7 @@ export function ConfirmDialog({
   title: string
   description: string
   confirmLabel?: string
+  confirmVariant?: "destructive" | "default"
   onConfirm: () => void
   isPending?: boolean
 }) {
@@ -36,7 +41,7 @@ export function ConfirmDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
+          <Button variant={confirmVariant} onClick={onConfirm} disabled={isPending}>
             {isPending ? "Working…" : confirmLabel}
           </Button>
         </DialogFooter>

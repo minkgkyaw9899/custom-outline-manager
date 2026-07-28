@@ -1,3 +1,4 @@
+import { useState } from "react"
 import { Link, useRouterState } from "@tanstack/react-router"
 import {
   LayoutDashboardIcon,
@@ -8,6 +9,7 @@ import {
   ZapIcon,
 } from "lucide-react"
 
+import { ConfirmDialog } from "@/components/confirm-dialog"
 import {
   Sidebar,
   SidebarContent,
@@ -38,6 +40,7 @@ export function AppSidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const { admin } = useAuth()
   const logout = useLogout()
+  const [confirmLogoutOpen, setConfirmLogoutOpen] = useState(false)
 
   const username = admin?.email.split("@")[0] ?? ""
 
@@ -103,13 +106,24 @@ export function AppSidebar() {
             size="icon"
             aria-label="Log out"
             className="group-data-[collapsible=icon]:hidden"
-            onClick={() => logout.mutate()}
+            onClick={() => setConfirmLogoutOpen(true)}
             disabled={logout.isPending}
           >
             <LogOutIcon />
           </Button>
         </div>
       </SidebarFooter>
+
+      <ConfirmDialog
+        open={confirmLogoutOpen}
+        onOpenChange={setConfirmLogoutOpen}
+        title="Log out?"
+        description="You'll need to sign in again with an emailed code to get back in."
+        confirmLabel="Log out"
+        confirmVariant="default"
+        onConfirm={() => logout.mutate()}
+        isPending={logout.isPending}
+      />
     </Sidebar>
   )
 }
