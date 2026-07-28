@@ -150,6 +150,10 @@ export function CompareServersCard({
           <CardDescription>
             {serverA.name} vs {serverB.name} · total bandwidth per day
           </CardDescription>
+          <p className="text-xs text-muted-foreground">
+            Lifetime: {serverA.name} {formatBytesCompact(serverA.totalUsedBytes)} · {serverB.name}{" "}
+            {formatBytesCompact(serverB.totalUsedBytes)}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex items-center gap-4">

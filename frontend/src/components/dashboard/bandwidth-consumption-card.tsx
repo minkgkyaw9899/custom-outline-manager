@@ -116,6 +116,10 @@ export function BandwidthConsumptionCard({
               ? `Per-server bandwidth · ${server.name} · not enough sync history yet`
               : `Per-server bandwidth · ${server.name} · daily`}
           </CardDescription>
+          <p className="text-xs text-muted-foreground">
+            Lifetime usage: {formatBytesCompact(server.totalUsedBytes)}
+            {data.length === 0 && " — the chart above only starts once monitoring has two days of history"}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
           <ChartLegendDot color="var(--chart-3)" label={`${server.name} total`} />
