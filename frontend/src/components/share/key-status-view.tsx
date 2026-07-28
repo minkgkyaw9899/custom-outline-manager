@@ -1,4 +1,5 @@
 import { DetailRow } from "@/components/detail-row"
+import { DynamicLinkRecommendedBadge } from "@/components/keys/dynamic-link-info-dialog"
 import { KeyLinkField } from "@/components/keys/key-link-field"
 import { KeyUsageDonut } from "@/components/keys/key-usage-donut"
 import { DailyTrafficCard } from "@/components/servers/daily-traffic-card"
@@ -183,6 +184,11 @@ export function KeyStatusView({ data }: Readonly<{ data: ShareKeyView }>) {
               label="Dynamic key"
               value={data.dynamicAccessUrl}
               emptyNote="Not configured for this server."
+              badge={
+                data.dynamicAccessUrl ? (
+                  <DynamicLinkRecommendedBadge audience="holder" />
+                ) : undefined
+              }
             />
             <KeyLinkField label="Static key" value={data.accessUrl} />
             <dl className="flex flex-col">
