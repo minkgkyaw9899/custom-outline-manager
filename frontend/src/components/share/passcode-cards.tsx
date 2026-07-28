@@ -210,9 +210,6 @@ export function VerifyCard({
         <CardTitle className="text-3xl font-bold tracking-tight normal-case">
           Enter your passcode
         </CardTitle>
-        <CardDescription>
-          Enter the 6-digit passcode you set up for this link.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <form

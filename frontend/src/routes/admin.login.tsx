@@ -7,13 +7,7 @@ import { applyServerFieldErrors } from "@/lib/form-errors"
 import { useRequestOtp } from "@/lib/auth"
 import { AuthLayout } from "@/components/auth-layout"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
 import {
@@ -70,9 +64,6 @@ function LoginPage() {
           <CardTitle className="text-3xl font-bold tracking-tight normal-case">
             Sign in to Invisigate
           </CardTitle>
-          <CardDescription>
-            Sign in with your email to manage your servers.
-          </CardDescription>
         </CardHeader>
 
         <CardContent>

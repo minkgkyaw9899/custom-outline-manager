@@ -255,8 +255,7 @@ export function AdminsTable() {
             Admins ({admins?.length ?? 0})
           </CardTitle>
           <CardDescription>
-            Who can sign in to this dashboard. Suspending an admin blocks their
-            sign-in without removing them.
+            Suspending an admin blocks their sign-in without removing them.
           </CardDescription>
         </div>
         <div className="flex w-full justify-end">

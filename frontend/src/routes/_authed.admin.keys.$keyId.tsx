@@ -457,10 +457,6 @@ function KeyDetailPage() {
         <Card>
           <CardHeader>
             <CardTitle className="font-heading text-lg">Connection</CardTitle>
-            <CardDescription>
-              The access link handed to the key holder, and how it is
-              configured.
-            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
             <KeyLinkField

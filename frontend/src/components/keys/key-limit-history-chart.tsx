@@ -4,7 +4,6 @@ import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -37,9 +36,6 @@ export function KeyLimitHistoryChart({
     <Card>
       <CardHeader>
         <CardTitle className="font-heading text-lg">Limit history</CardTitle>
-        <CardDescription>
-          How this key's data limit changed with each renewal.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         {data.length < 2 ? (

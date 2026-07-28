@@ -1,13 +1,7 @@
 import { useMemo } from "react"
 import { Cell, Pie, PieChart } from "recharts"
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
 import { ChartLegendDot } from "@/components/dashboard/chart-legend-dot"
@@ -49,7 +43,6 @@ export function KeyUsageDonut({
     <Card>
       <CardHeader>
         <CardTitle className="font-heading text-lg">Quota</CardTitle>
-        <CardDescription>Used vs. remaining data on this key.</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-3">
         {data === null ? (

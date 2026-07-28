@@ -178,7 +178,6 @@ export function KeyStatusView({ data }: Readonly<{ data: ShareKeyView }>) {
         <Card>
           <CardHeader>
             <CardTitle className="font-heading text-lg">Connection</CardTitle>
-            <CardDescription>Your access links and where they connect.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
             <KeyLinkField
