@@ -178,11 +178,22 @@ func (a *API) createUser(c fiber.Ctx) error {
 
 	claimKeyID := trimmedPtr(req.KeyID)
 
-	// Resolve the server before creating anything, so a bad server id fails
-	// without leaving a user behind. Skipped when a specific key was named:
-	// that key already knows which server it lives on.
+	// Resolve the server before creating anything, so a bad server id (or a
+	// claimed key whose server has vanished) fails without leaving a user
+	// behind. A claimed key already knows which server it lives on; a fresh
+	// one needs it named explicitly.
 	var server *models.Server
-	if claimKeyID == "" && trimmedPtr(req.ServerID) != "" {
+	if claimKeyID != "" {
+		k, err := a.repo.GetKey(c.Context(), claimKeyID)
+		if err != nil {
+			return apiresponse.Validation(c, apiresponse.FieldError{Field: "keyId", Message: "That key does not exist"})
+		}
+		s, err := a.repo.GetServer(c.Context(), k.ServerID)
+		if err != nil {
+			return apiresponse.Validation(c, apiresponse.FieldError{Field: "keyId", Message: "That key's server no longer exists"})
+		}
+		server = s
+	} else if trimmedPtr(req.ServerID) != "" {
 		s, err := a.repo.GetServer(c.Context(), trimmedPtr(req.ServerID))
 		if err != nil {
 			return apiresponse.Validation(c, apiresponse.FieldError{Field: "serverId", Message: "That server does not exist"})
@@ -190,6 +201,10 @@ func (a *API) createUser(c fiber.Ctx) error {
 		server = s
 	}
 
+	// A claimed key is put on the same standard plan a fresh key would start
+	// on, not whatever partial allowance it happened to be left carrying —
+	// a new holder's first key reads the same regardless of where it came
+	// from, and the admin can still override these figures from the form.
 	var plan keyPlan
 	if server != nil {
 		p, ferr := resolveKeyPlan(*server, req.AddGB, req.AddDays)
@@ -214,8 +229,17 @@ func (a *API) createUser(c fiber.Ctx) error {
 			a.discardUser(user.ID)
 			return apiresponse.Validation(c, *ferr)
 		}
-		user.PrimaryKeyID = &key.ID
-		out := models.SummarizeUser(models.UserWithKeys{User: a.enrichUser(*user), Keys: []models.Key{a.enrichKey(*key)}})
+		if err := a.applyKeyPlan(c.Context(), key.ID, plan); err != nil {
+			a.discardUser(user.ID)
+			return respondProvisionErr(c, *server, err)
+		}
+		updated, err := a.repo.GetKey(c.Context(), key.ID)
+		if err != nil {
+			a.discardUser(user.ID)
+			return respondRepoErr(c, err)
+		}
+		user.PrimaryKeyID = &updated.ID
+		out := models.SummarizeUser(models.UserWithKeys{User: a.enrichUser(*user), Keys: []models.Key{a.enrichKey(*updated)}})
 		return apiresponse.Created(c, out, "User created and given an existing key")
 	}
 

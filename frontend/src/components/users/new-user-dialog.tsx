@@ -64,7 +64,9 @@ export function NewUserDialog({ children }: Readonly<{ children: React.ReactNode
     mutationFn: () => {
       // `name` on this endpoint is the *user's* name, so the new key's name
       // travels as `keyName` here — everywhere else it is plain `name`.
-      const { name: newKeyName, ...source } = keySourcePayload(keySource)
+      const { name: newKeyName, ...source } = keySourcePayload(keySource, {
+        includePlan: true,
+      })
       return apiClient.post<UserWithKeys>("users", {
         name: name.trim(),
         note: note.trim(),
@@ -82,7 +84,8 @@ export function NewUserDialog({ children }: Readonly<{ children: React.ReactNode
     onError: (error) => setErrors(fieldErrorsFrom(error)),
   })
 
-  const keyIncomplete = withKey && isKeySourceIncomplete(keySource)
+  const keyIncomplete =
+    withKey && isKeySourceIncomplete(keySource, { requirePlan: true })
 
   return (
     <Dialog
@@ -150,6 +153,7 @@ export function NewUserDialog({ children }: Readonly<{ children: React.ReactNode
                   onChange={setKeySource}
                   errors={errors}
                   keyNamePlaceholder={name.trim() || "Defaults to the user's name"}
+                  overridePlanOnClaim
                 />
               ) : (
                 <FieldDescription>

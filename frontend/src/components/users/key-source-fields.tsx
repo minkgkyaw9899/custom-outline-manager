@@ -56,12 +56,25 @@ export function initialKeySource(): KeySourceState {
   }
 }
 
-/** The request-body fragment for this choice, ready to spread into a payload. */
-export function keySourcePayload(state: KeySourceState): Record<string, unknown> {
+/**
+ * The request-body fragment for this choice, ready to spread into a payload.
+ *
+ * `includePlan` sends the data limit and expiry alongside a claimed key too,
+ * so the backend overrides whatever allowance it was left carrying instead of
+ * keeping it as-is — used for a new user, not for moving an existing one onto
+ * a different key (see overridePlanOnClaim on KeySourceFields).
+ */
+export function keySourcePayload(
+  state: KeySourceState,
+  options: { includePlan?: boolean } = {},
+): Record<string, unknown> {
   if (state.mode === "existing") {
-    // The key already has a server, a name and an allowance — naming it is the
-    // whole instruction.
-    return { keyId: state.keyId }
+    if (!options.includePlan) return { keyId: state.keyId }
+    return {
+      keyId: state.keyId,
+      add_gb: Number(state.limitGb) || 0,
+      add_days: Number(state.days) || 0,
+    }
   }
   return {
     serverId: state.serverId,
@@ -72,9 +85,15 @@ export function keySourcePayload(state: KeySourceState): Record<string, unknown>
 }
 
 /** True while the choice can't be submitted yet. */
-export function isKeySourceIncomplete(state: KeySourceState): boolean {
+export function isKeySourceIncomplete(
+  state: KeySourceState,
+  options: { requirePlan?: boolean } = {},
+): boolean {
   if (!state.serverId) return true
-  if (state.mode === "existing") return !state.keyId
+  if (state.mode === "existing") {
+    if (!state.keyId) return true
+    return options.requirePlan ? isBelowPlanFloor(state.limitGb, state.days) : false
+  }
   return isBelowPlanFloor(state.limitGb, state.days)
 }
 
@@ -94,6 +113,7 @@ export function KeySourceFields({
   idPrefix,
   keyNamePlaceholder,
   serverLabel = "Server",
+  overridePlanOnClaim = false,
 }: Readonly<{
   value: KeySourceState
   onChange: (next: KeySourceState) => void
@@ -101,6 +121,14 @@ export function KeySourceFields({
   idPrefix: string
   keyNamePlaceholder: string
   serverLabel?: string
+  /**
+   * Show and apply a data limit / valid-for plan even when the key comes
+   * from claiming a free one, overriding whatever it already carries — for a
+   * brand new holder, who should start on the same standard plan regardless
+   * of where their key came from. Off by default: moving an existing holder
+   * onto a different free key keeps that key's allowance as-is.
+   */
+  overridePlanOnClaim?: boolean
 }>) {
   const { data: unassigned } = useQuery(unassignedKeysQueryOptions())
 
@@ -158,48 +186,65 @@ export function KeySourceFields({
       />
 
       {value.serverId && value.mode === "existing" && (
-        <Field data-invalid={!!errors.keyId || undefined}>
-          <FieldLabel htmlFor={`${idPrefix}-free-key`}>Key</FieldLabel>
-          {freeKeys.length <= 1 ? (
-            <FieldDescription>
-              {freeKeys[0]
-                ? `Using the spare key already on this server: ${freeKeyLabel(freeKeys[0])}`
-                : ""}
-            </FieldDescription>
-          ) : (
-            <>
-              <Select
-                value={value.keyId}
-                onValueChange={(v) => set({ keyId: v ?? "" })}
-              >
-                <SelectTrigger
-                  id={`${idPrefix}-free-key`}
-                  aria-invalid={!!errors.keyId || undefined}
-                >
-                  <SelectValue placeholder="Choose a free key">
-                    {(selected: string) => {
-                      const key = freeKeys.find((k) => k.id === selected)
-                      return key ? key.name || key.outlineKeyId : "Choose a free key"
-                    }}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {freeKeys.map((key) => (
-                      <SelectItem key={key.id} value={key.id}>
-                        {freeKeyLabel(key)}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
+        <>
+          <Field data-invalid={!!errors.keyId || undefined}>
+            <FieldLabel htmlFor={`${idPrefix}-free-key`}>Key</FieldLabel>
+            {freeKeys.length <= 1 ? (
               <FieldDescription>
-                {errors.keyId ??
-                  "This server has more than one spare key — its limit and expiry come with it."}
+                {freeKeys[0]
+                  ? overridePlanOnClaim
+                    ? `Using the spare key already on this server: ${freeKeys[0].name || freeKeys[0].outlineKeyId}`
+                    : `Using the spare key already on this server: ${freeKeyLabel(freeKeys[0])}`
+                  : ""}
               </FieldDescription>
-            </>
+            ) : (
+              <>
+                <Select
+                  value={value.keyId}
+                  onValueChange={(v) => set({ keyId: v ?? "" })}
+                >
+                  <SelectTrigger
+                    id={`${idPrefix}-free-key`}
+                    aria-invalid={!!errors.keyId || undefined}
+                  >
+                    <SelectValue placeholder="Choose a free key">
+                      {(selected: string) => {
+                        const key = freeKeys.find((k) => k.id === selected)
+                        return key ? key.name || key.outlineKeyId : "Choose a free key"
+                      }}
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {freeKeys.map((key) => (
+                        <SelectItem key={key.id} value={key.id}>
+                          {freeKeyLabel(key)}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FieldDescription>
+                  {errors.keyId ??
+                    (overridePlanOnClaim
+                      ? "This server has more than one spare key — the plan below replaces whatever it already carries."
+                      : "This server has more than one spare key — its limit and expiry come with it.")}
+                </FieldDescription>
+              </>
+            )}
+          </Field>
+
+          {overridePlanOnClaim && (
+            <PlanFields
+              idPrefix={idPrefix}
+              limitGb={value.limitGb}
+              days={value.days}
+              onLimitGbChange={(limitGb) => set({ limitGb })}
+              onDaysChange={(days) => set({ days })}
+              errors={errors}
+            />
           )}
-        </Field>
+        </>
       )}
 
       {value.serverId && value.mode === "new" && (

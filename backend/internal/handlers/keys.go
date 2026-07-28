@@ -186,6 +186,26 @@ func (a *API) provisionKey(ctx context.Context, server models.Server, name strin
 	return created, nil
 }
 
+// applyKeyPlan sets a key's data limit and expiry outright — unlike renewKey,
+// this is not additive — and pushes the change to Outline through the same
+// reconciler the cron uses. Used when a new user claims a free key instead of
+// getting a freshly provisioned one, so it starts on the same standard plan
+// either way rather than keeping whatever partial allowance it was left with.
+func (a *API) applyKeyPlan(ctx context.Context, keyID string, plan keyPlan) error {
+	if err := a.repo.SetKeyLimitAndEndDate(ctx, keyID, plan.limitBytes, plan.endDate); err != nil {
+		return err
+	}
+	// Logged with a zero allowance: nothing was *added*, the figures were set
+	// outright, and the renewal history table reads that as an adjustment.
+	if _, err := a.repo.InsertRenewalLog(ctx, keyID, 0, 0, plan.limitBytes, plan.endDate); err != nil {
+		return err
+	}
+	if err := a.enforcer.ReconcileKeyByID(ctx, keyID); err != nil {
+		return errKeyLimitNotPushed
+	}
+	return nil
+}
+
 // respondProvisionErr maps a provisionKey failure to the standard envelope.
 // serverName is used to make the ceiling message name the server the admin was
 // actually working on.
