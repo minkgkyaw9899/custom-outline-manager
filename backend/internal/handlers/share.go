@@ -216,6 +216,7 @@ func (a *API) shareView(c fiber.Ctx) error {
 			"metrics":          nil,
 			"dailySeries":      []models.DailyUsage{},
 			"dailyGranularity": "day",
+			"serverHealth":     nil,
 		}, "")
 	}
 
@@ -228,11 +229,14 @@ func (a *API) shareView(c fiber.Ctx) error {
 		return respondRepoErr(c, err)
 	}
 
-	_, keyMetrics := a.liveMetrics(c.Context(), *server, outline.Window30d)
+	serverMetrics, keyMetrics := a.liveMetrics(c.Context(), *server, outline.Window30d)
 	var metrics *models.KeyMetrics
 	if m, ok := keyMetrics[key.OutlineKeyID]; ok {
 		metrics = &m
 	}
+	// Same live probe the admin's own server pages use, already made above for
+	// the holder's own metrics — reusing it here costs nothing extra.
+	health := models.DeriveServerHealth(server.LastSyncError, server.LastSyncedAt, serverMetrics != nil)
 
 	granularity, dailySeries, err := a.keyUsageSeries(c.Context(), *key)
 	if err != nil {
@@ -255,11 +259,15 @@ func (a *API) shareView(c fiber.Ctx) error {
 		// The user's link, not the key's: it survives the admin moving this
 		// holder to a different server, so it is the one worth copying.
 		"dynamicAccessUrl": models.DynamicAccessURL(a.cfg.PublicBaseURL, user.DynamicToken, user.Name),
-		"host":             server.Hostname(),
+		// The host actually baked into this key's static link, not the
+		// server's management API host — the two can differ (see servers.go's
+		// accessKeyHostname) and only one of them means anything to a holder.
+		"host":             accessKeyHostname([]models.Key{*key}),
 		"createdAt":        enriched.CreatedAt,
 		"updatedAt":        enriched.UpdatedAt,
 		"metrics":          metrics,
 		"dailySeries":      dailySeries,
 		"dailyGranularity": granularity,
+		"serverHealth":     health,
 	}, "")
 }

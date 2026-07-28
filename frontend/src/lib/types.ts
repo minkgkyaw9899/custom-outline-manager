@@ -302,6 +302,8 @@ export interface ShareKeyView {
   metrics: KeyMetrics | null
   dailySeries: DailyUsage[]
   dailyGranularity: UsageGranularity
+  /** The server's live reachability — null when there's no key, so no server to check. */
+  serverHealth: ServerHealth | null
 }
 
 export interface RequestOtpResponse {

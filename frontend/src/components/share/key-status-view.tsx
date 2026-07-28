@@ -2,6 +2,7 @@ import { DetailRow } from "@/components/detail-row"
 import { DynamicLinkRecommendedBadge } from "@/components/keys/dynamic-link-info-dialog"
 import { KeyLinkField } from "@/components/keys/key-link-field"
 import { KeyUsageDonut } from "@/components/keys/key-usage-donut"
+import { ServerStatusBadge } from "@/components/server-status-badge"
 import { DailyTrafficCard } from "@/components/servers/daily-traffic-card"
 import { StatCard } from "@/components/stat-card"
 import { StatusBadge } from "@/components/status-badge"
@@ -195,6 +196,11 @@ export function KeyStatusView({ data }: Readonly<{ data: ShareKeyView }>) {
               <DetailRow label="Host">
                 <span className="font-mono text-xs">{data.host || "—"}</span>
               </DetailRow>
+              {data.serverHealth && (
+                <DetailRow label="Server status">
+                  <ServerStatusBadge status={data.serverHealth} />
+                </DetailRow>
+              )}
               <DetailRow label="Created">{formatDate(data.createdAt)}</DetailRow>
               <DetailRow label="Last updated">
                 {formatDate(data.updatedAt)}
