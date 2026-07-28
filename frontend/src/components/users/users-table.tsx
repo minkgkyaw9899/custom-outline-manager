@@ -239,13 +239,6 @@ export function UsersTable({
             <span className="text-sm text-muted-foreground">No key</span>
           ),
       }),
-      columnHelper.accessor((row) => row.primaryKey?.name ?? "", {
-        id: "keyName",
-        header: "Key name",
-        cell: ({ row }) => (
-          <span className="text-sm">{row.original.primaryKey?.name || "—"}</span>
-        ),
-      }),
       columnHelper.accessor(
         (row) =>
           row.primaryKey?.customLimitBytes
