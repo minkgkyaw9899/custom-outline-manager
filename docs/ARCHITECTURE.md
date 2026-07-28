@@ -84,7 +84,24 @@ can be swapped for a React build without touching Go code.
 | cert_sha256   | text        | pinned leaf-cert fingerprint (hex)       |
 | last_synced_at| timestamptz | last successful metrics pull             |
 | last_sync_error | text      | last error, if any, surfaced in UI       |
+| deleted_at    | timestamptz null | soft-delete marker; NULL = active. See below |
 | created_at / updated_at | timestamptz |                                |
+
+`DELETE /servers/:id` archives rather than deletes the row: `keys`, `renewal_logs`
+and `usage_snapshots` all cascade from `server_id`, so a hard delete would have
+destroyed a holder's plan/expiry, renewal history, and usage charts right along
+with it. Every normal read (`ListServers`, `GetServer`, the cron's
+`ListAllServers`) filters `deleted_at IS NULL`, so an archived server is
+invisible everywhere except the one place that looks for it: `POST /servers`
+checks whether the submitted `apiUrl` matches an archived row before creating
+anything. Same URL + same `certSha256` → the existing row is revived in place
+(new name/cost/limits applied, `deleted_at` cleared, same `id` — so every key,
+renewal and usage snapshot still hanging off that `id` comes back exactly as it
+was). Same URL + a *different* cert → rejected as a validation error rather
+than silently reused. An active (non-archived) row already at that URL → 409.
+`api_url`'s uniqueness is therefore a partial index (`WHERE deleted_at IS
+NULL`), not a plain column constraint — a truly decommissioned server's old
+URL stays free for an unrelated new install.
 
 ### `keys`
 | column               | type        | notes                                              |
@@ -278,11 +295,14 @@ POST   /api/v1/admins                       add a non-root admin {email}
 DELETE /api/v1/admins/:email                remove an admin (403 for the root admin)
 PATCH  /api/v1/admins/:email/status         {status} (403 for the root admin)
 
-POST   /api/v1/servers                      add a server {name, apiUrl, certSha256}
+POST   /api/v1/servers                      add a server {name, apiUrl, certSha256}; revives an
+                                             archived match (§3) if apiUrl+certSha256 hit one
 GET    /api/v1/servers                      list servers + aggregate usage
 GET    /api/v1/servers/:id                  server detail
 GET    /api/v1/servers/:id/usage?from=&to=  bandwidth usage over a date range
-DELETE /api/v1/servers/:id                  remove a server (and its keys)
+DELETE /api/v1/servers/:id                  archive a server (soft delete, see §3) — its keys,
+                                             renewal history and usage snapshots are kept, not
+                                             deleted, in case the same server is added again
 POST   /api/v1/servers/:id/sync             trigger immediate reconcile
 
 POST   /api/v1/servers/:id/keys             create a key on that server

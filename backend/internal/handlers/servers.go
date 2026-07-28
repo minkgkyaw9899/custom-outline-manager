@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"outline-manager/internal/apiresponse"
 	"outline-manager/internal/models"
 	"outline-manager/internal/outline"
+	"outline-manager/internal/repository"
 )
 
 // usageRangeDefaultDays is the window GET /servers/:id/usage reports when the
@@ -117,21 +119,51 @@ func (a *API) createServer(c fiber.Ctx) error {
 		})
 	}
 
+	// A server already at this exact management-key URL is either a genuine
+	// duplicate (reject it) or one the admin previously removed — archived,
+	// not gone, precisely so this moment can restore it instead of starting
+	// over. See repository.DeleteServer/ReviveServer.
+	existing, err := a.repo.GetServerByAPIURL(c.Context(), req.APIURL)
+	if err != nil && !errors.Is(err, repository.ErrNotFound) {
+		return apiresponse.Internal(c, "")
+	}
+	if err == nil {
+		if !existing.Deleted {
+			return apiresponse.Conflict(c, "This server has already been added")
+		}
+		if existing.CertSHA256 != req.CertSHA256 {
+			return apiresponse.Validation(c, apiresponse.FieldError{
+				Field:   "apiUrl",
+				Message: "This URL matches a previously removed server, but the certificate fingerprint doesn't match — double-check the management key",
+			})
+		}
+		server, err := a.repo.ReviveServer(c.Context(), existing.ID, req.Name, req.APIURL, req.CertSHA256, req.CostUSDPerMonth, req.MaxKeys, defaultLimitBytes)
+		if err != nil {
+			return apiresponse.Internal(c, "")
+		}
+		a.syncServerInBackground(*server)
+		return apiresponse.Created(c, server, "Server restored — its keys, limits and history are back")
+	}
+
 	server, err := a.repo.CreateServer(c.Context(), req.Name, req.APIURL, req.CertSHA256, req.CostUSDPerMonth, req.MaxKeys, defaultLimitBytes)
 	if err != nil {
 		return apiresponse.Internal(c, "")
 	}
+	a.syncServerInBackground(*server)
 
-	// Adopt the server's existing keys in the background: a server with many
-	// keys would otherwise make this request hang on a full sync. Deliberately
-	// detached from the request context so it isn't cancelled when we respond.
-	go func(s models.Server) {
+	return apiresponse.Created(c, server, "Server added")
+}
+
+// syncServerInBackground adopts a server's existing keys asynchronously: a
+// server with many keys would otherwise make the add/revive request hang on
+// a full sync. Deliberately detached from the request context so it isn't
+// cancelled when the response is sent.
+func (a *API) syncServerInBackground(s models.Server) {
+	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 		defer cancel()
 		a.enforcer.SyncServer(ctx, s)
-	}(*server)
-
-	return apiresponse.Created(c, server, "Server added")
+	}()
 }
 
 // metricsWindow reads the ?window= query parameter. Outline only supports
