@@ -7,6 +7,7 @@ package enforcement
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"strconv"
@@ -21,6 +22,11 @@ type Enforcer struct {
 	repo  *repository.Repository
 	cache *outline.Cache
 }
+
+// ErrPushFailed marks a renewal (or other change) that was saved locally but
+// could not be pushed to the Outline server — the caller should report a
+// gateway-style failure rather than treating the whole operation as failed.
+var ErrPushFailed = errors.New("push to outline server failed")
 
 func New(repo *repository.Repository, cache *outline.Cache) *Enforcer {
 	return &Enforcer{repo: repo, cache: cache}
@@ -192,6 +198,38 @@ func (e *Enforcer) ReconcileServerKeys(ctx context.Context, server models.Server
 		}
 	}
 	return lastErr
+}
+
+// RenewKey applies a smart quota renewal (see models.RenewalTarget) to one
+// key, logs it, and pushes the result to Outline immediately. Shared by the
+// HTTP renew endpoint and the Telegram extend-button webhook so both go
+// through the exact same sequence: compute target, persist, log, reconcile.
+func (e *Enforcer) RenewKey(ctx context.Context, keyID string, addGB float64, addDays int) (*models.Key, *models.RenewalLog, error) {
+	key, err := e.repo.GetKey(ctx, keyID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	newLimitBytes, newEndDate := models.RenewalTarget(time.Now(), *key, addGB, addDays)
+
+	if err := e.repo.SetKeyLimitAndEndDate(ctx, keyID, newLimitBytes, newEndDate); err != nil {
+		return nil, nil, fmt.Errorf("set key limit and end date: %w", err)
+	}
+
+	renewal, err := e.repo.InsertRenewalLog(ctx, keyID, addGB, addDays, newLimitBytes, newEndDate)
+	if err != nil {
+		return nil, nil, fmt.Errorf("insert renewal log: %w", err)
+	}
+
+	if err := e.ReconcileKeyByID(ctx, keyID); err != nil {
+		return nil, nil, fmt.Errorf("reconcile after renewal: %w: %w", ErrPushFailed, err)
+	}
+
+	updated, err := e.repo.GetKey(ctx, keyID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return updated, renewal, nil
 }
 
 // reconcileKey pushes one key's desired Outline state. bandwidthDisabled

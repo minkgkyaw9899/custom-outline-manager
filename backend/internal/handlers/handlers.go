@@ -18,6 +18,7 @@ import (
 	"outline-manager/internal/enforcement"
 	"outline-manager/internal/outline"
 	"outline-manager/internal/repository"
+	"outline-manager/internal/telegram"
 )
 
 type API struct {
@@ -26,10 +27,13 @@ type API struct {
 	enforcer *enforcement.Enforcer
 	cfg      *config.Config
 	timeout  time.Duration
+	// tg is nil whenever Telegram alerting isn't configured; telegramWebhook
+	// checks cfg.TelegramBotToken before ever touching it.
+	tg *telegram.Client
 }
 
-func New(repo *repository.Repository, cache *outline.Cache, enforcer *enforcement.Enforcer, cfg *config.Config) *API {
-	return &API{repo: repo, cache: cache, enforcer: enforcer, cfg: cfg, timeout: cfg.RequestTimeout}
+func New(repo *repository.Repository, cache *outline.Cache, enforcer *enforcement.Enforcer, cfg *config.Config, tg *telegram.Client) *API {
+	return &API{repo: repo, cache: cache, enforcer: enforcer, cfg: cfg, timeout: cfg.RequestTimeout, tg: tg}
 }
 
 // RegisterRoutes mounts the JSON API under /api/v1. Auth endpoints are public;
@@ -42,6 +46,11 @@ func (a *API) RegisterRoutes(r fiber.Router) {
 		// Public dynamic access key resolution (see internal/handlers/dynamic_key.go):
 		// fetched directly by Outline client apps, never by this dashboard's UI.
 		v1.Get("/dkey/:token", a.dynamicKey)
+
+		// Public Telegram webhook: authenticated by the secret-token header
+		// and the trusted admin user id, not the session cookie (Telegram's
+		// servers have neither). See telegramWebhook.
+		v1.Post("/telegram/webhook", a.telegramWebhook)
 
 		auth := v1.Group("/auth")
 		{

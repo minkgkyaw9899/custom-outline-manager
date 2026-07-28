@@ -9,6 +9,7 @@ import (
 
 	"github.com/robfig/cron/v3"
 
+	"outline-manager/internal/alerts"
 	"outline-manager/internal/enforcement"
 	"outline-manager/internal/repository"
 )
@@ -22,6 +23,9 @@ type Job struct {
 	repo      *repository.Repository
 	enforcer  *enforcement.Enforcer
 	scheduler *cron.Cron
+	// alertChecker is nil whenever Telegram alerting isn't configured; RunOnce
+	// skips the sweep entirely in that case.
+	alertChecker *alerts.Checker
 
 	// ctx is the lifetime of the process; cancelling it makes in-flight syncs
 	// return instead of running past shutdown.
@@ -30,14 +34,15 @@ type Job struct {
 	wg     sync.WaitGroup
 }
 
-func New(repo *repository.Repository, enforcer *enforcement.Enforcer) *Job {
+func New(repo *repository.Repository, enforcer *enforcement.Enforcer, alertChecker *alerts.Checker) *Job {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Job{
-		repo:      repo,
-		enforcer:  enforcer,
-		scheduler: cron.New(),
-		ctx:       ctx,
-		cancel:    cancel,
+		repo:         repo,
+		enforcer:     enforcer,
+		alertChecker: alertChecker,
+		scheduler:    cron.New(),
+		ctx:          ctx,
+		cancel:       cancel,
 	}
 }
 
@@ -100,6 +105,12 @@ func (j *Job) RunOnce(ctx context.Context) {
 	// Also after every server has synced, so this tick's bandwidth check uses
 	// fresh usage snapshots rather than the previous tick's.
 	j.enforcer.CheckBandwidthLimits(ctx)
+
+	// Low-usage/near-expiry Telegram alerts, last, using this tick's freshest
+	// usage figures.
+	if j.alertChecker != nil {
+		j.alertChecker.Run(ctx)
+	}
 
 	log.Printf("cron: sync complete")
 }

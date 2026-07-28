@@ -16,6 +16,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/logger"
 	"github.com/gofiber/fiber/v3/middleware/recover"
 
+	"outline-manager/internal/alerts"
 	"outline-manager/internal/apiresponse"
 	"outline-manager/internal/config"
 	"outline-manager/internal/cron"
@@ -24,7 +25,12 @@ import (
 	"outline-manager/internal/handlers"
 	"outline-manager/internal/outline"
 	"outline-manager/internal/repository"
+	"outline-manager/internal/telegram"
 )
+
+// telegramHTTPTimeout bounds every call to the Bot API so a stalled request
+// can't hang a cron tick or a webhook handler indefinitely.
+const telegramHTTPTimeout = 10 * time.Second
 
 // shutdownGrace is how long in-flight requests get to finish after SIGTERM.
 const shutdownGrace = 10 * time.Second
@@ -52,13 +58,19 @@ func main() {
 	clientCache := outline.NewCache(cfg.OutlineHTTPTimeout)
 	enforcer := enforcement.New(repo, clientCache)
 
-	cronJob := cron.New(repo, enforcer)
+	var tg *telegram.Client
+	if cfg.TelegramBotToken != "" {
+		tg = telegram.New(cfg.TelegramBotToken, telegramHTTPTimeout)
+		registerTelegramWebhook(ctx, cfg, tg)
+	}
+
+	cronJob := cron.New(repo, enforcer, alerts.New(repo, tg, cfg.TelegramChatID))
 	if err := cronJob.Start(cfg.CronInterval); err != nil {
 		log.Fatalf("start cron: %v", err)
 	}
 	defer cronJob.Stop()
 
-	app := newApp(cfg, repo, clientCache, enforcer)
+	app := newApp(cfg, repo, clientCache, enforcer, tg)
 
 	go func() {
 		log.Printf("listening on :%s (static dir: %s)", cfg.Port, cfg.StaticDir)
@@ -75,9 +87,24 @@ func main() {
 	}
 }
 
+// registerTelegramWebhook points Telegram at this server's webhook endpoint.
+// Safe to call on every boot: Telegram no-ops if the URL is already set to
+// the same value. Skipped (with a log line, not a fatal error) if
+// TELEGRAM_WEBHOOK_URL or the webhook secret isn't configured — the bot can
+// still send alerts either way, it just won't receive button-press callbacks.
+func registerTelegramWebhook(ctx context.Context, cfg *config.Config, tg *telegram.Client) {
+	if cfg.TelegramWebhookURL == "" || cfg.TelegramWebhookSecret == "" {
+		log.Println("telegram: TELEGRAM_WEBHOOK_URL or TELEGRAM_WEBHOOK_SECRET not set; skipping webhook registration (alerts will still send, but extend buttons won't work)")
+		return
+	}
+	if err := tg.SetWebhook(ctx, cfg.TelegramWebhookURL, cfg.TelegramWebhookSecret); err != nil {
+		log.Printf("telegram: set webhook: %v", err)
+	}
+}
+
 // newApp assembles the middleware stack, the JSON API, and the static
 // frontend fallback.
-func newApp(cfg *config.Config, repo *repository.Repository, cache *outline.Cache, enforcer *enforcement.Enforcer) *fiber.App {
+func newApp(cfg *config.Config, repo *repository.Repository, cache *outline.Cache, enforcer *enforcement.Enforcer, tg *telegram.Client) *fiber.App {
 	app := fiber.New(fiber.Config{
 		StructValidator: handlers.StructValidator{},
 		ErrorHandler:    apiErrorHandler,
@@ -94,7 +121,7 @@ func newApp(cfg *config.Config, repo *repository.Repository, cache *outline.Cach
 	}))
 	app.Use(handlers.Timeout(cfg.RequestTimeout))
 
-	api := handlers.New(repo, cache, enforcer, cfg)
+	api := handlers.New(repo, cache, enforcer, cfg, tg)
 	api.RegisterRoutes(app)
 
 	// Anything not matched by the API is handed to the frontend, with an

@@ -45,6 +45,13 @@ services:
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-minkgkyaw1999@gmail.com}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Invisigate VPN}
       SMTP_TIMEOUT: ${SMTP_TIMEOUT:-10s}
+      # Telegram low-usage/near-expiry alerting. Entirely optional — leave
+      # unset and the feature stays inert.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      TELEGRAM_ADMIN_USER_ID: ${TELEGRAM_ADMIN_USER_ID:-}
+      TELEGRAM_WEBHOOK_SECRET: ${TELEGRAM_WEBHOOK_SECRET:-}
+      TELEGRAM_WEBHOOK_URL: ${TELEGRAM_WEBHOOK_URL:-}
     volumes:
       # The UI is static: mount it read-only rather than baking it into the
       # image. Point FRONTEND_DIR at ./frontend/dist once the React build lands.

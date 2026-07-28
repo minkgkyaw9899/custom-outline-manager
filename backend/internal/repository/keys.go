@@ -172,6 +172,40 @@ func (r *Repository) ListUnassignedKeys(ctx context.Context) ([]models.Key, erro
 	return collectKeys(rows, keyJoins{serverName: true})
 }
 
+// ListKeysNeedingLowUsageAlert returns active keys that are either close to
+// their data limit or close to expiry, and haven't already been alerted
+// within the last debounceHours — the two independent Telegram-alert trigger
+// conditions, feeding the cron's low-usage/near-expiry check.
+func (r *Repository) ListKeysNeedingLowUsageAlert(ctx context.Context, remainingBytesThreshold int64, daysLeftThreshold, debounceHours int) ([]models.Key, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT `+keyColumns+`, s.name, COALESCE(u.name, '')
+		FROM keys k
+		JOIN servers s ON s.id = k.server_id
+		LEFT JOIN users u ON u.id = k.user_id
+		WHERE k.status = 'active'
+		  AND (
+		    (k.custom_limit_bytes IS NOT NULL AND (k.custom_limit_bytes - k.used_bytes) < $1)
+		    OR
+		    (k.end_date IS NOT NULL AND k.end_date < now() + make_interval(days => $2))
+		  )
+		  AND (k.low_usage_alert_sent_at IS NULL OR k.low_usage_alert_sent_at < now() - make_interval(hours => $3))
+		ORDER BY k.created_at ASC
+	`, remainingBytesThreshold, daysLeftThreshold, debounceHours)
+	if err != nil {
+		return nil, fmt.Errorf("list keys needing low usage alert: %w", err)
+	}
+	defer rows.Close()
+	return collectKeys(rows, keyJoins{serverName: true, userName: true})
+}
+
+// SetKeyLowUsageAlertSentAt records when a Telegram alert was sent for this
+// key, so ListKeysNeedingLowUsageAlert's debounce window can skip it on
+// subsequent cron ticks until the window passes.
+func (r *Repository) SetKeyLowUsageAlertSentAt(ctx context.Context, id string, t time.Time) error {
+	_, err := r.pool.Exec(ctx, `UPDATE keys SET low_usage_alert_sent_at = $2 WHERE id = $1`, id, t)
+	return err
+}
+
 // SetKeyUser links a key to a user, or unlinks it when userID is nil.
 //
 // Unlinking also drops the key's nomination as anyone's primary, so a user's

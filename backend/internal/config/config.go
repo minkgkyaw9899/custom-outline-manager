@@ -71,6 +71,30 @@ type Config struct {
 	// then data) so a stalled connection fails fast instead of hanging the
 	// request goroutine, and a slow handshake can't starve the data phase.
 	SMTPTimeout time.Duration
+
+	// Telegram low-usage/near-expiry alerting. Entirely optional: the cron
+	// check and the webhook route both no-op when TelegramBotToken is empty,
+	// so this feature stays completely inert until explicitly configured.
+	TelegramBotToken string
+	// TelegramChatID is where alerts are posted — a user id (DM) or a
+	// negative channel/group id, exactly as Telegram's API expects.
+	TelegramChatID string
+	// TelegramAdminUserID is whose button presses the webhook trusts to
+	// actually extend a key — anyone else's callback is acknowledged but
+	// ignored, so having the bot in a channel with others doesn't hand out
+	// an extend action to whoever taps first.
+	TelegramAdminUserID int64
+	// TelegramWebhookSecret is checked against Telegram's
+	// X-Telegram-Bot-Api-Secret-Token header on every webhook call, so a
+	// request to the (public, unauthenticated) webhook path can't forge a
+	// button press without also knowing this value.
+	TelegramWebhookSecret string
+	// TelegramWebhookURL is the full public https URL Telegram should deliver
+	// updates to (this server's own /api/v1/telegram/webhook). Deliberately a
+	// separate setting from PublicBaseURL: that one deliberately points at a
+	// restricted host that only proxies /api/v1/dkey/ (see deploy/nginx), so
+	// reusing it here would register a webhook against a path that 404s.
+	TelegramWebhookURL string
 }
 
 func Load() (*Config, error) {
@@ -105,6 +129,12 @@ func Load() (*Config, error) {
 		SMTPFromEmail: getEnv("SMTP_FROM_EMAIL", "minkgkyaw1999@gmail.com"),
 		SMTPFromName:  getEnv("SMTP_FROM_NAME", "Invisigate VPN"),
 		SMTPTimeout:   getDurationEnv("SMTP_TIMEOUT", 15*time.Second),
+
+		TelegramBotToken:      getEnv("TELEGRAM_BOT_TOKEN", ""),
+		TelegramChatID:        getEnv("TELEGRAM_CHAT_ID", ""),
+		TelegramAdminUserID:   getInt64Env("TELEGRAM_ADMIN_USER_ID", 0),
+		TelegramWebhookSecret: getEnv("TELEGRAM_WEBHOOK_SECRET", ""),
+		TelegramWebhookURL:    getEnv("TELEGRAM_WEBHOOK_URL", ""),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -142,6 +172,15 @@ func getEnv(key, fallback string) string {
 func getIntEnv(key string, fallback int) int {
 	if v, ok := os.LookupEnv(key); ok && v != "" {
 		if n, err := strconv.Atoi(v); err == nil {
+			return n
+		}
+	}
+	return fallback
+}
+
+func getInt64Env(key string, fallback int64) int64 {
+	if v, ok := os.LookupEnv(key); ok && v != "" {
+		if n, err := strconv.ParseInt(v, 10, 64); err == nil {
 			return n
 		}
 	}

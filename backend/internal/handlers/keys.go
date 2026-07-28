@@ -12,6 +12,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 
 	"outline-manager/internal/apiresponse"
+	"outline-manager/internal/enforcement"
 	"outline-manager/internal/models"
 )
 
@@ -521,29 +522,10 @@ func (a *API) renewKey(c fiber.Ctx) error {
 		return apiresponse.Validation(c, *err)
 	}
 
-	key, err := a.repo.GetKey(c.Context(), id)
-	if err != nil {
-		return respondRepoErr(c, err)
-	}
-
-	newLimitBytes, newEndDate := models.RenewalTarget(time.Now(), *key, req.AddGB, req.AddDays)
-
-	if err := a.repo.SetKeyLimitAndEndDate(c.Context(), id, newLimitBytes, newEndDate); err != nil {
-		return apiresponse.Internal(c, "")
-	}
-
-	renewal, err := a.repo.InsertRenewalLog(c.Context(), id, req.AddGB, req.AddDays, newLimitBytes, newEndDate)
-	if err != nil {
-		return apiresponse.Internal(c, "")
-	}
-
-	// Push the change to Outline immediately rather than waiting for the next
-	// cron tick, so a renewed key is usable right away.
-	if err := a.enforcer.ReconcileKeyByID(c.Context(), id); err != nil {
+	updated, renewal, err := a.enforcer.RenewKey(c.Context(), id, req.AddGB, req.AddDays)
+	if errors.Is(err, enforcement.ErrPushFailed) {
 		return apiresponse.BadGateway(c, "Renewal was saved but could not be pushed to the Outline server yet")
 	}
-
-	updated, err := a.repo.GetKey(c.Context(), id)
 	if err != nil {
 		return respondRepoErr(c, err)
 	}
