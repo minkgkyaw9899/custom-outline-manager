@@ -6,6 +6,7 @@ import {
   LinkIcon,
   PencilIcon,
   RefreshCwIcon,
+  RotateCcwIcon,
   Trash2Icon,
 } from "lucide-react"
 
@@ -212,6 +213,7 @@ function UserDetailPage() {
   const [changeKeyOpen, setChangeKeyOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [confirmResetUsageOpen, setConfirmResetUsageOpen] = useState(false)
 
   const navigate = useNavigate()
   const queryClient = useQueryClient()
@@ -236,6 +238,17 @@ function UserDetailPage() {
   const { data: renewals } = useQuery({
     ...keyRenewalsQueryOptions(key?.id ?? ""),
     enabled: !!key,
+  })
+
+  const resetUsage = useMutation({
+    mutationFn: () => apiClient.post<UserWithKeys>(`users/${userId}/reset-usage`),
+    onSuccess: () => {
+      setConfirmResetUsageOpen(false)
+      queryClient.invalidateQueries({ queryKey: ["users"] })
+      queryClient.invalidateQueries({ queryKey: ["keys"] })
+      queryClient.invalidateQueries({ queryKey: ["servers"] })
+      queryClient.invalidateQueries({ queryKey: ["stats"] })
+    },
   })
 
   const removeUser = useMutation({
@@ -397,9 +410,19 @@ function UserDetailPage() {
               </CardDescription>
             </div>
             {key && (
-              <Button variant="outline" size="sm" onClick={() => setEditKeyOpen(true)}>
-                Extend or set
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmResetUsageOpen(true)}
+                >
+                  <RotateCcwIcon data-icon="inline-start" />
+                  Reset usage
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setEditKeyOpen(true)}>
+                  Extend or set
+                </Button>
+              </div>
             )}
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
@@ -544,6 +567,21 @@ function UserDetailPage() {
         confirmLabel="Delete user"
         onConfirm={() => removeUser.mutate()}
         isPending={removeUser.isPending}
+      />
+
+      <ConfirmDialog
+        open={confirmResetUsageOpen}
+        onOpenChange={setConfirmResetUsageOpen}
+        title="Reset usage?"
+        description={
+          "Outline only resets a key's usage counter by recreating it, so this replaces the key with a fresh " +
+          "one on the same server, same plan and price. The dynamic link keeps working exactly as before — " +
+          "only the static key changes, so re-copy it if the holder connects with that one directly."
+        }
+        confirmLabel="Reset usage"
+        confirmVariant="default"
+        onConfirm={() => resetUsage.mutate()}
+        isPending={resetUsage.isPending}
       />
     </div>
   )

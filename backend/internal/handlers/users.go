@@ -497,6 +497,59 @@ func (a *API) replaceUserKey(c fiber.Ctx) error {
 	return a.getUser(c)
 }
 
+// resetUserKeyUsage gives the holder's current key a clean usage counter by
+// recreating it on the same server with the same name, plan and price.
+// Outline exposes no way to reset a key's transfer counter directly — it only
+// resets when the key itself is recreated — so this is the honest mechanism
+// rather than faking a lower number locally that the next sync would
+// overwrite anyway. The dynamic link is unaffected: it resolves through the
+// user, not the key. Only the static ss:// link changes.
+//
+// The old key is deleted before the new one is provisioned, not after: left
+// in place it would still count against the server's key ceiling and could
+// make the replacement fail on a server already at its limit, when a reset
+// shouldn't need any spare capacity at all.
+func (a *API) resetUserKeyUsage(c fiber.Ctx) error {
+	id := c.Params("id")
+	user, err := a.repo.GetUser(c.Context(), id)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+	if user.PrimaryKeyID == nil {
+		return apiresponse.Validation(c, apiresponse.FieldError{Field: "id", Message: "This user has no key to reset"})
+	}
+	old, err := a.repo.GetKey(c.Context(), *user.PrimaryKeyID)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+	server, err := a.repo.GetServer(c.Context(), old.ServerID)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+
+	if err := a.deleteRemoteKey(c.Context(), *server, old.OutlineKeyID); err != nil {
+		return apiresponse.BadGateway(c, "Could not reach the Outline server to reset this key")
+	}
+	if err := a.repo.DeleteKey(c.Context(), old.ID); err != nil {
+		return respondRepoErr(c, err)
+	}
+
+	plan := keyPlan{limitBytes: old.CustomLimitBytes, endDate: old.EndDate}
+	created, err := a.provisionKey(c.Context(), *server, old.Name, plan, &user.ID)
+	if err != nil {
+		return apiresponse.BadGateway(c, "The old key was removed but a replacement could not be created — use \"Change key\" to give this holder a new one")
+	}
+	if old.PriceMmk != nil {
+		if err := a.repo.SetKeyPrice(c.Context(), created.ID, old.PriceMmk); err != nil {
+			log.Printf("reset usage for user %s: carry price: %v", id, err)
+		}
+	}
+	if err := a.repo.SetUserPrimaryKey(c.Context(), id, &created.ID); err != nil {
+		return respondRepoErr(c, err)
+	}
+	return a.getUser(c)
+}
+
 type linkUserKeyRequest struct {
 	KeyID string `json:"keyId" validate:"required"`
 }

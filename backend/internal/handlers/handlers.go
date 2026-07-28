@@ -80,6 +80,7 @@ func (a *API) RegisterRoutes(r fiber.Router) {
 			protected.Post("/users/:id/keys", a.createUserKey)
 			protected.Post("/users/:id/keys/link", a.linkUserKey)
 			protected.Post("/users/:id/keys/replace", a.replaceUserKey)
+			protected.Post("/users/:id/reset-usage", a.resetUserKeyUsage)
 			protected.Patch("/users/:id/primary-key", a.setUserPrimaryKey)
 			protected.Delete("/users/:id/keys/:keyId", a.unlinkUserKey)
 			protected.Post("/users/:id/share", a.createUserShare)
