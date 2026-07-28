@@ -69,6 +69,8 @@ identity should stay stable across it — it almost always should.
 | 0009 | `servers.deleted_at` — soft-delete/revive (see §4 below) |
 | 0010 | `servers.default_price_mmk`, `keys.price_mmk` — MMK sale pricing |
 | 0011 | `revenue_snapshots` — daily revenue/cost history for trend charts |
+| 0012 | `servers.bandwidth_limit_bytes`, `bandwidth_disabled_at`, `bandwidth_reenabled_at` — per-server monthly bandwidth kill switch (§4) |
+| 0013 | `keys.low_usage_alert_sent_at` — debounce timestamp for Telegram low-usage/near-expiry alerts (§4) |
 
 Full column-level detail for `servers`/`keys`/`renewal_logs` is in
 ARCHITECTURE.md §3 and is still accurate. Not covered there: `users`,
@@ -129,6 +131,62 @@ taking the **latest** snapshot within each period, never summed (revenue is a
 level, not a delta — see `repository.DailyRevenueAllServers`). History starts
 empty from whenever 0011 was deployed and has no backfill.
 
+**Bandwidth kill switch (added this session, migration 0012).** A server can
+optionally carry `bandwidth_limit_bytes` (set at create/edit, e.g. 2TB). Every
+cron tick, `enforcement.CheckBandwidthLimits` sums that server's *current
+calendar month* usage (`ServerUsageInRange`, month-start to now) and, once it
+comes within `models.BandwidthDisableMarginBytes` (2GB) of the cap, trips
+`bandwidth_disabled_at` and force-pushes a 0-byte Outline limit to every key on
+that server — **without touching each key's own stored `enabled`/`status`**,
+so their real plan state is preserved underneath the override
+(`enforcement.reconcileKey`'s `bandwidthDisabled` parameter). The admin clears
+it manually (`POST /servers/:id/bandwidth/enable`), which sets
+`bandwidth_reenabled_at` and immediately restores each key's real state —
+`bandwidth_reenabled_at` also suppresses re-tripping within the *same calendar
+month* even if usage is still technically over the cap, so a manual override
+isn't immediately undone by the next tick. AWS-side bandwidth verification
+(binding this to the actual instance's real network counters, rather than
+Outline's own reported transfer) is explicitly deferred by the admin's own
+choice — this exists to cap *Outline-visible* transfer as a cost-control
+proxy, not as an infrastructure-verified guarantee.
+
+**Telegram alerting (added this session, migration 0013).** Fully optional
+and inert unless `TELEGRAM_BOT_TOKEN` is set — see `internal/config/config.go`
+for the four `TELEGRAM_*` vars and their purposes. Two independent trigger
+conditions, checked every cron tick by `internal/alerts.Checker.Run` (in
+`cron.RunOnce`, after bandwidth checks): a key's remaining quota under 3GB, or
+under 2 days to expiry (constants in `internal/alerts/alerts.go`), debounced
+12h via `low_usage_alert_sent_at` so a key stuck under threshold isn't
+re-alerted every tick. Each alert is one Telegram message with an inline
+"Extend +200GB / +30 days" button whose `callback_data` encodes the key id
+(`alerts.CallbackDataFor`/`KeyIDFromCallbackData`). A tap hits
+`POST /api/v1/telegram/webhook` (public route, not behind `RequireAuth` —
+Telegram has no session cookie), gated by two independent checks: the
+`X-Telegram-Bot-Api-Secret-Token` header must match `TELEGRAM_WEBHOOK_SECRET`,
+and the tapper's Telegram user id must match `TELEGRAM_ADMIN_USER_ID` — anyone
+else's tap is acknowledged but silently ignored. A valid tap calls
+`enforcement.Enforcer.RenewKey` (the **same** function the dashboard's own
+"renew" endpoint calls — extracted this session so both paths share identical
+renewal logic), then edits the original message to show the outcome
+(used/total GB, new expiry date, or a clear failure state). Two gotchas worth
+knowing if this needs touching again:
+- `TELEGRAM_WEBHOOK_URL` is deliberately a **separate** setting from
+  `PUBLIC_BASE_URL` — the latter points at a nginx host
+  (`dynamic-access-*`) that only proxies `/api/v1/dkey/*` for privacy
+  reasons (see ARCHITECTURE.md §8), so reusing it for the webhook would
+  register Telegram against a URL that 404s.
+- A Telegram **channel** id must be negative with a `-100` prefix (e.g.
+  `-1001234567890`) — the raw id shown by some bots omits both the sign and
+  makes the prefix easy to miss; confirmed the hard way this session by
+  testing `sendMessage` directly against the Bot API before wiring it into
+  the app.
+- The four `TELEGRAM_*` values live as **separate GitHub repo secrets**, not
+  folded into the `DEPLOY_ENV_FILE` blob secret — the deploy workflow's
+  "Write .env" step appends them as their own lines (see
+  `.github/workflows/deploy.yml`). Update them individually via `gh secret
+  set TELEGRAM_BOT_TOKEN` etc. (or the GitHub UI), not by editing
+  `DEPLOY_ENV_FILE`.
+
 **Two completely separate auth systems** — don't conflate them:
 - **Admin**: email + OTP → JWT in `auth_token` cookie (`SameSite=Lax`,
   `HttpOnly`), 7-day TTL by default. Root admin is identified by
@@ -146,78 +204,110 @@ empty from whenever 0011 was deployed and has no backfill.
 
 Admin (`/admin/*`, behind the `_authed` layout guard):
 `overview` (fleet health, revenue trend, bandwidth, keys needing attention),
-`users` (holders table + separate admin-operators table on one page),
-`users/:id` (holder detail — plan, connection links, reset usage, change
-key), `servers` (fleet cards, health filter), `servers/:id` (key table, AS
+`users` (holders table + separate admin-operators table on one page —
+holders table has a "Key type" badge column, free/paid/unpriced, price
+omitted from the table itself), `users/:id` (holder detail — plan, key type +
+price if paid, connection links, reset usage, change key), `servers` (fleet
+cards, health filter, bandwidth-cap alert + progress bar — **no traffic chart
+on the card itself as of this session**, removed as redundant with the detail
+page's chart), `servers/:id` (key table with a **Holder column** — added this
+session, badge shows the linked user or "Unassigned" at a glance — plus AS
 breakdown, daily traffic), `keys/:id` (single key detail), `revenue`
-(per-server revenue/cost/profit table + trend chart).
+(per-server revenue/cost/profit table + trend chart, with a free-key count
+alongside the existing unpriced-key count and a "N paying" sub-line under the
+active-keys figure).
 
 Public (no `_authed` guard): `admin.login` / `admin.verify-otp` (admin sign-
 in), `users.setup.$slug` / `users.login.$slug` / `users.keys-status.$slug`
 (holder passcode flow, §4).
 
+**Theme**: `lib/theme.tsx` always supported `light`/`dark`/`system` (with
+live OS-preference tracking), but until this session `ModeToggle` only ever
+cycled light/dark, silently discarding "system" the moment it was clicked.
+It's now a proper 3-option dropdown (`components/mode-toggle.tsx`).
+
 ## 6. Suggestions for next time
 
-Ranked roughly by value, not urgency — none of these are on fire.
+**Explicitly chosen as the next task (admin's own words, end of this
+session): a per-server revenue detail page.** Drill into one server from the
+Revenue table to see its own monthly cost/revenue/profit breakdown and history
+in more depth than the shared table row currently shows. Deliberately
+deferred to a *future* session rather than built now. The
+`revenueDailySeries`/`revenue_snapshots` data it needs already exists — see
+§4's revenue paragraph and migration 0011 — so this is mostly a new route +
+query, not new backend plumbing.
 
-1. **`MMK_PER_USD` (4500) is a hardcoded frontend constant**
-   (`add-server-dialog.tsx`), used everywhere cost gets converted to MMK for
-   profit math (Overview, Revenue page, revenue snapshots' display). If the
-   real exchange rate moves, every profit figure silently drifts wrong until
-   someone edits code and redeploys. Worth making this an admin-editable
-   setting stored server-side (a single-row config table, or a field on an
-   existing settings concept) instead.
+Everything else below, ranked by value, not urgency — none of these are on
+fire, and none were requested for the next session specifically:
 
-2. **`revenue_snapshots` and `usage_snapshots` grow forever, unbounded.**
-   Both insert a new row every cron tick (default every 30 min) per
-   server/key, with no pruning. The daily/monthly/yearly *read* queries only
-   need the latest reading per period, so most rows are write-only dead
-   weight within days of being written. Worth a retention job (e.g., a
-   migration + cron step that collapses anything older than N days down to
-   one row/day, or deletes intra-day duplicates past a cutoff) before this
-   becomes a real storage/query-performance problem — it won't be visible
-   until the tables are much bigger than they are today.
+1. **Server-down/degraded alerting via Telegram.** The alerting pipeline
+   (`internal/alerts`, `internal/telegram`, the webhook) already exists for
+   low-usage/near-expiry; extending it to "a server's sync has been failing"
+   (there's already a `last_sync_error` column and `ServerHealth` derivation
+   to key off) is a small addition on infrastructure that's already built and
+   tested. Suggested but not chosen this session — worth revisiting.
 
-3. **Verify `JWT_SECRET` is explicitly set in production.** If unset, the
-   backend auto-generates a random one on boot (with a log warning) — every
-   process restart then invalidates *every* session, admin and holder share
-   tokens alike, with no user-facing explanation beyond "please sign in
-   again." Worth a one-time check that the deployed `.env` sets it explicitly
-   (it should already, since `cmd/gentoken` was used against production this
-   session and requires a *stable* known secret — but worth confirming
-   explicitly rather than assuming).
+2. **Verify `JWT_SECRET` is explicitly set in production**, and consider
+   making `ROOT_ADMIN_EMAIL`/`SMTP_USERNAME`/`SMTP_FROM_EMAIL` required env
+   vars with no hardcoded default (currently default to real personal email
+   addresses baked into `config.go` and migration 0002 — flagged to the admin
+   twice now, still awaiting an explicit "yes, `.env` sets these" before
+   making the change, since removing the default would hard-fail boot for
+   any deploy that doesn't set them).
 
-4. **`cmd/gentoken` mints a root-admin JWT directly from `JWT_SECRET`, no
-   OTP required.** Extremely useful for scripted verification (used
-   throughout this session), but it's effectively an admin-auth bypass tool.
-   Confirmed `backend/Dockerfile` only builds `./cmd/server` — `gentoken`
-   never ships in the production image — so this is a non-issue as long as
-   nobody adds a second build target later without noticing what it exposes.
-
-5. **No general rate limiting anywhere** (confirmed via grep — no limiter
+3. **No general rate limiting anywhere** (confirmed via grep — no limiter
    middleware exists). The only anti-abuse protections are OTP attempt
    counting and share-passcode lockout, both narrowly scoped to those two
-   endpoints. Low risk today given a single-admin, small-holder-count
-   deployment, but worth adding basic per-IP rate limiting on the public
-   surface (`/users/*`, `/api/v1/dkey/*`, `/api/v1/share/*`) before the
-   holder count grows enough to make brute-forcing worth someone's time.
+   endpoints. Worth adding basic per-IP rate limiting on the public surface
+   (`/users/*`, `/api/v1/dkey/*`, `/api/v1/share/*`, and now
+   `/api/v1/telegram/webhook`, though that one already has its own
+   secret-token + admin-id gate) before the holder count grows enough to make
+   brute-forcing worth someone's time.
 
-6. **A per-server revenue detail page** — requested but not yet built:
-   drilling into one server from the Revenue table to see its own monthly
-   cost/revenue/profit breakdown and history in more depth than the shared
-   table row currently shows. Natural next feature; the `revenueDailySeries`
-   data needed already exists on `ServerWithUsage`.
+4. **`MMK_PER_USD` (4500) is a hardcoded frontend constant**
+   (`add-server-dialog.tsx`), used everywhere cost gets converted to MMK for
+   profit math. Worth making this an admin-editable setting stored
+   server-side instead of silently drifting wrong when the real exchange
+   rate moves.
 
-7. **The UI minimalism pass is one pass, not finished.** Pass 1 (this
-   session) removed redundant `CardDescription`/`DialogDescription` text that
-   only restated its own title. Deliberately *not* touched yet: form-field
-   `FieldDescription` text (mostly functional — validation hints, plan-floor
-   explanations — so needs a more careful read than a blanket removal),
-   spacing/density across the busier pages (Overview now has 5 stat cards +
-   3 charts), and the Servers/Keys tables' column density.
+5. **`revenue_snapshots` and `usage_snapshots` grow forever, unbounded.**
+   Both insert a new row every cron tick per server/key, no pruning. Worth a
+   retention job before this becomes a real storage/query-performance
+   problem — not visible yet given how young the tables are.
 
-8. **A `recreated_from_key_id` audit trail for "reset usage."** Not urgent,
-   but if a holder disputes a usage figure later, there's currently no link
-   from the fresh key back to the one it replaced — the old key's history is
-   just gone from the UI (soft-deleted in the DB, technically recoverable by
-   an admin querying Postgres directly, but not exposed anywhere).
+6. **`cmd/gentoken` mints a root-admin JWT directly from `JWT_SECRET`, no
+   OTP required.** Confirmed again this session (used to seed a local demo
+   instance for documentation screenshots) that `backend/Dockerfile` only
+   builds `./cmd/server` — `gentoken` never ships in the production image.
+
+7. **The UI minimalism pass is one pass, not finished.** Pass 1 removed
+   redundant `CardDescription`/`DialogDescription` text. Not touched yet:
+   `FieldDescription` text, spacing/density on busier pages, table column
+   density.
+
+8. **A `recreated_from_key_id` audit trail for "reset usage."** Still no
+   link from a fresh key back to the one it replaced after a usage reset.
+
+9. **README.md is stale and documentation/screenshots work is incomplete.**
+   The admin asked for a public-facing setup guide + screenshots for GitHub
+   this session. Progress: a release-tagging GitHub Action now exists
+   (`.github/workflows/deploy.yml`'s `tag-release` job — auto-bumps
+   `vMAJOR.MINOR.PATCH` and creates a GitHub Release after every successful
+   deploy; first tag `v0.1.0` already cut). **Not done**: `README.md`'s
+   "Frontend" section still describes the old dependency-free HTML/CSS/JS
+   dashboard that predates the TanStack Start/React rewrite — needs a real
+   rewrite (feature list, current architecture, link to `deploy/README.md`
+   for production setup). Screenshots specifically need **fake/demo data**,
+   never real customer data from the live instance (real user names, revenue
+   figures, hostnames would leak into a public repo) — the intended approach,
+   started but not finished this session: spin up a scratch Postgres, seed
+   obviously-fake rows directly via SQL (see this session's transcript for a
+   working seed script), serve the frontend via `bun run preview` with
+   `VITE_API_URL` pointed at a local backend instance, and authenticate the
+   browser via a real `/auth/verify-otp` round trip or the actual login UI —
+   **`document.cookie` cannot be set via the browser automation tool's
+   `javascript_tool`, it's explicitly blocked**, so the cookie-injection
+   shortcut used elsewhere this session for API-only curl testing doesn't
+   work for getting a real browser session logged in. Cleaned up (killed
+   local processes, removed the scratch DB) before ending the session — no
+   leftover local state.
