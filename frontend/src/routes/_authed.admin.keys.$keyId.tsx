@@ -518,6 +518,7 @@ function KeyDetailPage() {
         <DailyTrafficCard
           series={usageSeries?.series ?? []}
           granularity={usageSeries?.granularity}
+          lifetimeBytes={keyItem.usedBytes}
         />
         <KeyUsageDonut keyItem={keyItem} />
       </div>

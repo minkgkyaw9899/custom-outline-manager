@@ -237,7 +237,10 @@ function ServerDetailPage() {
         </>
       )}
 
-      <DailyTrafficCard series={dailySeries} />
+      <DailyTrafficCard
+        series={dailySeries}
+        lifetimeBytes={keys.reduce((sum, k) => sum + k.usedBytes, 0)}
+      />
 
       <KeysTable
         serverId={serverId}

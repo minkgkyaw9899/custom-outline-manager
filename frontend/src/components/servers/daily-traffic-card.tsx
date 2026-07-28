@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { UsageChart } from "@/components/servers/usage-chart"
+import { formatBytesCompact } from "@/lib/format"
 import type { DailyUsage, UsageGranularity } from "@/lib/types"
 
 /**
@@ -7,12 +8,24 @@ import type { DailyUsage, UsageGranularity } from "@/lib/types"
  * pages. Servers are always day-bucketed; a key under a day old switches to
  * hour buckets (see UsageGranularity), in which case the card relabels itself
  * accordingly rather than showing an empty "Daily traffic" chart.
+ *
+ * `lifetimeBytes`, when given, is shown as a separate note rather than folded
+ * into the chart: the chart is derived from our own snapshot history, so it
+ * has no real per-day breakdown for usage from before monitoring began — the
+ * lifetime figure comes straight from Outline's own persistent counter
+ * instead, and would misrepresent a real day's traffic if plotted as one.
  */
 export function DailyTrafficCard({
   series,
   granularity = "day",
   days = 14,
-}: Readonly<{ series: DailyUsage[]; granularity?: UsageGranularity; days?: number }>) {
+  lifetimeBytes,
+}: Readonly<{
+  series: DailyUsage[]
+  granularity?: UsageGranularity
+  days?: number
+  lifetimeBytes?: number
+}>) {
   const isHourly = granularity === "hour"
   return (
     <Card>
@@ -25,6 +38,11 @@ export function DailyTrafficCard({
             ? "Measured from sync history, last 24 hours"
             : `Measured from sync history, last ${days} days`}
         </CardDescription>
+        {lifetimeBytes !== undefined && (
+          <p className="text-xs text-muted-foreground">
+            Lifetime usage: {formatBytesCompact(lifetimeBytes)}
+          </p>
+        )}
       </CardHeader>
       <CardContent>
         <UsageChart series={series} granularity={granularity} className="h-56 w-full" />
