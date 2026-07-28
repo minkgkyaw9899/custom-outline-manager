@@ -1,6 +1,12 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ArrowLeftIcon, PencilIcon, RefreshCwIcon, Trash2Icon } from "lucide-react"
+import {
+  ArrowLeftIcon,
+  PencilIcon,
+  RefreshCwIcon,
+  Trash2Icon,
+  TriangleAlertIcon,
+} from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { KeysTable } from "@/components/keys/keys-table"
@@ -13,6 +19,7 @@ import { SyncPill } from "@/components/sync-pill"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
@@ -104,6 +111,15 @@ function ServerDetailPage() {
     },
   })
 
+  const reenableBandwidth = useMutation({
+    mutationFn: () => apiClient.post(`servers/${serverId}/bandwidth/enable`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["servers"] })
+      queryClient.invalidateQueries({ queryKey: ["keys"] })
+      queryClient.invalidateQueries({ queryKey: ["users"] })
+    },
+  })
+
   if (isLoading || !data) {
     return (
       <div className="flex flex-col gap-6">
@@ -177,6 +193,55 @@ function ServerDetailPage() {
           <AlertTitle>Last sync failed</AlertTitle>
           <AlertDescription>{server.lastSyncError}</AlertDescription>
         </Alert>
+      )}
+
+      {server.bandwidthDisabledAt && (
+        <Alert variant="destructive">
+          <TriangleAlertIcon />
+          <AlertTitle>Bandwidth limit reached — every key disabled</AlertTitle>
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <span>
+              All keys on this server were automatically switched off to stop
+              further transfer. Re-enable once the server has headroom again.
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => reenableBandwidth.mutate()}
+              disabled={reenableBandwidth.isPending}
+            >
+              {reenableBandwidth.isPending && <Spinner data-icon="inline-start" />}
+              Re-enable
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {data.server.bandwidthLimitBytes !== null && (
+        <div className="flex flex-col gap-2 rounded-lg border p-4">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Bandwidth this month</span>
+            <span className="font-mono tabular-nums">
+              {formatBytesCompact(data.bandwidthUsedBytesThisMonth, { decimals: 1 })} /{" "}
+              {formatBytesCompact(data.server.bandwidthLimitBytes, { decimals: 1 })}
+            </span>
+          </div>
+          <Progress
+            value={Math.min(
+              100,
+              (data.bandwidthUsedBytesThisMonth / data.server.bandwidthLimitBytes) * 100,
+            )}
+            aria-label="Bandwidth used this month"
+            className={
+              data.bandwidthUsedBytesThisMonth / data.server.bandwidthLimitBytes >= 0.9
+                ? "[&_[data-slot=progress-indicator]]:bg-destructive"
+                : data.bandwidthUsedBytesThisMonth / data.server.bandwidthLimitBytes >= 0.75
+                  ? "[&_[data-slot=progress-indicator]]:bg-warning"
+                  : undefined
+            }
+          />
+        </div>
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-4">

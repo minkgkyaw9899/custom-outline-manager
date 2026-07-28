@@ -1,15 +1,18 @@
 import { useState } from "react"
 import { Link } from "@tanstack/react-router"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { ArrowRightIcon, Trash2Icon } from "lucide-react"
+import { ArrowRightIcon, TriangleAlertIcon, Trash2Icon } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { ServerStatusBadge } from "@/components/server-status-badge"
 import { AsShareList } from "@/components/servers/as-share-list"
 import { UsageChart } from "@/components/servers/usage-chart"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
+import { Progress } from "@/components/ui/progress"
+import { Spinner } from "@/components/ui/spinner"
 import { apiClient } from "@/lib/api"
 import { formatBandwidth, formatBytesCompact, formatHours } from "@/lib/format"
 import type { ServerWithUsage } from "@/lib/types"
@@ -36,6 +39,20 @@ export function ServerCard({ server }: Readonly<{ server: ServerWithUsage }>) {
       queryClient.invalidateQueries({ queryKey: ["stats"] })
     },
   })
+
+  const reenableBandwidth = useMutation({
+    mutationFn: () => apiClient.post(`servers/${server.id}/bandwidth/enable`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["servers"] })
+      queryClient.invalidateQueries({ queryKey: ["keys"] })
+      queryClient.invalidateQueries({ queryKey: ["users"] })
+    },
+  })
+
+  const bandwidthRatio =
+    server.bandwidthLimitBytes && server.bandwidthLimitBytes > 0
+      ? server.bandwidthUsedBytesThisMonth / server.bandwidthLimitBytes
+      : 0
 
   return (
     <Card>
@@ -89,6 +106,52 @@ export function ServerCard({ server }: Readonly<{ server: ServerWithUsage }>) {
       </CardHeader>
 
       <CardContent className="flex flex-col gap-5">
+        {server.bandwidthDisabledAt && (
+          <Alert variant="destructive">
+            <TriangleAlertIcon />
+            <AlertTitle>Bandwidth limit reached — every key disabled</AlertTitle>
+            <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+              <span>
+                All keys on this server were automatically switched off to stop
+                further transfer. Re-enable once the server has headroom again.
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => reenableBandwidth.mutate()}
+                disabled={reenableBandwidth.isPending}
+              >
+                {reenableBandwidth.isPending && <Spinner data-icon="inline-start" />}
+                Re-enable
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {server.bandwidthLimitBytes !== null && (
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Bandwidth this month</span>
+              <span className="font-mono tabular-nums">
+                {formatBytesCompact(server.bandwidthUsedBytesThisMonth, { decimals: 1 })} /{" "}
+                {formatBytesCompact(server.bandwidthLimitBytes, { decimals: 1 })}
+              </span>
+            </div>
+            <Progress
+              value={Math.min(100, bandwidthRatio * 100)}
+              aria-label="Bandwidth used this month"
+              className={
+                bandwidthRatio >= 0.9
+                  ? "[&_[data-slot=progress-indicator]]:bg-destructive"
+                  : bandwidthRatio >= 0.75
+                    ? "[&_[data-slot=progress-indicator]]:bg-warning"
+                    : undefined
+              }
+            />
+          </div>
+        )}
+
         {/*
           Outline reports no inbound/outbound split, only a single transfer
           total, so bandwidth appears as a live rate plus the window total.

@@ -97,5 +97,9 @@ func (j *Job) RunOnce(ctx context.Context) {
 		log.Printf("cron: snapshot revenue: %v", err)
 	}
 
+	// Also after every server has synced, so this tick's bandwidth check uses
+	// fresh usage snapshots rather than the previous tick's.
+	j.enforcer.CheckBandwidthLimits(ctx)
+
 	log.Printf("cron: sync complete")
 }

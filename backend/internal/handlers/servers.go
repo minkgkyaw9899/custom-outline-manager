@@ -49,6 +49,9 @@ type createServerRequest struct {
 	// DefaultPriceMmk is what a new key on this server is sold for, in MMK;
 	// nil means new keys start unpriced.
 	DefaultPriceMmk *int64 `json:"defaultPriceMmk"`
+	// BandwidthLimitGB is a monthly transfer cap (inbound + outbound); nil
+	// means bandwidth isn't tracked against a cap for this server.
+	BandwidthLimitGB *float64 `json:"bandwidthLimitGb"`
 }
 
 // managementKey is the JSON the Outline installer prints at the end of setup:
@@ -111,10 +114,20 @@ func (a *API) createServer(c fiber.Ctx) error {
 			Field: "defaultPriceMmk", Message: "Price cannot be negative",
 		})
 	}
+	if req.BandwidthLimitGB != nil && *req.BandwidthLimitGB <= 0 {
+		return apiresponse.Validation(c, apiresponse.FieldError{
+			Field: "bandwidthLimitGb", Message: "Bandwidth limit must be greater than zero",
+		})
+	}
 	var defaultLimitBytes *int64
 	if req.DefaultLimitGB != nil {
 		v := int64(*req.DefaultLimitGB * models.BytesPerGB)
 		defaultLimitBytes = &v
+	}
+	var bandwidthLimitBytes *int64
+	if req.BandwidthLimitGB != nil {
+		v := int64(*req.BandwidthLimitGB * models.BytesPerGB)
+		bandwidthLimitBytes = &v
 	}
 
 	// Validate reachability + cert pin before persisting a broken server.
@@ -150,7 +163,7 @@ func (a *API) createServer(c fiber.Ctx) error {
 				Message: "This URL matches a previously removed server, but the certificate fingerprint doesn't match — double-check the management key",
 			})
 		}
-		server, err := a.repo.ReviveServer(c.Context(), existing.ID, req.Name, req.APIURL, req.CertSHA256, req.CostUSDPerMonth, req.MaxKeys, defaultLimitBytes, req.DefaultPriceMmk)
+		server, err := a.repo.ReviveServer(c.Context(), existing.ID, req.Name, req.APIURL, req.CertSHA256, req.CostUSDPerMonth, req.MaxKeys, defaultLimitBytes, req.DefaultPriceMmk, bandwidthLimitBytes)
 		if err != nil {
 			return apiresponse.Internal(c, "")
 		}
@@ -158,7 +171,7 @@ func (a *API) createServer(c fiber.Ctx) error {
 		return apiresponse.Created(c, server, "Server restored — its keys, limits and history are back")
 	}
 
-	server, err := a.repo.CreateServer(c.Context(), req.Name, req.APIURL, req.CertSHA256, req.CostUSDPerMonth, req.MaxKeys, defaultLimitBytes, req.DefaultPriceMmk)
+	server, err := a.repo.CreateServer(c.Context(), req.Name, req.APIURL, req.CertSHA256, req.CostUSDPerMonth, req.MaxKeys, defaultLimitBytes, req.DefaultPriceMmk, bandwidthLimitBytes)
 	if err != nil {
 		return apiresponse.Internal(c, "")
 	}
@@ -250,6 +263,13 @@ func (a *API) listServers(c fiber.Ctx) error {
 			if s.RevenueDailySeries = revenueSeries[s.ID]; s.RevenueDailySeries == nil {
 				s.RevenueDailySeries = []models.RevenuePoint{}
 			}
+			if s.BandwidthLimitBytes != nil {
+				if used, err := a.repo.ServerUsageInRange(ctx, s.ID, models.StartOfMonth(time.Now()), time.Now()); err == nil {
+					s.BandwidthUsedBytesThisMonth = used
+				} else {
+					log.Printf("list servers: bandwidth this month for %s: %v", s.Name, err)
+				}
+			}
 		}(&servers[i])
 	}
 	wg.Wait()
@@ -293,6 +313,15 @@ func (a *API) getServer(c fiber.Ctx) error {
 		dailySeries = []models.DailyUsage{}
 	}
 
+	var bandwidthUsedThisMonth int64
+	if server.BandwidthLimitBytes != nil {
+		if used, uerr := a.repo.ServerUsageInRange(c.Context(), id, models.StartOfMonth(time.Now()), time.Now()); uerr == nil {
+			bandwidthUsedThisMonth = used
+		} else {
+			log.Printf("get server %s: bandwidth this month: %v", id, uerr)
+		}
+	}
+
 	return apiresponse.Success(c, fiber.Map{
 		"server":   server,
 		"hostname": server.Hostname(),
@@ -301,12 +330,13 @@ func (a *API) getServer(c fiber.Ctx) error {
 		// keys"), which is not necessarily the same as the API URL's own
 		// host above — the edit-server dialog prefills its domain field
 		// with this, not with hostname.
-		"accessKeyHostname": accessKeyHostname(keys),
-		"health":            models.DeriveServerHealth(server.LastSyncError, server.LastSyncedAt, metrics != nil),
-		"metrics":           metrics,
-		"keys":              a.enrichKeys(keys),
-		"keyMetrics":        keyMetrics,
-		"dailySeries":       dailySeries,
+		"accessKeyHostname":           accessKeyHostname(keys),
+		"health":                      models.DeriveServerHealth(server.LastSyncError, server.LastSyncedAt, metrics != nil),
+		"metrics":                     metrics,
+		"keys":                        a.enrichKeys(keys),
+		"keyMetrics":                  keyMetrics,
+		"dailySeries":                 dailySeries,
+		"bandwidthUsedBytesThisMonth": bandwidthUsedThisMonth,
 	}, "")
 }
 
@@ -335,6 +365,11 @@ type updateServerConfigRequest struct {
 	// Same nil-to-skip / ClearDefaultPriceMmk-to-remove pairing as MaxKeys.
 	DefaultPriceMmk      *int64 `json:"defaultPriceMmk"`
 	ClearDefaultPriceMmk bool   `json:"clearDefaultPriceMmk"`
+
+	// BandwidthLimitGB is the monthly transfer cap. Same nil-to-skip /
+	// ClearBandwidthLimit-to-remove pairing as MaxKeys.
+	BandwidthLimitGB    *float64 `json:"bandwidthLimitGb"`
+	ClearBandwidthLimit bool     `json:"clearBandwidthLimit"`
 }
 
 // stripURLScheme mirrors config.normalizeBaseURL: operators naturally paste a
@@ -370,7 +405,8 @@ func (a *API) updateServerConfig(c fiber.Ctx) error {
 	}
 	if req.HostnameForAccessKeys == nil && req.Name == nil && req.CostUSDPerMonth == nil &&
 		req.MaxKeys == nil && !req.ClearMaxKeys &&
-		req.DefaultPriceMmk == nil && !req.ClearDefaultPriceMmk {
+		req.DefaultPriceMmk == nil && !req.ClearDefaultPriceMmk &&
+		req.BandwidthLimitGB == nil && !req.ClearBandwidthLimit {
 		return apiresponse.Validation(c, apiresponse.FieldError{
 			Field: "name", Message: "Nothing to update",
 		})
@@ -410,9 +446,18 @@ func (a *API) updateServerConfig(c fiber.Ctx) error {
 	if req.DefaultPriceMmk != nil && *req.DefaultPriceMmk < 0 {
 		return apiresponse.Validation(c, apiresponse.FieldError{Field: "defaultPriceMmk", Message: "Price cannot be negative"})
 	}
+	if req.BandwidthLimitGB != nil && *req.BandwidthLimitGB <= 0 {
+		return apiresponse.Validation(c, apiresponse.FieldError{Field: "bandwidthLimitGb", Message: "Bandwidth limit must be greater than zero"})
+	}
 
-	if req.Name != nil || req.CostUSDPerMonth != nil || req.MaxKeys != nil || req.DefaultPriceMmk != nil {
-		if _, uerr := a.repo.UpdateServerDetails(c.Context(), id, req.Name, req.CostUSDPerMonth, req.MaxKeys, req.DefaultPriceMmk); uerr != nil {
+	var bandwidthLimitBytes *int64
+	if req.BandwidthLimitGB != nil {
+		v := int64(*req.BandwidthLimitGB * models.BytesPerGB)
+		bandwidthLimitBytes = &v
+	}
+
+	if req.Name != nil || req.CostUSDPerMonth != nil || req.MaxKeys != nil || req.DefaultPriceMmk != nil || bandwidthLimitBytes != nil {
+		if _, uerr := a.repo.UpdateServerDetails(c.Context(), id, req.Name, req.CostUSDPerMonth, req.MaxKeys, req.DefaultPriceMmk, bandwidthLimitBytes); uerr != nil {
 			return respondRepoErr(c, uerr)
 		}
 	}
@@ -423,6 +468,11 @@ func (a *API) updateServerConfig(c fiber.Ctx) error {
 	}
 	if req.ClearDefaultPriceMmk {
 		if cerr := a.repo.ClearServerDefaultPrice(c.Context(), id); cerr != nil {
+			return respondRepoErr(c, cerr)
+		}
+	}
+	if req.ClearBandwidthLimit {
+		if cerr := a.repo.ClearServerBandwidthLimit(c.Context(), id); cerr != nil {
 			return respondRepoErr(c, cerr)
 		}
 	}
@@ -453,6 +503,32 @@ func (a *API) updateServerConfig(c fiber.Ctx) error {
 		return respondRepoErr(c, err)
 	}
 	return apiresponse.Success(c, updated, "Server settings updated")
+}
+
+// reenableServerBandwidth is the manual admin action after a bandwidth kill
+// switch trip: clears it and pushes every key's own real computed limit back
+// to Outline (undoing the forced 0-byte override), without touching any
+// key's own plan/status bookkeeping — that was never changed by the trip in
+// the first place.
+func (a *API) reenableServerBandwidth(c fiber.Ctx) error {
+	id := c.Params("id")
+	if _, err := a.repo.GetServer(c.Context(), id); err != nil {
+		return respondRepoErr(c, err)
+	}
+	if err := a.repo.ClearServerBandwidthDisabled(c.Context(), id); err != nil {
+		return respondRepoErr(c, err)
+	}
+	// Re-fetched, not reused from above: reconcile must see
+	// BandwidthDisabledAt already cleared, or it would just re-push the same
+	// forced-0 override it's supposed to be undoing.
+	updated, err := a.repo.GetServer(c.Context(), id)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+	if err := a.enforcer.ReconcileServerKeys(c.Context(), *updated); err != nil {
+		return apiresponse.BadGateway(c, "Re-enabled, but some keys could not be restored on the Outline server yet — try Sync now")
+	}
+	return apiresponse.Success(c, updated, "Server bandwidth re-enabled")
 }
 
 // setServerDefaultLimitRequest is the "overall data limit" control above the

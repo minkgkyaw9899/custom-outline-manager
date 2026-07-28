@@ -10,7 +10,7 @@ import (
 	"outline-manager/internal/models"
 )
 
-const serverColumns = `id, name, api_url, cert_sha256, cost_usd_per_month, last_synced_at, last_sync_error, created_at, updated_at, max_keys, default_limit_bytes, default_price_mmk`
+const serverColumns = `id, name, api_url, cert_sha256, cost_usd_per_month, last_synced_at, last_sync_error, created_at, updated_at, max_keys, default_limit_bytes, default_price_mmk, bandwidth_limit_bytes, bandwidth_disabled_at, bandwidth_reenabled_at`
 
 // ServerLookup is the minimal existing-server info GetServerByAPIURL returns,
 // so createServer can decide whether an api_url it was just handed belongs to
@@ -22,11 +22,11 @@ type ServerLookup struct {
 	Deleted    bool
 }
 
-func (r *Repository) CreateServer(ctx context.Context, name, apiURL, certSHA256 string, costUSDPerMonth *float64, maxKeys *int, defaultLimitBytes *int64, defaultPriceMmk *int64) (*models.Server, error) {
+func (r *Repository) CreateServer(ctx context.Context, name, apiURL, certSHA256 string, costUSDPerMonth *float64, maxKeys *int, defaultLimitBytes *int64, defaultPriceMmk *int64, bandwidthLimitBytes *int64) (*models.Server, error) {
 	row := r.pool.QueryRow(ctx, `
-		INSERT INTO servers (name, api_url, cert_sha256, cost_usd_per_month, max_keys, default_limit_bytes, default_price_mmk)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-		RETURNING `+serverColumns, name, apiURL, certSHA256, costUSDPerMonth, maxKeys, defaultLimitBytes, defaultPriceMmk)
+		INSERT INTO servers (name, api_url, cert_sha256, cost_usd_per_month, max_keys, default_limit_bytes, default_price_mmk, bandwidth_limit_bytes)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+		RETURNING `+serverColumns, name, apiURL, certSHA256, costUSDPerMonth, maxKeys, defaultLimitBytes, defaultPriceMmk, bandwidthLimitBytes)
 	return scanServer(row)
 }
 
@@ -58,7 +58,7 @@ func (r *Repository) GetServerByAPIURL(ctx context.Context, apiURL string) (*Ser
 // key, renewal log and usage snapshot still hanging off that server_id comes
 // back with it. last_sync_error is cleared so a stale failure from before
 // the server was removed doesn't linger on the revived one.
-func (r *Repository) ReviveServer(ctx context.Context, id, name, apiURL, certSHA256 string, costUSDPerMonth *float64, maxKeys *int, defaultLimitBytes *int64, defaultPriceMmk *int64) (*models.Server, error) {
+func (r *Repository) ReviveServer(ctx context.Context, id, name, apiURL, certSHA256 string, costUSDPerMonth *float64, maxKeys *int, defaultLimitBytes *int64, defaultPriceMmk *int64, bandwidthLimitBytes *int64) (*models.Server, error) {
 	row := r.pool.QueryRow(ctx, `
 		UPDATE servers SET
 			deleted_at = NULL,
@@ -69,14 +69,15 @@ func (r *Repository) ReviveServer(ctx context.Context, id, name, apiURL, certSHA
 			max_keys = $6,
 			default_limit_bytes = $7,
 			default_price_mmk = $8,
+			bandwidth_limit_bytes = $9,
 			last_sync_error = NULL,
 			updated_at = now()
 		WHERE id = $1
-		RETURNING `+serverColumns, id, name, apiURL, certSHA256, costUSDPerMonth, maxKeys, defaultLimitBytes, defaultPriceMmk)
+		RETURNING `+serverColumns, id, name, apiURL, certSHA256, costUSDPerMonth, maxKeys, defaultLimitBytes, defaultPriceMmk, bandwidthLimitBytes)
 	return scanServer(row)
 }
 
-func (r *Repository) UpdateServerDetails(ctx context.Context, id string, name *string, costUSDPerMonth *float64, maxKeys *int, defaultPriceMmk *int64) (*models.Server, error) {
+func (r *Repository) UpdateServerDetails(ctx context.Context, id string, name *string, costUSDPerMonth *float64, maxKeys *int, defaultPriceMmk *int64, bandwidthLimitBytes *int64) (*models.Server, error) {
 	if !isUUID(id) {
 		return nil, ErrNotFound
 	}
@@ -86,10 +87,45 @@ func (r *Repository) UpdateServerDetails(ctx context.Context, id string, name *s
 			cost_usd_per_month = COALESCE($3, cost_usd_per_month),
 			max_keys = COALESCE($4, max_keys),
 			default_price_mmk = COALESCE($5, default_price_mmk),
+			bandwidth_limit_bytes = COALESCE($6, bandwidth_limit_bytes),
 			updated_at = now()
 		WHERE id = $1
-		RETURNING `+serverColumns, id, name, costUSDPerMonth, maxKeys, defaultPriceMmk)
+		RETURNING `+serverColumns, id, name, costUSDPerMonth, maxKeys, defaultPriceMmk, bandwidthLimitBytes)
 	return scanServer(row)
+}
+
+// ClearServerBandwidthLimit removes the monthly bandwidth cap, the one edit
+// UpdateServerDetails cannot express (COALESCE treats nil as "leave alone").
+func (r *Repository) ClearServerBandwidthLimit(ctx context.Context, id string) error {
+	if !isUUID(id) {
+		return ErrNotFound
+	}
+	_, err := r.pool.Exec(ctx, `UPDATE servers SET bandwidth_limit_bytes = NULL, updated_at = now() WHERE id = $1`, id)
+	return err
+}
+
+// SetServerBandwidthDisabled trips the bandwidth kill switch — every key on
+// the server is forced to a 0-byte Outline limit on the next reconcile.
+func (r *Repository) SetServerBandwidthDisabled(ctx context.Context, id string) error {
+	if !isUUID(id) {
+		return ErrNotFound
+	}
+	_, err := r.pool.Exec(ctx, `UPDATE servers SET bandwidth_disabled_at = now(), updated_at = now() WHERE id = $1`, id)
+	return err
+}
+
+// ClearServerBandwidthDisabled is the manual admin re-enable: clears the kill
+// switch and records when, so the cron doesn't immediately re-trip the same
+// server in the same calendar month it was just overridden in.
+func (r *Repository) ClearServerBandwidthDisabled(ctx context.Context, id string) error {
+	if !isUUID(id) {
+		return ErrNotFound
+	}
+	_, err := r.pool.Exec(ctx, `
+		UPDATE servers SET bandwidth_disabled_at = NULL, bandwidth_reenabled_at = now(), updated_at = now()
+		WHERE id = $1
+	`, id)
+	return err
 }
 
 // ClearServerMaxKeys removes the key ceiling, the one edit UpdateServerDetails
@@ -147,6 +183,7 @@ func (r *Repository) ListServers(ctx context.Context) ([]models.ServerWithUsage,
 	rows, err := r.pool.Query(ctx, `
 		SELECT s.id, s.name, s.api_url, s.cert_sha256, s.cost_usd_per_month, s.last_synced_at, s.last_sync_error, s.created_at, s.updated_at,
 		       s.max_keys, s.default_limit_bytes, s.default_price_mmk,
+		       s.bandwidth_limit_bytes, s.bandwidth_disabled_at, s.bandwidth_reenabled_at,
 		       COUNT(k.id) AS key_count,
 		       COUNT(k.id) FILTER (WHERE k.status = 'active') AS active_keys,
 		       COALESCE(SUM(k.used_bytes), 0) AS total_used_bytes,
@@ -168,6 +205,7 @@ func (r *Repository) ListServers(ctx context.Context) ([]models.ServerWithUsage,
 		var s models.ServerWithUsage
 		if err := rows.Scan(&s.ID, &s.Name, &s.APIURL, &s.CertSHA256, &s.CostUSDPerMonth, &s.LastSyncedAt, &s.LastSyncError, &s.CreatedAt, &s.UpdatedAt,
 			&s.MaxKeys, &s.DefaultLimitBytes, &s.DefaultPriceMmk,
+			&s.BandwidthLimitBytes, &s.BandwidthDisabledAt, &s.BandwidthReenabledAt,
 			&s.KeyCount, &s.ActiveKeys, &s.TotalUsedBytes,
 			&s.MonthlyRevenueMmk, &s.UnpricedActiveKeys); err != nil {
 			return nil, fmt.Errorf("scan server: %w", err)
@@ -199,7 +237,8 @@ func (r *Repository) ListAllServers(ctx context.Context) ([]models.Server, error
 	for rows.Next() {
 		var s models.Server
 		if err := rows.Scan(&s.ID, &s.Name, &s.APIURL, &s.CertSHA256, &s.CostUSDPerMonth, &s.LastSyncedAt, &s.LastSyncError, &s.CreatedAt, &s.UpdatedAt,
-			&s.MaxKeys, &s.DefaultLimitBytes, &s.DefaultPriceMmk); err != nil {
+			&s.MaxKeys, &s.DefaultLimitBytes, &s.DefaultPriceMmk,
+			&s.BandwidthLimitBytes, &s.BandwidthDisabledAt, &s.BandwidthReenabledAt); err != nil {
 			return nil, fmt.Errorf("scan server: %w", err)
 		}
 		out = append(out, s)
@@ -246,7 +285,8 @@ func (r *Repository) MarkServerSynced(ctx context.Context, id string, syncErr er
 func scanServer(row pgx.Row) (*models.Server, error) {
 	var s models.Server
 	if err := row.Scan(&s.ID, &s.Name, &s.APIURL, &s.CertSHA256, &s.CostUSDPerMonth, &s.LastSyncedAt, &s.LastSyncError, &s.CreatedAt, &s.UpdatedAt,
-		&s.MaxKeys, &s.DefaultLimitBytes, &s.DefaultPriceMmk); err != nil {
+		&s.MaxKeys, &s.DefaultLimitBytes, &s.DefaultPriceMmk,
+		&s.BandwidthLimitBytes, &s.BandwidthDisabledAt, &s.BandwidthReenabledAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}

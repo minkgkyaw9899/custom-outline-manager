@@ -117,6 +117,18 @@ export interface Server {
    * key (Key.priceMmk). Null means no default — new keys start unpriced.
    */
   defaultPriceMmk: number | null
+  /**
+   * A monthly transfer cap (inbound + outbound), independent of any key's
+   * own data limit — this is about the hosting bill, not what any one
+   * holder is allowed to use. Null means untracked.
+   */
+  bandwidthLimitBytes: number | null
+  /**
+   * Set when the cron trips the bandwidth kill switch: every key on this
+   * server is forced to a 0-byte Outline limit until an admin manually
+   * re-enables it. Null means not tripped.
+   */
+  bandwidthDisabledAt: string | null
 }
 
 export type ServerHealth = "healthy" | "degraded" | "offline"
@@ -222,6 +234,8 @@ export interface ServerWithUsage extends Server {
   dailySeries: DailyUsage[]
   /** Empty or thin until the cron has recorded enough revenue snapshots. */
   revenueDailySeries: RevenuePoint[]
+  /** Transfer since the start of the current calendar month; 0 when bandwidthLimitBytes is null. */
+  bandwidthUsedBytesThisMonth: number
 }
 
 export interface KeyMetrics {
@@ -252,6 +266,8 @@ export interface ServerDetail {
   keyMetrics: Record<string, KeyMetrics> | null
   /** Empty until the cron has recorded at least two days of snapshots. */
   dailySeries: DailyUsage[]
+  /** Transfer since the start of the current calendar month; 0 when the server has no bandwidthLimitBytes set. */
+  bandwidthUsedBytesThisMonth: number
 }
 
 export interface RenewalLog {

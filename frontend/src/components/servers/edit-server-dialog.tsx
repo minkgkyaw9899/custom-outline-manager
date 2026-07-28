@@ -69,6 +69,7 @@ export function EditServerDialog({
   const [costUsd, setCostUsd] = useState("")
   const [maxKeys, setMaxKeys] = useState("")
   const [defaultPriceMmk, setDefaultPriceMmk] = useState("")
+  const [bandwidthLimitGb, setBandwidthLimitGb] = useState("")
   const [hostname, setHostname] = useState("")
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
 
@@ -91,6 +92,11 @@ export function EditServerDialog({
           ? ""
           : String(detail.server.defaultPriceMmk),
       )
+      setBandwidthLimitGb(
+        detail.server.bandwidthLimitBytes === null
+          ? ""
+          : String(detail.server.bandwidthLimitBytes / 1_000_000_000),
+      )
       setHostname(detail.accessKeyHostname || detail.hostname)
       setErrors({})
     }
@@ -111,11 +117,16 @@ export function EditServerDialog({
     detail?.server.defaultPriceMmk === null || detail === undefined
       ? ""
       : String(detail.server.defaultPriceMmk)
+  const currentBandwidthLimitGb =
+    detail?.server.bandwidthLimitBytes === null || detail === undefined
+      ? ""
+      : String(detail.server.bandwidthLimitBytes / 1_000_000_000)
 
   const nameChanged = trimmedName !== (detail?.server.name ?? "")
   const costChanged = costUsd.trim() !== currentCost
   const maxKeysChanged = maxKeys.trim() !== currentMaxKeys
   const defaultPriceMmkChanged = defaultPriceMmk.trim() !== currentDefaultPriceMmk
+  const bandwidthLimitGbChanged = bandwidthLimitGb.trim() !== currentBandwidthLimitGb
   // Compared against what Outline actually stamps today, never against the
   // API-URL fallback — that is what makes an auto-bound domain count as a
   // change and get pushed on Save.
@@ -126,7 +137,7 @@ export function EditServerDialog({
     detail !== undefined && detail.accessKeyHostname === "" && detail.hostname !== ""
   const nothingToDo =
     !nameChanged && !costChanged && !maxKeysChanged &&
-    !defaultPriceMmkChanged && !hostnameChanged
+    !defaultPriceMmkChanged && !bandwidthLimitGbChanged && !hostnameChanged
 
   // "Absent" and "explicitly none" can't both be nil on the wire, so removing a
   // ceiling (or a default price) is its own flag rather than a null value.
@@ -135,6 +146,9 @@ export function EditServerDialog({
   const clearingDefaultPriceMmk =
     defaultPriceMmkChanged && defaultPriceMmk.trim() === ""
   const parsedDefaultPriceMmk = toNullableNumber(defaultPriceMmk)
+  const clearingBandwidthLimitGb =
+    bandwidthLimitGbChanged && bandwidthLimitGb.trim() === ""
+  const parsedBandwidthLimitGb = toNullableNumber(bandwidthLimitGb)
 
   const keyCount = detail?.keys.length ?? 0
   const belowKeyCount = parsedMaxKeys !== null && parsedMaxKeys < keyCount
@@ -155,6 +169,10 @@ export function EditServerDialog({
           ? { defaultPriceMmk: parsedDefaultPriceMmk }
           : {}),
         ...(clearingDefaultPriceMmk ? { clearDefaultPriceMmk: true } : {}),
+        ...(bandwidthLimitGbChanged && !clearingBandwidthLimitGb
+          ? { bandwidthLimitGb: parsedBandwidthLimitGb }
+          : {}),
+        ...(clearingBandwidthLimitGb ? { clearBandwidthLimit: true } : {}),
         ...(hostnameChanged ? { hostnameForAccessKeys: trimmedHostname } : {}),
       })
     },
@@ -289,6 +307,32 @@ export function EditServerDialog({
                 <FieldDescription>
                   {errors.defaultPriceMmk ??
                     "What a new key on this server sells for. Leave blank to leave new keys unpriced; existing keys keep whatever price they already have."}
+                </FieldDescription>
+              </Field>
+
+              <Field data-invalid={!!errors.bandwidthLimitGb || undefined}>
+                <FieldLabel htmlFor="edit-server-bandwidth-limit">
+                  Bandwidth limit (per month)
+                </FieldLabel>
+                <InputGroup>
+                  <InputGroupInput
+                    id="edit-server-bandwidth-limit"
+                    type="number"
+                    min={1}
+                    step="any"
+                    inputMode="decimal"
+                    placeholder="Not tracked"
+                    value={bandwidthLimitGb}
+                    aria-invalid={!!errors.bandwidthLimitGb || undefined}
+                    onChange={(e) => setBandwidthLimitGb(e.target.value)}
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupText>GB</InputGroupText>
+                  </InputGroupAddon>
+                </InputGroup>
+                <FieldDescription>
+                  {errors.bandwidthLimitGb ??
+                    "Total transfer (in + out) allowed each calendar month. Every key on this server is automatically disabled once usage gets within 2 GB of this — you re-enable them manually. Leave blank to stop tracking it."}
                 </FieldDescription>
               </Field>
             </FieldSet>

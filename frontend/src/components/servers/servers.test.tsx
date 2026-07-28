@@ -10,8 +10,10 @@ import { ServerCard } from "./server-card"
 import { Button } from "@/components/ui/button"
 import type { ASUsage, ServerDetail, ServerWithUsage } from "@/lib/types"
 
-// Values here mirror a real response from the live LSD 1 Yamin server, so the
-// card is pinned against the actual API shape rather than an invented one.
+// Shaped like a real Outline server metrics response (including a real,
+// public ASN/org pair) so the card is pinned against the actual API shape
+// rather than an invented one — but with a synthetic hostname/cert, not a
+// real server's.
 const frontiir: ASUsage = {
   asn: 58952,
   asOrg: "Frontiir Co., Ltd",
@@ -25,7 +27,7 @@ function makeServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
   return {
     id: "70cfad3a-b8d6-44f7-8543-5934de3d0f33",
     name: "LSD 1 Yamin",
-    apiUrl: "https://light-speed-data1.invisigate.asia:26574/secret",
+    apiUrl: "https://vpn-test-1.example.com:26574/secret",
     certSha256: "f5d4b4e6",
     costUsdPerMonth: 7,
     lastSyncedAt: new Date().toISOString(),
@@ -35,7 +37,9 @@ function makeServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
     maxKeys: null,
     defaultLimitBytes: null,
     defaultPriceMmk: null,
-    hostname: "light-speed-data1.invisigate.asia",
+    bandwidthLimitBytes: null,
+    bandwidthDisabledAt: null,
+    hostname: "vpn-test-1.example.com",
     health: "healthy",
     // 2 keys, both valid, but only 1 connected — the live shape of this server,
     // and the case that distinguishes "connected" from "valid".
@@ -57,6 +61,7 @@ function makeServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
     },
     dailySeries: [],
     revenueDailySeries: [],
+    bandwidthUsedBytesThisMonth: 0,
     ...overrides,
   }
 }
@@ -100,7 +105,7 @@ describe("server card", () => {
     expect(await screen.findByText("LSD 1 Yamin")).toBeTruthy()
     expect(screen.getByText("Healthy")).toBeTruthy()
     expect(
-      screen.getByText("light-speed-data1.invisigate.asia · $7/mo"),
+      screen.getByText("vpn-test-1.example.com · $7/mo"),
     ).toBeTruthy()
   })
 
@@ -143,7 +148,7 @@ describe("server card", () => {
   it("omits the cost segment when no cost is recorded", async () => {
     renderCard(makeServer({ costUsdPerMonth: null }))
     expect(
-      await screen.findByText("light-speed-data1.invisigate.asia"),
+      await screen.findByText("vpn-test-1.example.com"),
     ).toBeTruthy()
   })
 
@@ -236,6 +241,7 @@ describe("edit server dialog", () => {
       keys: [],
       keyMetrics: null,
       dailySeries,
+      bandwidthUsedBytesThisMonth: 0,
       ...overrides,
     }
   }
@@ -264,7 +270,7 @@ describe("edit server dialog", () => {
   // field the dialog binds the domain the server is already reachable on.
   it("auto-binds the server's own domain when no key carries a host yet", () => {
     const field = openDialog(makeDetail())
-    expect(field.value).toBe("light-speed-data1.invisigate.asia")
+    expect(field.value).toBe("vpn-test-1.example.com")
     expect(
       screen.getByText(/prefilled with this server's own domain/),
     ).toBeTruthy()

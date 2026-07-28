@@ -64,7 +64,7 @@ func (e *Enforcer) SyncServer(ctx context.Context, server models.Server) error {
 		}
 		local.UsedBytes = usedBytes
 
-		if err := e.reconcileKey(ctx, client, *local); err != nil {
+		if err := e.reconcileKey(ctx, client, *local, server.BandwidthDisabledAt != nil); err != nil {
 			log.Printf("server %s: reconcile key %s: %v", server.Name, local.ID, err)
 		}
 	}
@@ -77,6 +77,48 @@ func (e *Enforcer) SyncServer(ctx context.Context, server models.Server) error {
 		log.Printf("server %s: mark synced: %v", server.Name, err)
 	}
 	return nil
+}
+
+// CheckBandwidthLimits trips the bandwidth kill switch for any server whose
+// current calendar month's transfer has reached its cap (within
+// models.BandwidthDisableMarginBytes), and forces every key on it to a
+// 0-byte Outline limit immediately. Skips a server that was manually
+// re-enabled already this calendar month, so it isn't re-disabled on the very
+// next cron tick while usage is still technically over the cap.
+func (e *Enforcer) CheckBandwidthLimits(ctx context.Context) {
+	servers, err := e.repo.ListAllServers(ctx)
+	if err != nil {
+		log.Printf("check bandwidth limits: list servers: %v", err)
+		return
+	}
+	now := time.Now()
+	monthStart := models.StartOfMonth(now)
+	for _, server := range servers {
+		if server.BandwidthLimitBytes == nil || server.BandwidthDisabledAt != nil {
+			continue
+		}
+		if server.BandwidthReenabledAt != nil && models.SameMonth(*server.BandwidthReenabledAt, now) {
+			continue
+		}
+		used, err := e.repo.ServerUsageInRange(ctx, server.ID, monthStart, now)
+		if err != nil {
+			log.Printf("check bandwidth limits: usage for %s: %v", server.Name, err)
+			continue
+		}
+		if used < *server.BandwidthLimitBytes-models.BandwidthDisableMarginBytes {
+			continue
+		}
+		if err := e.repo.SetServerBandwidthDisabled(ctx, server.ID); err != nil {
+			log.Printf("check bandwidth limits: disable %s: %v", server.Name, err)
+			continue
+		}
+		log.Printf("server %s: bandwidth cap reached (%d/%d bytes this month) — all keys disabled",
+			server.Name, used, *server.BandwidthLimitBytes)
+		server.BandwidthDisabledAt = &now
+		if err := e.ReconcileServerKeys(ctx, server); err != nil {
+			log.Printf("check bandwidth limits: reconcile %s: %v", server.Name, err)
+		}
+	}
 }
 
 // failSync records why a sync attempt failed on the server row and wraps the
@@ -126,11 +168,40 @@ func (e *Enforcer) ReconcileKeyByID(ctx context.Context, keyID string) error {
 	if err != nil {
 		return err
 	}
-	return e.reconcileKey(ctx, client, *key)
+	return e.reconcileKey(ctx, client, *key, server.BandwidthDisabledAt != nil)
 }
 
-func (e *Enforcer) reconcileKey(ctx context.Context, client *outline.Client, key models.Key) error {
+// ReconcileServerKeys re-pushes every key on one server against its current
+// desired state — used after the bandwidth kill switch is manually cleared,
+// so every key's real limit (not the forced-0 override) is restored without
+// waiting for the next cron tick.
+func (e *Enforcer) ReconcileServerKeys(ctx context.Context, server models.Server) error {
+	client, err := e.cache.Get(server.ID, server.APIURL, server.CertSHA256)
+	if err != nil {
+		return err
+	}
+	keys, err := e.repo.ListKeysByServer(ctx, server.ID)
+	if err != nil {
+		return err
+	}
+	var lastErr error
+	for _, key := range keys {
+		if err := e.reconcileKey(ctx, client, key, server.BandwidthDisabledAt != nil); err != nil {
+			log.Printf("server %s: reconcile key %s: %v", server.Name, key.ID, err)
+			lastErr = err
+		}
+	}
+	return lastErr
+}
+
+// reconcileKey pushes one key's desired Outline state. bandwidthDisabled
+// forces a 0-byte limit regardless of the key's own computed state — the
+// server-wide bandwidth kill switch — without touching the key's own
+// enabled/status bookkeeping, which still reflects its own plan and is
+// restored automatically the moment bandwidthDisabled goes false again.
+func (e *Enforcer) reconcileKey(ctx context.Context, client *outline.Client, key models.Key, bandwidthDisabled bool) error {
 	status, _, _, shouldBeEnabled := models.DeriveKeyStatus(time.Now(), key.EndDate, key.CustomLimitBytes, key.UsedBytes, key.Enabled)
+	pushEnabled := shouldBeEnabled && !bandwidthDisabled
 
 	// Always push the current desired limit to Outline, not just on an
 	// enabled/disabled transition: a renewal can change custom_limit_bytes
@@ -138,7 +209,7 @@ func (e *Enforcer) reconcileKey(ctx context.Context, client *outline.Client, key
 	// reflect that new ceiling immediately rather than waiting for some future
 	// disable/enable toggle to happen to carry it along.
 	switch {
-	case !shouldBeEnabled:
+	case !pushEnabled:
 		if err := client.SetDataLimit(ctx, key.OutlineKeyID, 0); err != nil {
 			return fmt.Errorf("disable (zero limit): %w", err)
 		}

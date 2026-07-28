@@ -145,6 +145,8 @@ export function mockServerDetail(): Promise<ServerDetail> {
       maxKeys: null,
       defaultLimitBytes: null,
       defaultPriceMmk: null,
+      bandwidthLimitBytes: null,
+      bandwidthDisabledAt: null,
     },
     // Bare host, as the backend's server.Hostname() returns it — not the full
     // apiUrl, which is what the edit dialog's auto-bind fallback reads.
@@ -170,6 +172,7 @@ export function mockServerDetail(): Promise<ServerDetail> {
     keys: store.keys,
     keyMetrics: store.keyMetrics,
     dailySeries: mockDailySeries(4.0e12 / 30),
+    bandwidthUsedBytesThisMonth: 0,
   })
 }
 

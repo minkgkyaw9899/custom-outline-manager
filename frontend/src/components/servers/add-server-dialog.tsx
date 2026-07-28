@@ -37,6 +37,7 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
   const [maxKeys, setMaxKeys] = useState("")
   const [defaultLimitGb, setDefaultLimitGb] = useState(String(MIN_PLAN_GB))
   const [defaultPriceMmk, setDefaultPriceMmk] = useState("")
+  const [bandwidthLimitGb, setBandwidthLimitGb] = useState("")
   // Indexed by field name, so a miss is genuinely undefined.
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
 
@@ -55,6 +56,8 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
           defaultLimitGb.trim() === "" ? null : Number(defaultLimitGb),
         defaultPriceMmk:
           defaultPriceMmk.trim() === "" ? null : Number(defaultPriceMmk),
+        bandwidthLimitGb:
+          bandwidthLimitGb.trim() === "" ? null : Number(bandwidthLimitGb),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["servers"] })
@@ -64,6 +67,7 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
       setMaxKeys("")
       setDefaultLimitGb(String(MIN_PLAN_GB))
       setDefaultPriceMmk("")
+      setBandwidthLimitGb("")
       setErrors({})
       setOpen(false)
     },
@@ -221,6 +225,32 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
               <FieldDescription>
                 {errors.defaultPriceMmk ??
                   "What a new key on this server sells for. Individual keys can be priced differently or marked free later."}
+              </FieldDescription>
+            </Field>
+
+            <Field data-invalid={!!errors.bandwidthLimitGb || undefined}>
+              <FieldLabel htmlFor="server-bandwidth-limit">
+                Bandwidth limit (per month)
+              </FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  id="server-bandwidth-limit"
+                  type="number"
+                  min={1}
+                  step="any"
+                  inputMode="decimal"
+                  placeholder="Not tracked"
+                  value={bandwidthLimitGb}
+                  aria-invalid={!!errors.bandwidthLimitGb || undefined}
+                  onChange={(e) => setBandwidthLimitGb(e.target.value)}
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupText>GB</InputGroupText>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldDescription>
+                {errors.bandwidthLimitGb ??
+                  "Total transfer (in + out) allowed each calendar month. Every key on this server is automatically disabled once usage gets within 2 GB of this — you re-enable them manually."}
               </FieldDescription>
             </Field>
           </FieldGroup>

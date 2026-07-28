@@ -21,6 +21,8 @@ function mockServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
     maxKeys: null,
     defaultLimitBytes: null,
     defaultPriceMmk: null,
+    bandwidthLimitBytes: null,
+    bandwidthDisabledAt: null,
     hostname: "frankfurt.example.com",
     health: "healthy",
     keyCount: 10,
@@ -34,6 +36,7 @@ function mockServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
       { date: "2026-01-02", bytes: 7_000_000_000 },
     ],
     revenueDailySeries: [],
+    bandwidthUsedBytesThisMonth: 0,
     ...overrides,
   }
 }

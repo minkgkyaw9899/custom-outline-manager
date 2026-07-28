@@ -99,11 +99,12 @@ func TestReconcileKeyPushesCorrectOutlineState(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name       string
-		key        models.Key
-		wantMethod string
-		wantPath   string
-		wantBody   string // empty for a bodyless DELETE
+		name              string
+		key               models.Key
+		bandwidthDisabled bool
+		wantMethod        string
+		wantPath          string
+		wantBody          string // empty for a bodyless DELETE
 	}{
 		{
 			name: "over quota disables with a zero-byte limit",
@@ -154,13 +155,27 @@ func TestReconcileKeyPushesCorrectOutlineState(t *testing.T) {
 			wantPath:   "/access-keys/2/data-limit",
 			wantBody:   "",
 		},
+		{
+			name: "bandwidth kill switch forces zero even on an otherwise-active key",
+			key: models.Key{
+				OutlineKeyID:     "3",
+				CustomLimitBytes: int64Ptr(200 * models.BytesPerGB),
+				UsedBytes:        8 * models.BytesPerGB,
+				Enabled:          true,
+				Status:           models.StatusActive,
+			},
+			bandwidthDisabled: true,
+			wantMethod:        http.MethodPut,
+			wantPath:          "/access-keys/3/data-limit",
+			wantBody:          `{"limit":{"bytes":0}}`,
+		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			client, captured := fakeOutlineServer(t)
 			e := &Enforcer{}
-			if err := e.reconcileKey(context.Background(), client, tc.key); err != nil {
+			if err := e.reconcileKey(context.Background(), client, tc.key, tc.bandwidthDisabled); err != nil {
 				t.Fatalf("reconcileKey() error = %v", err)
 			}
 			if captured.method != tc.wantMethod {

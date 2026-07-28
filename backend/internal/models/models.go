@@ -23,6 +23,26 @@ const (
 	MinPlanDays = 30
 )
 
+// BandwidthDisableMarginBytes is how far under a server's monthly bandwidth
+// cap the kill switch trips — a safety margin against the hosting bill
+// itself, not the cap number the admin entered.
+const BandwidthDisableMarginBytes = 2 * BytesPerGB
+
+// StartOfMonth truncates to midnight on the 1st of t's calendar month, in t's
+// own location — the boundary a server's monthly bandwidth cap resets on.
+func StartOfMonth(t time.Time) time.Time {
+	y, m, _ := t.Date()
+	return time.Date(y, m, 1, 0, 0, 0, 0, t.Location())
+}
+
+// SameMonth reports whether a and b fall in the same calendar month and
+// year, in a's location.
+func SameMonth(a, b time.Time) bool {
+	ay, am, _ := a.Date()
+	by, bm, _ := b.In(a.Location()).Date()
+	return ay == by && am == bm
+}
+
 type Server struct {
 	ID              string     `json:"id"`
 	Name            string     `json:"name"`
@@ -48,6 +68,18 @@ type Server struct {
 	// unless overridden per key (see Key.PriceMmk). Nil means no default —
 	// new keys start unpriced rather than assumed free.
 	DefaultPriceMmk *int64 `json:"defaultPriceMmk"`
+
+	// BandwidthLimitBytes is a monthly transfer cap (inbound + outbound),
+	// independent of any key's own data limit — this is about the hosting
+	// bill, not what any one holder is allowed to use. Nil means untracked.
+	BandwidthLimitBytes *int64 `json:"bandwidthLimitBytes"`
+	// BandwidthDisabledAt is set when the cron trips the cap; every key on
+	// the server is forced to a 0-byte Outline limit until an admin manually
+	// clears it (POST /servers/:id/bandwidth/enable). Nil = not tripped.
+	BandwidthDisabledAt *time.Time `json:"bandwidthDisabledAt"`
+	// BandwidthReenabledAt is when that override last happened, so the cron
+	// doesn't immediately re-trip the same server in the same calendar month.
+	BandwidthReenabledAt *time.Time `json:"-"`
 }
 
 // Hostname is the API URL's host without the port, used as the server's
@@ -165,6 +197,11 @@ type ServerWithUsage struct {
 	// per cron tick starting from whenever this field shipped, so it is empty
 	// or thin for a while before a real trend appears.
 	RevenueDailySeries []RevenuePoint `json:"revenueDailySeries"`
+	// BandwidthUsedBytesThisMonth is transfer since the start of the current
+	// calendar month, measured the same way as the usage snapshots (derived
+	// from Outline's cumulative counters, not a live probe) — compared
+	// against BandwidthLimitBytes to decide whether the kill switch trips.
+	BandwidthUsedBytesThisMonth int64 `json:"bandwidthUsedBytesThisMonth"`
 }
 
 // KeyMetrics is the per-key slice of a server's live metrics, keyed by the
