@@ -11,16 +11,16 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import type { SortingState } from "@tanstack/react-table"
-import { LinkIcon, PlusIcon, Trash2Icon, UsersIcon } from "lucide-react"
+import { CheckIcon, CopyIcon, PlusIcon, Trash2Icon, UsersIcon } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
-import { CopyButton } from "@/components/copy-button"
 import { SortableHead } from "@/components/data-table-header"
 import {
   DEFAULT_PAGE_SIZE,
   DataTablePagination,
 } from "@/components/data-table-pagination"
 import { NewUserDialog } from "@/components/users/new-user-dialog"
+import { userShareUrl } from "@/components/users/user-share-dialog"
 import { StatusBadge } from "@/components/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/empty"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Spinner } from "@/components/ui/spinner"
 import {
   Table,
   TableBody,
@@ -47,6 +48,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { toast } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
 import { apiClient } from "@/lib/api"
 import {
@@ -55,8 +57,51 @@ import {
   formatDaysLeft,
   formatUsagePair,
 } from "@/lib/format"
+import { userShareQueryOptions } from "@/lib/share"
 import type { UserWithKeys } from "@/lib/types"
 import { cn } from "@/lib/utils"
+
+/**
+ * Copies a holder's status page link, fetching (and caching, via the same
+ * query key the Share dialog uses) their share slug on first click rather
+ * than eagerly for every row — a table of holders shouldn't cost one POST
+ * per row just to render copy buttons nobody may use.
+ */
+function CopyStatusLinkButton({ userId }: Readonly<{ userId: string }>) {
+  const [state, setState] = useState<"idle" | "loading" | "copied">("idle")
+  const queryClient = useQueryClient()
+
+  return (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon-sm"
+      disabled={state === "loading"}
+      aria-label="Copy status page link"
+      onClick={async () => {
+        setState("loading")
+        try {
+          const share = await queryClient.fetchQuery(userShareQueryOptions(userId))
+          await navigator.clipboard.writeText(userShareUrl(share.slug))
+          setState("copied")
+          setTimeout(() => setState("idle"), 1500)
+        } catch {
+          setState("idle")
+          toast.add({ title: "Couldn't copy the status link", type: "error" })
+        }
+      }}
+    >
+      {state === "loading" ? (
+        <Spinner className="size-3.5" />
+      ) : state === "copied" ? (
+        <CheckIcon className="size-3.5" />
+      ) : (
+        <CopyIcon className="size-3.5" />
+      )}
+      <span className="sr-only">Copy status page link</span>
+    </Button>
+  )
+}
 
 /**
  * A holder's status is really their key's: "active" here means they have a
@@ -226,43 +271,16 @@ export function UsersTable({
             className="flex items-center justify-end gap-1.5"
             onClick={(e) => e.stopPropagation()}
           >
-            {row.original.dynamicAccessUrl ? (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span className="inline-flex">
-                      <CopyButton value={row.original.dynamicAccessUrl} />
-                    </span>
-                  }
-                />
-                <TooltipContent className="max-w-sm break-all" side="top">
-                  <span className="font-semibold">Dynamic link: </span>
-                  {row.original.dynamicAccessUrl}
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span className="inline-flex">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon-sm"
-                        disabled
-                        aria-label="Dynamic link not configured"
-                      >
-                        <LinkIcon className="size-3.5" />
-                      </Button>
-                    </span>
-                  }
-                />
-                <TooltipContent side="top">
-                  Not configured for this server — set a dynamic link host
-                  from the server's Edit menu.
-                </TooltipContent>
-              </Tooltip>
-            )}
+            <Tooltip>
+              <TooltipTrigger
+                render={
+                  <span className="inline-flex">
+                    <CopyStatusLinkButton userId={row.original.id} />
+                  </span>
+                }
+              />
+              <TooltipContent side="top">Copy their status page link</TooltipContent>
+            </Tooltip>
             <Button
               type="button"
               variant="outline"
