@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 
 import { isBelowPlanFloor, PlanFields } from "@/components/users/plan-fields"
-import { ServerSelect } from "@/components/users/server-select"
+import { isServerFull, ServerSelect } from "@/components/users/server-select"
 import { Field, FieldDescription, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
@@ -19,7 +19,7 @@ import {
   MIN_PLAN_DAYS,
   MIN_PLAN_GB,
 } from "@/lib/format"
-import { unassignedKeysQueryOptions } from "@/lib/queries"
+import { serversQueryOptions, unassignedKeysQueryOptions } from "@/lib/queries"
 import type { Key } from "@/lib/types"
 
 /**
@@ -100,11 +100,26 @@ export function KeySourceFields({
   serverLabel?: string
 }>) {
   const { data: unassigned } = useQuery(unassignedKeysQueryOptions())
+  const { data: servers } = useQuery(serversQueryOptions())
 
   // Filtered client-side: the picker only offers keys on the server already
   // chosen above, and the whole unassigned list is small enough that a
   // per-server round trip would buy nothing.
   const freeKeys = (unassigned ?? []).filter((k) => k.serverId === value.serverId)
+
+  // Keys that were provisioned but never used and never handed to anyone —
+  // spare capacity a full server can still offer instead of a new key.
+  const claimableKeyCounts = (unassigned ?? []).reduce<Record<string, number>>(
+    (acc, k) => {
+      if (k.usedBytes === 0) acc[k.serverId] = (acc[k.serverId] ?? 0) + 1
+      return acc
+    },
+    {},
+  )
+
+  const selectedServer = servers?.find((s) => s.id === value.serverId)
+  const selectedServerFull = selectedServer ? isServerFull(selectedServer) : false
+
   const set = (patch: Partial<KeySourceState>) => onChange({ ...value, ...patch })
 
   return (
@@ -113,13 +128,22 @@ export function KeySourceFields({
         id={`${idPrefix}-server`}
         label={serverLabel}
         value={value.serverId}
-        onValueChange={(serverId) =>
+        onValueChange={(serverId) => {
+          const server = servers?.find((s) => s.id === serverId)
+          // A full server has nothing to provision, so land straight on
+          // "use a free key" rather than a mode that can't work here — and if
+          // there's exactly one spare to offer, pick it, since a dropdown
+          // with one option is just an extra click.
+          const full = server ? isServerFull(server) : false
+          const freeForServer = (unassigned ?? []).filter((k) => k.serverId === serverId)
+          const autoKeyId = full && freeForServer.length === 1 ? freeForServer[0].id : ""
           // The chosen key belongs to the old server, so it can't survive the
           // switch.
-          set({ serverId, keyId: "" })
-        }
+          set({ serverId, keyId: autoKeyId, mode: full ? "existing" : value.mode })
+        }}
         error={errors.serverId}
-        description="Servers at their key limit can't be chosen for a new key."
+        claimableKeyCounts={claimableKeyCounts}
+        description="Servers at their key limit can still be chosen if they have a spare key — provisioned but never used or attached to anyone — to hand out instead."
       />
 
       {value.serverId && (
@@ -133,7 +157,8 @@ export function KeySourceFields({
           >
             <ToggleGroupItem
               value="new"
-              className="rounded-full border px-4 text-sm tracking-normal normal-case aria-pressed:border-primary/30 aria-pressed:bg-primary/10 aria-pressed:text-primary"
+              disabled={selectedServerFull}
+              className="rounded-full border px-4 text-sm tracking-normal normal-case aria-pressed:border-primary/30 aria-pressed:bg-primary/10 aria-pressed:text-primary disabled:pointer-events-none disabled:opacity-50"
             >
               Create new
             </ToggleGroupItem>
@@ -147,7 +172,9 @@ export function KeySourceFields({
           <FieldDescription>
             {value.mode === "new"
               ? "Creates a key on this server, counting against its key limit."
-              : "Takes over a key on this server that belongs to nobody, keeping the allowance it already has."}
+              : selectedServerFull
+                ? "This server is at its key limit — a spare key is used instead of creating a new one."
+                : "Takes over a key on this server that belongs to nobody, keeping the allowance it already has."}
           </FieldDescription>
         </Field>
       )}

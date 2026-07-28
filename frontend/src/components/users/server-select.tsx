@@ -18,7 +18,7 @@ export function isServerFull(server: ServerWithUsage): boolean {
   return server.maxKeys !== null && server.keyCount >= server.maxKeys
 }
 
-function serverLabel(server: ServerWithUsage): string {
+function serverLabel(server: ServerWithUsage, claimableCount: number): string {
   const capacity =
     server.maxKeys === null
       ? `${server.keyCount} key${server.keyCount === 1 ? "" : "s"}`
@@ -27,13 +27,31 @@ function serverLabel(server: ServerWithUsage): string {
     server.defaultLimitBytes === null
       ? ""
       : ` · ${formatBytesCompact(server.defaultLimitBytes)} default`
-  return `${server.name} — ${capacity}${quota}`
+  const spare =
+    isServerFull(server) && claimableCount > 0
+      ? ` · full, ${claimableCount} spare key${claimableCount === 1 ? "" : "s"}`
+      : ""
+  return `${server.name} — ${capacity}${quota}${spare}`
 }
 
 /**
- * Picks the server a key is provisioned on. Servers already at their key
- * ceiling are listed but not selectable, so the reason a server is unavailable
- * is visible here rather than only as a 409 after submitting.
+ * A server is unavailable when it's full with nothing to hand out instead: a
+ * spare key that was provisioned but never used or attached to anyone can
+ * still be claimed on a full server, so that alone doesn't rule it out.
+ */
+export function isServerUnavailable(
+  server: ServerWithUsage,
+  claimableCount: number,
+): boolean {
+  return isServerFull(server) && claimableCount === 0
+}
+
+/**
+ * Picks the server a key comes from. Servers at their key ceiling are listed
+ * but not selectable — unless they have a spare key (provisioned, never used,
+ * never attached to anyone) that can be handed out instead of creating a new
+ * one, in which case they stay selectable and the caller is expected to
+ * steer the caller toward claiming that key rather than provisioning.
  */
 export function ServerSelect({
   id,
@@ -42,6 +60,7 @@ export function ServerSelect({
   error,
   label = "Server",
   description,
+  claimableKeyCounts = {},
 }: Readonly<{
   id: string
   value: string
@@ -49,6 +68,8 @@ export function ServerSelect({
   error?: string
   label?: string
   description?: string
+  /** Server id → count of unassigned, never-used keys that could be claimed instead of provisioning. */
+  claimableKeyCounts?: Record<string, number>
 }>) {
   const { data: servers, isLoading } = useQuery(serversQueryOptions())
 
@@ -65,12 +86,19 @@ export function ServerSelect({
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            {(servers ?? []).map((server) => (
-              <SelectItem key={server.id} value={server.id} disabled={isServerFull(server)}>
-                {serverLabel(server)}
-                {isServerFull(server) && " · full"}
-              </SelectItem>
-            ))}
+            {(servers ?? []).map((server) => {
+              const claimable = claimableKeyCounts[server.id] ?? 0
+              return (
+                <SelectItem
+                  key={server.id}
+                  value={server.id}
+                  disabled={isServerUnavailable(server, claimable)}
+                >
+                  {serverLabel(server, claimable)}
+                  {isServerUnavailable(server, claimable) && " · full"}
+                </SelectItem>
+              )
+            })}
           </SelectGroup>
         </SelectContent>
       </Select>

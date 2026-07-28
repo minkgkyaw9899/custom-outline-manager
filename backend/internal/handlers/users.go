@@ -63,7 +63,12 @@ func trimmedPtr(v *string) string {
 //
 // The key keeps the limit and expiry it already carries — it is being handed
 // over, not sold fresh — so there is no plan to apply here.
-func (a *API) claimFreeKey(ctx context.Context, userID, keyID string) (*models.Key, *apiresponse.FieldError) {
+// newName, when non-empty, renames the key (on Outline and locally) as part
+// of the claim — used only when a brand new user adopts a spare, never-used
+// key, so it stops showing under whatever placeholder name it was
+// pre-provisioned with. A rename failure does not fail the claim: the key is
+// already successfully assigned by that point, and a rename is cosmetic.
+func (a *API) claimFreeKey(ctx context.Context, userID, keyID, newName string) (*models.Key, *apiresponse.FieldError) {
 	key, err := a.repo.GetKey(ctx, keyID)
 	if err != nil {
 		return nil, &apiresponse.FieldError{Field: "keyId", Message: "That key does not exist"}
@@ -79,11 +84,34 @@ func (a *API) claimFreeKey(ctx context.Context, userID, keyID string) (*models.K
 	if err := a.repo.SetUserPrimaryKey(ctx, userID, &key.ID); err != nil {
 		return nil, &apiresponse.FieldError{Field: "keyId", Message: "That key could not be assigned"}
 	}
+	if newName != "" && newName != key.Name {
+		a.renameClaimedKey(ctx, *key, newName)
+	}
 	claimed, err := a.repo.GetKey(ctx, key.ID)
 	if err != nil {
 		return nil, &apiresponse.FieldError{Field: "keyId", Message: "That key could not be assigned"}
 	}
 	return claimed, nil
+}
+
+func (a *API) renameClaimedKey(ctx context.Context, key models.Key, name string) {
+	server, err := a.repo.GetServer(ctx, key.ServerID)
+	if err != nil {
+		log.Printf("claim free key %s: rename: load server: %v", key.ID, err)
+		return
+	}
+	client, err := a.cache.Get(server.ID, server.APIURL, server.CertSHA256)
+	if err != nil {
+		log.Printf("claim free key %s: rename: connect to server: %v", key.ID, err)
+		return
+	}
+	if err := client.RenameAccessKey(ctx, key.OutlineKeyID, name); err != nil {
+		log.Printf("claim free key %s: rename on outline: %v", key.ID, err)
+		return
+	}
+	if err := a.repo.SetKeyName(ctx, key.ID, name); err != nil {
+		log.Printf("claim free key %s: rename: save name: %v", key.ID, err)
+	}
 }
 
 // enrichUser fills in the user's ssconf:// link, which is built against
@@ -177,7 +205,9 @@ func (a *API) createUser(c fiber.Ctx) error {
 	}
 
 	if claimKeyID != "" {
-		key, ferr := a.claimFreeKey(c.Context(), user.ID, claimKeyID)
+		// New users get the key renamed to their own name — it was sitting
+		// unassigned under whatever it was pre-provisioned as.
+		key, ferr := a.claimFreeKey(c.Context(), user.ID, claimKeyID, user.Name)
 		if ferr != nil {
 			// Same reasoning as the provisioning path below: the user was only
 			// worth creating because it came with a key.
@@ -406,7 +436,10 @@ func (a *API) replaceUserKey(c fiber.Ctx) error {
 	}
 
 	if keyID := strings.TrimSpace(req.KeyID); keyID != "" {
-		key, ferr := a.claimFreeKey(c.Context(), user.ID, keyID)
+		// No rename here — this is an existing user changing keys, not a new
+		// one adopting a spare; the rename-on-claim behavior is only for the
+		// new-user flow above.
+		key, ferr := a.claimFreeKey(c.Context(), user.ID, keyID, "")
 		if ferr != nil {
 			return apiresponse.Validation(c, *ferr)
 		}
