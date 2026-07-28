@@ -14,7 +14,7 @@ import (
 
 const keyColumns = `k.id, k.server_id, k.outline_key_id, k.name, k.access_url, k.port, k.method,
 	k.used_bytes, k.custom_limit_bytes, k.end_date, k.enabled, k.status, k.created_at, k.updated_at,
-	k.password, k.dynamic_token, k.user_id`
+	k.password, k.dynamic_token, k.user_id, k.price_mmk`
 
 // maxDynamicTokenAttempts bounds the retry loop for a colliding dynamic
 // token. Collision on 128 bits of random entropy is astronomically unlikely;
@@ -63,7 +63,7 @@ func (r *Repository) UpsertKeyFromOutline(ctx context.Context, serverID, outline
 	return nil, fmt.Errorf("upsert key from outline: %w", lastErr)
 }
 
-func (r *Repository) CreateKey(ctx context.Context, serverID, outlineKeyID, name, accessURL string, port int, method, password string, customLimitBytes *int64, endDate *time.Time, userID *string) (*models.Key, error) {
+func (r *Repository) CreateKey(ctx context.Context, serverID, outlineKeyID, name, accessURL string, port int, method, password string, customLimitBytes *int64, endDate *time.Time, userID *string, priceMmk *int64) (*models.Key, error) {
 	var lastErr error
 	for i := 0; i < maxDynamicTokenAttempts; i++ {
 		token, err := authn.GenerateSlug()
@@ -71,9 +71,9 @@ func (r *Repository) CreateKey(ctx context.Context, serverID, outlineKeyID, name
 			return nil, fmt.Errorf("generate dynamic token: %w", err)
 		}
 		row := r.pool.QueryRow(ctx, `
-			INSERT INTO keys AS k (server_id, outline_key_id, name, access_url, port, method, password, dynamic_token, custom_limit_bytes, end_date, user_id)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-			RETURNING `+keyColumns, serverID, outlineKeyID, name, accessURL, port, method, password, token, customLimitBytes, endDate, userID)
+			INSERT INTO keys AS k (server_id, outline_key_id, name, access_url, port, method, password, dynamic_token, custom_limit_bytes, end_date, user_id, price_mmk)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+			RETURNING `+keyColumns, serverID, outlineKeyID, name, accessURL, port, method, password, token, customLimitBytes, endDate, userID, priceMmk)
 		key, err := scanKey(row)
 		if err == nil {
 			return key, nil
@@ -253,6 +253,15 @@ func (r *Repository) SetKeyLimitAndEndDate(ctx context.Context, id string, custo
 	return err
 }
 
+// SetKeyPrice writes this key's own price in MMK, overriding its server's
+// default for revenue purposes. Nil clears the override back to "no price
+// set" (distinct from 0, which is an explicit "this key is free") — assigned
+// directly rather than COALESCEd, so a caller can go either way.
+func (r *Repository) SetKeyPrice(ctx context.Context, id string, priceMmk *int64) error {
+	_, err := r.pool.Exec(ctx, `UPDATE keys SET price_mmk = $2, updated_at = now() WHERE id = $1`, id, priceMmk)
+	return err
+}
+
 func (r *Repository) DeleteKey(ctx context.Context, id string) error {
 	if !isUUID(id) {
 		return ErrNotFound
@@ -289,7 +298,7 @@ func scanKey(row pgx.Row) (*models.Key, error) {
 	var k models.Key
 	if err := row.Scan(&k.ID, &k.ServerID, &k.OutlineKeyID, &k.Name, &k.AccessURL, &k.Port, &k.Method,
 		&k.UsedBytes, &k.CustomLimitBytes, &k.EndDate, &k.Enabled, &k.Status, &k.CreatedAt, &k.UpdatedAt,
-		&k.Password, &k.DynamicToken, &k.UserID); err != nil {
+		&k.Password, &k.DynamicToken, &k.UserID, &k.PriceMmk); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -316,7 +325,7 @@ func collectKeys(rows pgx.Rows, joins keyJoins) ([]models.Key, error) {
 		var userName *string
 		dest := []any{&k.ID, &k.ServerID, &k.OutlineKeyID, &k.Name, &k.AccessURL, &k.Port, &k.Method,
 			&k.UsedBytes, &k.CustomLimitBytes, &k.EndDate, &k.Enabled, &k.Status, &k.CreatedAt, &k.UpdatedAt,
-			&k.Password, &k.DynamicToken, &k.UserID}
+			&k.Password, &k.DynamicToken, &k.UserID, &k.PriceMmk}
 		if joins.serverName {
 			dest = append(dest, &k.ServerName)
 		}

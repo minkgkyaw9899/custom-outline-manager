@@ -39,6 +39,7 @@ import {
   mockExtendKey,
   mockRenameKey,
   mockSetKeyPlan,
+  mockSetKeyPrice,
 } from "@/lib/mock-server-detail"
 import type { Key } from "@/lib/types"
 
@@ -91,6 +92,7 @@ export function EditKeyDialog({
   const [addGb, setAddGb] = useState(String(MIN_PLAN_GB))
   const [addDays, setAddDays] = useState(String(MIN_PLAN_DAYS))
   const [limitGb, setLimitGb] = useState(String(MIN_PLAN_GB))
+  const [priceMmk, setPriceMmk] = useState("")
   const [endDate, setEndDate] = useState(() => toCalendarDate(null))
   const [pickerOpen, setPickerOpen] = useState(false)
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
@@ -128,6 +130,7 @@ export function EditKeyDialog({
             String(Math.round((keyItem.customLimitBytes / BYTES_PER_GB) * 10) / 10),
       )
       setEndDate(toCalendarDate(keyItem.endDate))
+      setPriceMmk(keyItem.priceMmk === null ? "" : String(keyItem.priceMmk))
       setPickerOpen(false)
       setErrors({})
     }
@@ -139,23 +142,50 @@ export function EditKeyDialog({
   const trimmedName = name.trim()
   const nameChanged = !!keyItem && trimmedName !== keyDisplayName(keyItem)
 
+  const currentPriceMmk =
+    keyItem?.priceMmk === null || keyItem === null ? "" : String(keyItem.priceMmk)
+  const priceMmkChanged = priceMmk.trim() !== currentPriceMmk
+  // "Absent" and "explicitly none" can't both be nil on the wire — clearing
+  // the field means "go back to following the server's default price",
+  // which is its own flag rather than a null price_mmk (mirroring the
+  // server's own default-price/max-keys clearing).
+  const clearingPriceMmk = priceMmkChanged && priceMmk.trim() === ""
+  const parsedPriceMmk = priceMmk.trim() === "" ? null : Number(priceMmk)
+  const invalidPrice =
+    priceMmk.trim() !== "" && (!Number.isFinite(parsedPriceMmk) || parsedPriceMmk! < 0)
+
   const belowFloor = mode === "extend" && (gb < MIN_PLAN_GB || days < MIN_PLAN_DAYS)
   // No date check: the picker always holds a day, it can only be pointed at
   // another one, so the only way "set" goes wrong is the limit.
   const invalidTotal = mode === "set" && totalGb <= 0
-  const nothingToDo = !nameChanged && mode === "keep"
+  const nothingToDo = !nameChanged && !priceMmkChanged && mode === "keep"
 
   const save = useMutation({
     mutationFn: async () => {
       if (!keyItem) throw new Error("No key selected")
       const mock = isMockId(keyItem.id)
 
+      // Price is independent of the plan mode, so every branch below folds
+      // it into whatever PATCH it's already sending (or sends its own
+      // price-only PATCH if nothing else changed).
+      const priceFields = clearingPriceMmk
+        ? { clear_price_mmk: true }
+        : priceMmkChanged
+          ? { price_mmk: parsedPriceMmk }
+          : {}
+
       if (mode === "set") {
         const day = toDateParam(endDate)
-        // One PATCH carries the name too: the endpoint takes absolute values
-        // for every field, so there is no reason to make it two round trips.
+        // One PATCH carries the name and price too: the endpoint takes
+        // absolute values for every field, so there is no reason to make it
+        // more than one round trip.
         await (mock
-          ? mockSetKeyPlan(keyItem.id, totalGb, day, trimmedName)
+          ? Promise.all([
+              mockSetKeyPlan(keyItem.id, totalGb, day, trimmedName),
+              priceMmkChanged
+                ? mockSetKeyPrice(keyItem.id, parsedPriceMmk)
+                : null,
+            ])
           : apiClient.patch(`keys/${keyItem.id}`, {
               ...(nameChanged ? { name: trimmedName } : {}),
               limit_gb: totalGb,
@@ -164,14 +194,23 @@ export function EditKeyDialog({
               // end of that day in UTC, which reads back here as the *next*
               // day and creeps forward every time the key is edited.
               end_date: new Date(`${day}T23:59:59`).toISOString(),
+              ...priceFields,
             }))
         return
       }
 
-      if (nameChanged) {
+      if (nameChanged || priceMmkChanged) {
         await (mock
-          ? mockRenameKey(keyItem.id, trimmedName)
-          : apiClient.patch(`keys/${keyItem.id}`, { name: trimmedName }))
+          ? Promise.all([
+              nameChanged ? mockRenameKey(keyItem.id, trimmedName) : null,
+              priceMmkChanged
+                ? mockSetKeyPrice(keyItem.id, parsedPriceMmk)
+                : null,
+            ])
+          : apiClient.patch(`keys/${keyItem.id}`, {
+              ...(nameChanged ? { name: trimmedName } : {}),
+              ...priceFields,
+            }))
       }
       if (mode === "extend") {
         await (mock
@@ -236,6 +275,30 @@ export function EditKeyDialog({
                 onChange={(e) => setName(e.target.value)}
               />
               {errors.name && <FieldDescription>{errors.name}</FieldDescription>}
+            </Field>
+
+            <Field data-invalid={!!errors.price_mmk || invalidPrice || undefined}>
+              <FieldLabel htmlFor="edit-key-price">Price</FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  id="edit-key-price"
+                  type="number"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  placeholder="Follows the server's default"
+                  value={priceMmk}
+                  aria-invalid={!!errors.price_mmk || invalidPrice || undefined}
+                  onChange={(e) => setPriceMmk(e.target.value)}
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupText>MMK / month</InputGroupText>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldDescription>
+                {errors.price_mmk ??
+                  "Enter 0 if this key is free. Leave blank to follow the server's default price."}
+              </FieldDescription>
             </Field>
 
             <Field>
@@ -413,6 +476,7 @@ export function EditKeyDialog({
                 nothingToDo ||
                 belowFloor ||
                 invalidTotal ||
+                invalidPrice ||
                 !trimmedName
               }
             >

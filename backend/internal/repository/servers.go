@@ -10,7 +10,7 @@ import (
 	"outline-manager/internal/models"
 )
 
-const serverColumns = `id, name, api_url, cert_sha256, cost_usd_per_month, last_synced_at, last_sync_error, created_at, updated_at, max_keys, default_limit_bytes`
+const serverColumns = `id, name, api_url, cert_sha256, cost_usd_per_month, last_synced_at, last_sync_error, created_at, updated_at, max_keys, default_limit_bytes, default_price_mmk`
 
 // ServerLookup is the minimal existing-server info GetServerByAPIURL returns,
 // so createServer can decide whether an api_url it was just handed belongs to
@@ -22,11 +22,11 @@ type ServerLookup struct {
 	Deleted    bool
 }
 
-func (r *Repository) CreateServer(ctx context.Context, name, apiURL, certSHA256 string, costUSDPerMonth *float64, maxKeys *int, defaultLimitBytes *int64) (*models.Server, error) {
+func (r *Repository) CreateServer(ctx context.Context, name, apiURL, certSHA256 string, costUSDPerMonth *float64, maxKeys *int, defaultLimitBytes *int64, defaultPriceMmk *int64) (*models.Server, error) {
 	row := r.pool.QueryRow(ctx, `
-		INSERT INTO servers (name, api_url, cert_sha256, cost_usd_per_month, max_keys, default_limit_bytes)
-		VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING `+serverColumns, name, apiURL, certSHA256, costUSDPerMonth, maxKeys, defaultLimitBytes)
+		INSERT INTO servers (name, api_url, cert_sha256, cost_usd_per_month, max_keys, default_limit_bytes, default_price_mmk)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		RETURNING `+serverColumns, name, apiURL, certSHA256, costUSDPerMonth, maxKeys, defaultLimitBytes, defaultPriceMmk)
 	return scanServer(row)
 }
 
@@ -58,7 +58,7 @@ func (r *Repository) GetServerByAPIURL(ctx context.Context, apiURL string) (*Ser
 // key, renewal log and usage snapshot still hanging off that server_id comes
 // back with it. last_sync_error is cleared so a stale failure from before
 // the server was removed doesn't linger on the revived one.
-func (r *Repository) ReviveServer(ctx context.Context, id, name, apiURL, certSHA256 string, costUSDPerMonth *float64, maxKeys *int, defaultLimitBytes *int64) (*models.Server, error) {
+func (r *Repository) ReviveServer(ctx context.Context, id, name, apiURL, certSHA256 string, costUSDPerMonth *float64, maxKeys *int, defaultLimitBytes *int64, defaultPriceMmk *int64) (*models.Server, error) {
 	row := r.pool.QueryRow(ctx, `
 		UPDATE servers SET
 			deleted_at = NULL,
@@ -68,14 +68,15 @@ func (r *Repository) ReviveServer(ctx context.Context, id, name, apiURL, certSHA
 			cost_usd_per_month = $5,
 			max_keys = $6,
 			default_limit_bytes = $7,
+			default_price_mmk = $8,
 			last_sync_error = NULL,
 			updated_at = now()
 		WHERE id = $1
-		RETURNING `+serverColumns, id, name, apiURL, certSHA256, costUSDPerMonth, maxKeys, defaultLimitBytes)
+		RETURNING `+serverColumns, id, name, apiURL, certSHA256, costUSDPerMonth, maxKeys, defaultLimitBytes, defaultPriceMmk)
 	return scanServer(row)
 }
 
-func (r *Repository) UpdateServerDetails(ctx context.Context, id string, name *string, costUSDPerMonth *float64, maxKeys *int) (*models.Server, error) {
+func (r *Repository) UpdateServerDetails(ctx context.Context, id string, name *string, costUSDPerMonth *float64, maxKeys *int, defaultPriceMmk *int64) (*models.Server, error) {
 	if !isUUID(id) {
 		return nil, ErrNotFound
 	}
@@ -84,9 +85,10 @@ func (r *Repository) UpdateServerDetails(ctx context.Context, id string, name *s
 			name = COALESCE($2, name),
 			cost_usd_per_month = COALESCE($3, cost_usd_per_month),
 			max_keys = COALESCE($4, max_keys),
+			default_price_mmk = COALESCE($5, default_price_mmk),
 			updated_at = now()
 		WHERE id = $1
-		RETURNING `+serverColumns, id, name, costUSDPerMonth, maxKeys)
+		RETURNING `+serverColumns, id, name, costUSDPerMonth, maxKeys, defaultPriceMmk)
 	return scanServer(row)
 }
 
@@ -97,6 +99,17 @@ func (r *Repository) ClearServerMaxKeys(ctx context.Context, id string) error {
 		return ErrNotFound
 	}
 	_, err := r.pool.Exec(ctx, `UPDATE servers SET max_keys = NULL, updated_at = now() WHERE id = $1`, id)
+	return err
+}
+
+// ClearServerDefaultPrice removes the server's default per-key price, the one
+// edit UpdateServerDetails cannot express (COALESCE treats nil as "leave
+// alone", not "set to NULL") — same reasoning as ClearServerMaxKeys.
+func (r *Repository) ClearServerDefaultPrice(ctx context.Context, id string) error {
+	if !isUUID(id) {
+		return ErrNotFound
+	}
+	_, err := r.pool.Exec(ctx, `UPDATE servers SET default_price_mmk = NULL, updated_at = now() WHERE id = $1`, id)
 	return err
 }
 
@@ -133,10 +146,12 @@ func (r *Repository) CountKeysByServer(ctx context.Context, serverID string) (in
 func (r *Repository) ListServers(ctx context.Context) ([]models.ServerWithUsage, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT s.id, s.name, s.api_url, s.cert_sha256, s.cost_usd_per_month, s.last_synced_at, s.last_sync_error, s.created_at, s.updated_at,
-		       s.max_keys, s.default_limit_bytes,
+		       s.max_keys, s.default_limit_bytes, s.default_price_mmk,
 		       COUNT(k.id) AS key_count,
 		       COUNT(k.id) FILTER (WHERE k.status = 'active') AS active_keys,
-		       COALESCE(SUM(k.used_bytes), 0) AS total_used_bytes
+		       COALESCE(SUM(k.used_bytes), 0) AS total_used_bytes,
+		       COALESCE(SUM(COALESCE(k.price_mmk, s.default_price_mmk, 0)) FILTER (WHERE k.status = 'active'), 0) AS monthly_revenue_mmk,
+		       COUNT(k.id) FILTER (WHERE k.status = 'active' AND k.price_mmk IS NULL AND s.default_price_mmk IS NULL) AS unpriced_active_keys
 		FROM servers s
 		LEFT JOIN keys k ON k.server_id = s.id
 		WHERE s.deleted_at IS NULL
@@ -152,8 +167,9 @@ func (r *Repository) ListServers(ctx context.Context) ([]models.ServerWithUsage,
 	for rows.Next() {
 		var s models.ServerWithUsage
 		if err := rows.Scan(&s.ID, &s.Name, &s.APIURL, &s.CertSHA256, &s.CostUSDPerMonth, &s.LastSyncedAt, &s.LastSyncError, &s.CreatedAt, &s.UpdatedAt,
-			&s.MaxKeys, &s.DefaultLimitBytes,
-			&s.KeyCount, &s.ActiveKeys, &s.TotalUsedBytes); err != nil {
+			&s.MaxKeys, &s.DefaultLimitBytes, &s.DefaultPriceMmk,
+			&s.KeyCount, &s.ActiveKeys, &s.TotalUsedBytes,
+			&s.MonthlyRevenueMmk, &s.UnpricedActiveKeys); err != nil {
 			return nil, fmt.Errorf("scan server: %w", err)
 		}
 		out = append(out, s)
@@ -183,7 +199,7 @@ func (r *Repository) ListAllServers(ctx context.Context) ([]models.Server, error
 	for rows.Next() {
 		var s models.Server
 		if err := rows.Scan(&s.ID, &s.Name, &s.APIURL, &s.CertSHA256, &s.CostUSDPerMonth, &s.LastSyncedAt, &s.LastSyncError, &s.CreatedAt, &s.UpdatedAt,
-			&s.MaxKeys, &s.DefaultLimitBytes); err != nil {
+			&s.MaxKeys, &s.DefaultLimitBytes, &s.DefaultPriceMmk); err != nil {
 			return nil, fmt.Errorf("scan server: %w", err)
 		}
 		out = append(out, s)
@@ -230,7 +246,7 @@ func (r *Repository) MarkServerSynced(ctx context.Context, id string, syncErr er
 func scanServer(row pgx.Row) (*models.Server, error) {
 	var s models.Server
 	if err := row.Scan(&s.ID, &s.Name, &s.APIURL, &s.CertSHA256, &s.CostUSDPerMonth, &s.LastSyncedAt, &s.LastSyncError, &s.CreatedAt, &s.UpdatedAt,
-		&s.MaxKeys, &s.DefaultLimitBytes); err != nil {
+		&s.MaxKeys, &s.DefaultLimitBytes, &s.DefaultPriceMmk); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}

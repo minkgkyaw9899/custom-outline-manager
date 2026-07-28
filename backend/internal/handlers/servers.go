@@ -41,6 +41,9 @@ type createServerRequest struct {
 	// DefaultLimitGB is the quota new keys on this server start on; nil falls
 	// back to the per-key plan floor.
 	DefaultLimitGB *float64 `json:"defaultLimitGb"`
+	// DefaultPriceMmk is what a new key on this server is sold for, in MMK;
+	// nil means new keys start unpriced.
+	DefaultPriceMmk *int64 `json:"defaultPriceMmk"`
 }
 
 // managementKey is the JSON the Outline installer prints at the end of setup:
@@ -98,6 +101,11 @@ func (a *API) createServer(c fiber.Ctx) error {
 			Field: "defaultLimitGb", Message: "Default data limit must be greater than zero",
 		})
 	}
+	if req.DefaultPriceMmk != nil && *req.DefaultPriceMmk < 0 {
+		return apiresponse.Validation(c, apiresponse.FieldError{
+			Field: "defaultPriceMmk", Message: "Price cannot be negative",
+		})
+	}
 	var defaultLimitBytes *int64
 	if req.DefaultLimitGB != nil {
 		v := int64(*req.DefaultLimitGB * models.BytesPerGB)
@@ -137,7 +145,7 @@ func (a *API) createServer(c fiber.Ctx) error {
 				Message: "This URL matches a previously removed server, but the certificate fingerprint doesn't match — double-check the management key",
 			})
 		}
-		server, err := a.repo.ReviveServer(c.Context(), existing.ID, req.Name, req.APIURL, req.CertSHA256, req.CostUSDPerMonth, req.MaxKeys, defaultLimitBytes)
+		server, err := a.repo.ReviveServer(c.Context(), existing.ID, req.Name, req.APIURL, req.CertSHA256, req.CostUSDPerMonth, req.MaxKeys, defaultLimitBytes, req.DefaultPriceMmk)
 		if err != nil {
 			return apiresponse.Internal(c, "")
 		}
@@ -145,7 +153,7 @@ func (a *API) createServer(c fiber.Ctx) error {
 		return apiresponse.Created(c, server, "Server restored — its keys, limits and history are back")
 	}
 
-	server, err := a.repo.CreateServer(c.Context(), req.Name, req.APIURL, req.CertSHA256, req.CostUSDPerMonth, req.MaxKeys, defaultLimitBytes)
+	server, err := a.repo.CreateServer(c.Context(), req.Name, req.APIURL, req.CertSHA256, req.CostUSDPerMonth, req.MaxKeys, defaultLimitBytes, req.DefaultPriceMmk)
 	if err != nil {
 		return apiresponse.Internal(c, "")
 	}
@@ -309,6 +317,11 @@ type updateServerConfigRequest struct {
 	// "absent" and "explicitly none" cannot both be expressed by nil.
 	MaxKeys      *int `json:"maxKeys"`
 	ClearMaxKeys bool `json:"clearMaxKeys"`
+
+	// DefaultPriceMmk is what a new key on this server is sold for, in MMK.
+	// Same nil-to-skip / ClearDefaultPriceMmk-to-remove pairing as MaxKeys.
+	DefaultPriceMmk      *int64 `json:"defaultPriceMmk"`
+	ClearDefaultPriceMmk bool   `json:"clearDefaultPriceMmk"`
 }
 
 // stripURLScheme mirrors config.normalizeBaseURL: operators naturally paste a
@@ -343,7 +356,8 @@ func (a *API) updateServerConfig(c fiber.Ctx) error {
 		return nil
 	}
 	if req.HostnameForAccessKeys == nil && req.Name == nil && req.CostUSDPerMonth == nil &&
-		req.MaxKeys == nil && !req.ClearMaxKeys {
+		req.MaxKeys == nil && !req.ClearMaxKeys &&
+		req.DefaultPriceMmk == nil && !req.ClearDefaultPriceMmk {
 		return apiresponse.Validation(c, apiresponse.FieldError{
 			Field: "name", Message: "Nothing to update",
 		})
@@ -380,13 +394,22 @@ func (a *API) updateServerConfig(c fiber.Ctx) error {
 		}
 	}
 
-	if req.Name != nil || req.CostUSDPerMonth != nil || req.MaxKeys != nil {
-		if _, uerr := a.repo.UpdateServerDetails(c.Context(), id, req.Name, req.CostUSDPerMonth, req.MaxKeys); uerr != nil {
+	if req.DefaultPriceMmk != nil && *req.DefaultPriceMmk < 0 {
+		return apiresponse.Validation(c, apiresponse.FieldError{Field: "defaultPriceMmk", Message: "Price cannot be negative"})
+	}
+
+	if req.Name != nil || req.CostUSDPerMonth != nil || req.MaxKeys != nil || req.DefaultPriceMmk != nil {
+		if _, uerr := a.repo.UpdateServerDetails(c.Context(), id, req.Name, req.CostUSDPerMonth, req.MaxKeys, req.DefaultPriceMmk); uerr != nil {
 			return respondRepoErr(c, uerr)
 		}
 	}
 	if req.ClearMaxKeys {
 		if cerr := a.repo.ClearServerMaxKeys(c.Context(), id); cerr != nil {
+			return respondRepoErr(c, cerr)
+		}
+	}
+	if req.ClearDefaultPriceMmk {
+		if cerr := a.repo.ClearServerDefaultPrice(c.Context(), id); cerr != nil {
 			return respondRepoErr(c, cerr)
 		}
 	}

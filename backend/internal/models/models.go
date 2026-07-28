@@ -43,6 +43,11 @@ type Server struct {
 	// the ceiling applied to already-unlimited keys when the admin sets it.
 	// Nil means no server-wide default.
 	DefaultLimitBytes *int64 `json:"defaultLimitBytes"`
+
+	// DefaultPriceMmk is what a new key on this server is sold for, in MMK,
+	// unless overridden per key (see Key.PriceMmk). Nil means no default —
+	// new keys start unpriced rather than assumed free.
+	DefaultPriceMmk *int64 `json:"defaultPriceMmk"`
 }
 
 // Hostname is the API URL's host without the port, used as the server's
@@ -126,12 +131,21 @@ type DailyUsage struct {
 // row still renders, just without its live numbers.
 type ServerWithUsage struct {
 	Server
-	Hostname       string         `json:"hostname"`
-	Health         ServerHealth   `json:"health"`
-	KeyCount       int            `json:"keyCount"`
-	ActiveKeys     int            `json:"activeKeys"`
-	TotalUsedBytes int64          `json:"totalUsedBytes"`
-	Metrics        *ServerMetrics `json:"metrics"`
+	Hostname       string       `json:"hostname"`
+	Health         ServerHealth `json:"health"`
+	KeyCount       int          `json:"keyCount"`
+	ActiveKeys     int          `json:"activeKeys"`
+	TotalUsedBytes int64        `json:"totalUsedBytes"`
+	// MonthlyRevenueMmk sums each active key's effective price (its own
+	// PriceMmk, falling back to the server's DefaultPriceMmk, else 0) — see
+	// repository.ListServers. Computed server-side so the Revenue page and
+	// any future consumer agree on one number rather than each re-deriving it.
+	MonthlyRevenueMmk int64 `json:"monthlyRevenueMmk"`
+	// UnpricedActiveKeys counts active keys with neither their own price nor
+	// a server default to fall back to — a caveat that MonthlyRevenueMmk may
+	// understate actual revenue, surfaced on the Revenue page.
+	UnpricedActiveKeys int            `json:"unpricedActiveKeys"`
+	Metrics            *ServerMetrics `json:"metrics"`
 	// DailySeries is the card's sparkline. It comes from our snapshot history,
 	// so it only covers days since the server was added and is empty for a
 	// freshly-registered server.
@@ -172,10 +186,14 @@ type Key struct {
 	UsedBytes        int64      `json:"usedBytes"`
 	CustomLimitBytes *int64     `json:"customLimitBytes"`
 	EndDate          *time.Time `json:"endDate"`
-	Enabled          bool       `json:"enabled"`
-	Status           KeyStatus  `json:"status"`
-	CreatedAt        time.Time  `json:"createdAt"`
-	UpdatedAt        time.Time  `json:"updatedAt"`
+	// PriceMmk is what this key is actually sold for, in MMK. Nil means no
+	// price has been set (falls back to the server's DefaultPriceMmk for
+	// revenue purposes); 0 means explicitly free. See migration 0010.
+	PriceMmk  *int64    `json:"priceMmk"`
+	Enabled   bool      `json:"enabled"`
+	Status    KeyStatus `json:"status"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
 
 	// Password is the plaintext Shadowsocks password Outline issued for this
 	// key (accessUrl carries it too, but base64-encoded together with the

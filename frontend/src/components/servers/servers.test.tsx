@@ -34,6 +34,7 @@ function makeServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
     updatedAt: new Date().toISOString(),
     maxKeys: null,
     defaultLimitBytes: null,
+    defaultPriceMmk: null,
     hostname: "light-speed-data1.invisigate.asia",
     health: "healthy",
     // 2 keys, both valid, but only 1 connected — the live shape of this server,
@@ -41,6 +42,8 @@ function makeServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
     keyCount: 2,
     activeKeys: 2,
     totalUsedBytes: 6115628839,
+    monthlyRevenueMmk: 0,
+    unpricedActiveKeys: 0,
     metrics: {
       window: "30d",
       totalBytes: 6115628839,

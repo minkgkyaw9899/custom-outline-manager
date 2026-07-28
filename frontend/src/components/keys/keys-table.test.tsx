@@ -28,6 +28,7 @@ function makeKey(index: number, overrides: Partial<Key> = {}): Key {
     usedBytes,
     customLimitBytes,
     endDate: new Date(Date.now() + 30 * 86_400_000).toISOString(),
+    priceMmk: null,
     enabled: true,
     status: "active",
     createdAt: new Date().toISOString(),

@@ -85,6 +85,7 @@ can be swapped for a React build without touching Go code.
 | last_synced_at| timestamptz | last successful metrics pull             |
 | last_sync_error | text      | last error, if any, surfaced in UI       |
 | deleted_at    | timestamptz null | soft-delete marker; NULL = active. See below |
+| default_price_mmk | bigint null | what a new key on this server sells for, in MMK, unless overridden per key (keys.price_mmk). NULL = no default. See "Revenue" below. |
 | created_at / updated_at | timestamptz |                                |
 
 `DELETE /servers/:id` archives rather than deletes the row: `keys`, `renewal_logs`
@@ -103,6 +104,19 @@ than silently reused. An active (non-archived) row already at that URL → 409.
 NULL`), not a plain column constraint — a truly decommissioned server's old
 URL stays free for an unrelated new install.
 
+**Revenue** (migration 0010) is priced in MMK directly, not derived from
+`cost_usd_per_month` (a real USD hosting bill) via `MMK_PER_USD` — what a key
+sells for is a price the admin sets, unrelated to what the server costs to
+run. A key's effective price is `keys.price_mmk`, falling back to
+`servers.default_price_mmk` when the key has none, else unpriced (not
+free — 0 is the explicit "this key is free" state, distinct from NULL/unset,
+mirroring `custom_limit_bytes`). New keys are seeded from their server's
+default at creation (`handlers.provisionKey`), the same way a new key already
+inherits the server's default data limit. `ListServers` computes each
+server's `monthlyRevenueMmk` (sum of active keys' effective price) and
+`unpricedActiveKeys` (a caveat count) server-side, so the Revenue page and any
+future consumer agree on one number instead of re-deriving it themselves.
+
 ### `keys`
 | column               | type        | notes                                              |
 |----------------------|-------------|-----------------------------------------------------|
@@ -119,6 +133,7 @@ URL stays free for an unrelated new install.
 | end_date             | timestamptz null | NULL = no expiration                            |
 | enabled              | boolean     | our last-known desired state (limit pushed to Outline)|
 | status               | text        | derived: active / expired / limit_exceeded / disabled |
+| price_mmk            | bigint null | what this key is sold for, in MMK. NULL = no price set (falls back to servers.default_price_mmk); 0 = explicitly free. See "Revenue" below. |
 | created_at / updated_at | timestamptz |                                                    |
 
 `status` is also computed live on read (see §5) so it's never stale between

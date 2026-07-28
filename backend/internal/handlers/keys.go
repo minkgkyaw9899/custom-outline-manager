@@ -162,7 +162,10 @@ func (a *API) provisionKey(ctx context.Context, server models.Server, name strin
 		return nil, errOutlineUnreachable
 	}
 
-	key, err := a.repo.CreateKey(ctx, server.ID, remoteKey.ID, remoteKey.Name, remoteKey.AccessURL, remoteKey.Port, remoteKey.Method, remoteKey.Password, plan.limitBytes, plan.endDate, userID)
+	// A new key starts at its server's default price, the same as it starts
+	// at the server's default data limit (resolveKeyPlan) — nil if the server
+	// has none, left for the admin to set on the key or the server later.
+	key, err := a.repo.CreateKey(ctx, server.ID, remoteKey.ID, remoteKey.Name, remoteKey.AccessURL, remoteKey.Port, remoteKey.Method, remoteKey.Password, plan.limitBytes, plan.endDate, userID, server.DefaultPriceMmk)
 	if err != nil {
 		// The key exists on Outline but we failed to record it, so it would be
 		// unmanaged and unenforceable. Remove it and report the failure.
@@ -345,6 +348,12 @@ type updateKeyRequest struct {
 	// A date ("2026-08-24", read as the end of that day) or a full RFC3339
 	// timestamp.
 	EndDate *string `json:"end_date"`
+	// PriceMmk overrides this key's price, in MMK — 0 marks it free. Nil
+	// leaves the current price (own or inherited) alone; ClearPriceMmk resets
+	// it back to "no override, follow the server's default", since "absent"
+	// and "explicitly none" cannot both be expressed by nil.
+	PriceMmk      *int64 `json:"price_mmk"`
+	ClearPriceMmk bool   `json:"clear_price_mmk"`
 }
 
 // updateKey applies absolute edits to one key: its name, its total data limit,
@@ -394,7 +403,12 @@ func (a *API) updateKey(c fiber.Ctx) error {
 		endDate = parsed
 	}
 
-	if req.Name == nil && req.LimitGB == nil && req.EndDate == nil {
+	if req.PriceMmk != nil && *req.PriceMmk < 0 {
+		return apiresponse.Validation(c, apiresponse.FieldError{Field: "price_mmk", Message: "price_mmk cannot be negative"})
+	}
+
+	if req.Name == nil && req.LimitGB == nil && req.EndDate == nil &&
+		req.PriceMmk == nil && !req.ClearPriceMmk {
 		return apiresponse.Validation(c, apiresponse.FieldError{Field: "name", Message: "Nothing to update"})
 	}
 
@@ -427,6 +441,18 @@ func (a *API) updateKey(c fiber.Ctx) error {
 		}
 		if err := a.enforcer.ReconcileKeyByID(c.Context(), id); err != nil {
 			return apiresponse.BadGateway(c, "The change was saved but could not be pushed to the Outline server yet")
+		}
+	}
+
+	// Price is purely local accounting — nothing to push to Outline or
+	// reconcile, unlike name/limit/expiry above.
+	if req.ClearPriceMmk {
+		if err := a.repo.SetKeyPrice(c.Context(), id, nil); err != nil {
+			return apiresponse.Internal(c, "")
+		}
+	} else if req.PriceMmk != nil {
+		if err := a.repo.SetKeyPrice(c.Context(), id, req.PriceMmk); err != nil {
+			return apiresponse.Internal(c, "")
 		}
 	}
 

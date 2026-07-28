@@ -36,6 +36,7 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
   const [costUsd, setCostUsd] = useState("6")
   const [maxKeys, setMaxKeys] = useState("")
   const [defaultLimitGb, setDefaultLimitGb] = useState(String(MIN_PLAN_GB))
+  const [defaultPriceMmk, setDefaultPriceMmk] = useState("")
   // Indexed by field name, so a miss is genuinely undefined.
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
 
@@ -52,6 +53,8 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
         maxKeys: maxKeys.trim() === "" ? null : Number(maxKeys),
         defaultLimitGb:
           defaultLimitGb.trim() === "" ? null : Number(defaultLimitGb),
+        defaultPriceMmk:
+          defaultPriceMmk.trim() === "" ? null : Number(defaultPriceMmk),
       }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["servers"] })
@@ -60,6 +63,7 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
       setCostUsd("6")
       setMaxKeys("")
       setDefaultLimitGb(String(MIN_PLAN_GB))
+      setDefaultPriceMmk("")
       setErrors({})
       setOpen(false)
     },
@@ -191,6 +195,32 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
               <FieldDescription>
                 {errors.defaultLimitGb ??
                   ""}
+              </FieldDescription>
+            </Field>
+
+            <Field data-invalid={!!errors.defaultPriceMmk || undefined}>
+              <FieldLabel htmlFor="server-default-price">
+                Price per key
+              </FieldLabel>
+              <InputGroup>
+                <InputGroupInput
+                  id="server-default-price"
+                  type="number"
+                  min={0}
+                  step={1}
+                  inputMode="numeric"
+                  placeholder="Not set"
+                  value={defaultPriceMmk}
+                  aria-invalid={!!errors.defaultPriceMmk || undefined}
+                  onChange={(e) => setDefaultPriceMmk(e.target.value)}
+                />
+                <InputGroupAddon align="inline-end">
+                  <InputGroupText>MMK / month</InputGroupText>
+                </InputGroupAddon>
+              </InputGroup>
+              <FieldDescription>
+                {errors.defaultPriceMmk ??
+                  "What a new key on this server sells for. Individual keys can be priced differently or marked free later."}
               </FieldDescription>
             </Field>
           </FieldGroup>

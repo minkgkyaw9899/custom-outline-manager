@@ -68,6 +68,7 @@ export function EditServerDialog({
   const [name, setName] = useState("")
   const [costUsd, setCostUsd] = useState("")
   const [maxKeys, setMaxKeys] = useState("")
+  const [defaultPriceMmk, setDefaultPriceMmk] = useState("")
   const [hostname, setHostname] = useState("")
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
 
@@ -85,6 +86,11 @@ export function EditServerDialog({
       setMaxKeys(
         detail.server.maxKeys === null ? "" : String(detail.server.maxKeys),
       )
+      setDefaultPriceMmk(
+        detail.server.defaultPriceMmk === null
+          ? ""
+          : String(detail.server.defaultPriceMmk),
+      )
       setHostname(detail.accessKeyHostname || detail.hostname)
       setErrors({})
     }
@@ -101,10 +107,15 @@ export function EditServerDialog({
     detail?.server.maxKeys === null || detail === undefined
       ? ""
       : String(detail.server.maxKeys)
+  const currentDefaultPriceMmk =
+    detail?.server.defaultPriceMmk === null || detail === undefined
+      ? ""
+      : String(detail.server.defaultPriceMmk)
 
   const nameChanged = trimmedName !== (detail?.server.name ?? "")
   const costChanged = costUsd.trim() !== currentCost
   const maxKeysChanged = maxKeys.trim() !== currentMaxKeys
+  const defaultPriceMmkChanged = defaultPriceMmk.trim() !== currentDefaultPriceMmk
   // Compared against what Outline actually stamps today, never against the
   // API-URL fallback — that is what makes an auto-bound domain count as a
   // change and get pushed on Save.
@@ -114,12 +125,16 @@ export function EditServerDialog({
   const hostnameUnbound =
     detail !== undefined && detail.accessKeyHostname === "" && detail.hostname !== ""
   const nothingToDo =
-    !nameChanged && !costChanged && !maxKeysChanged && !hostnameChanged
+    !nameChanged && !costChanged && !maxKeysChanged &&
+    !defaultPriceMmkChanged && !hostnameChanged
 
   // "Absent" and "explicitly none" can't both be nil on the wire, so removing a
-  // ceiling is its own flag rather than a null maxKeys.
+  // ceiling (or a default price) is its own flag rather than a null value.
   const clearingMaxKeys = maxKeysChanged && maxKeys.trim() === ""
   const parsedMaxKeys = toNullableNumber(maxKeys)
+  const clearingDefaultPriceMmk =
+    defaultPriceMmkChanged && defaultPriceMmk.trim() === ""
+  const parsedDefaultPriceMmk = toNullableNumber(defaultPriceMmk)
 
   const keyCount = detail?.keys.length ?? 0
   const belowKeyCount = parsedMaxKeys !== null && parsedMaxKeys < keyCount
@@ -136,6 +151,10 @@ export function EditServerDialog({
         ...(costChanged ? { costUsdPerMonth: toNullableNumber(costUsd) } : {}),
         ...(maxKeysChanged && !clearingMaxKeys ? { maxKeys: parsedMaxKeys } : {}),
         ...(clearingMaxKeys ? { clearMaxKeys: true } : {}),
+        ...(defaultPriceMmkChanged && !clearingDefaultPriceMmk
+          ? { defaultPriceMmk: parsedDefaultPriceMmk }
+          : {}),
+        ...(clearingDefaultPriceMmk ? { clearDefaultPriceMmk: true } : {}),
         ...(hostnameChanged ? { hostnameForAccessKeys: trimmedHostname } : {}),
       })
     },
@@ -241,6 +260,32 @@ export function EditServerDialog({
                     (belowKeyCount
                       ? `This server already has ${keyCount} key${keyCount === 1 ? "" : "s"} — set the limit to ${keyCount} or higher, or delete keys first.`
                       : `Currently holding ${keyCount} key${keyCount === 1 ? "" : "s"}. Leave blank for no ceiling; existing keys are never deleted to satisfy it.`)}
+                </FieldDescription>
+              </Field>
+
+              <Field data-invalid={!!errors.defaultPriceMmk || undefined}>
+                <FieldLabel htmlFor="edit-server-default-price">
+                  Price per key
+                </FieldLabel>
+                <InputGroup>
+                  <InputGroupInput
+                    id="edit-server-default-price"
+                    type="number"
+                    min={0}
+                    step={1}
+                    inputMode="numeric"
+                    placeholder="Not set"
+                    value={defaultPriceMmk}
+                    aria-invalid={!!errors.defaultPriceMmk || undefined}
+                    onChange={(e) => setDefaultPriceMmk(e.target.value)}
+                  />
+                  <InputGroupAddon align="inline-end">
+                    <InputGroupText>MMK / month</InputGroupText>
+                  </InputGroupAddon>
+                </InputGroup>
+                <FieldDescription>
+                  {errors.defaultPriceMmk ??
+                    "What a new key on this server sells for. Leave blank to leave new keys unpriced; existing keys keep whatever price they already have."}
                 </FieldDescription>
               </Field>
             </FieldSet>

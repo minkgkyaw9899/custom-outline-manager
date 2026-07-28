@@ -72,6 +72,12 @@ export interface Key {
   usedBytes: number
   customLimitBytes: number | null
   endDate: string | null
+  /**
+   * What this key sells for, in MMK. Null means no price set (falls back to
+   * the server's defaultPriceMmk for revenue purposes); 0 means explicitly
+   * free.
+   */
+  priceMmk: number | null
   enabled: boolean
   status: KeyStatus
   createdAt: string
@@ -106,6 +112,11 @@ export interface Server {
    * already-unlimited keys when the admin sets it. Null means no default.
    */
   defaultLimitBytes: number | null
+  /**
+   * What a new key on this server sells for, in MMK, unless overridden per
+   * key (Key.priceMmk). Null means no default — new keys start unpriced.
+   */
+  defaultPriceMmk: number | null
 }
 
 export type ServerHealth = "healthy" | "degraded" | "offline"
@@ -181,6 +192,17 @@ export interface ServerWithUsage extends Server {
   keyCount: number
   activeKeys: number
   totalUsedBytes: number
+  /**
+   * Sum of each active key's effective price (its own priceMmk, falling back
+   * to defaultPriceMmk, else 0) — computed server-side so every consumer
+   * agrees on one number.
+   */
+  monthlyRevenueMmk: number
+  /**
+   * Active keys with neither their own price nor a server default — a
+   * caveat that monthlyRevenueMmk may understate actual revenue.
+   */
+  unpricedActiveKeys: number
   /** Null when the server could not be reached for a live read. */
   metrics: ServerMetrics | null
   /** Empty until the cron has recorded at least two days of snapshots. */

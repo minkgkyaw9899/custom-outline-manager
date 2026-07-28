@@ -86,6 +86,7 @@ function keyFromSeed(seed: Seed): { key: Key; metrics: KeyMetrics } {
       usedBytes,
       customLimitBytes: limitBytes,
       endDate: seed.endInDays === null ? null : daysFromNow(seed.endInDays),
+      priceMmk: null,
       enabled: seed.status !== "disabled",
       status: seed.status,
       createdAt: daysFromNow(-90),
@@ -143,6 +144,7 @@ export function mockServerDetail(): Promise<ServerDetail> {
       updatedAt: now().toISOString(),
       maxKeys: null,
       defaultLimitBytes: null,
+      defaultPriceMmk: null,
     },
     // Bare host, as the backend's server.Hostname() returns it — not the full
     // apiUrl, which is what the edit dialog's auto-bind fallback reads.
@@ -204,6 +206,16 @@ export function mockCreateKey(
 
 export function mockRenameKey(keyId: string, name: string): Promise<null> {
   store.keys = store.keys.map((key) => (key.id === keyId ? { ...key, name } : key))
+  return latency(null)
+}
+
+export function mockSetKeyPrice(
+  keyId: string,
+  priceMmk: number | null,
+): Promise<null> {
+  store.keys = store.keys.map((key) =>
+    key.id === keyId ? { ...key, priceMmk } : key,
+  )
   return latency(null)
 }
 
