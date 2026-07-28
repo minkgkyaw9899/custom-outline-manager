@@ -130,3 +130,40 @@ jobs:
             docker compose pull &&
             docker compose up -d --remove-orphans
           "
+
+  tag-release:
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Every successful deploy to main gets its own tag: vMAJOR.MINOR.PATCH,
+      # patch auto-incremented from whatever's currently the highest vX.Y.Z
+      # tag. Bump MAJOR/MINOR by pushing a tag manually ahead of a deploy
+      # (e.g. `git tag v1.0.0 && git push origin v1.0.0`) — the next deploy
+      # then continues incrementing the patch from there.
+      - name: Compute next version
+        id: version
+        run: |
+          latest=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' | sort -V | tail -n1)
+          if [ -z "$latest" ]; then
+            next="v0.1.0"
+          else
+            IFS='.' read -r major minor patch <<< "${latest#v}"
+            next="v${major}.${minor}.$((patch + 1))"
+          fi
+          echo "next=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Create tag and release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEXT: ${{ steps.version.outputs.next }}
+        run: |
+          git tag "$NEXT"
+          git push origin "$NEXT"
+          gh release create "$NEXT" --title "$NEXT" --generate-notes
