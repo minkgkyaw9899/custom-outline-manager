@@ -1,68 +1,124 @@
 import { describe, expect, it } from "vitest"
-import { fireEvent, render, screen } from "@testing-library/react"
+import { render, screen } from "@testing-library/react"
 
 import { BandwidthConsumptionCard } from "./bandwidth-consumption-card"
 import { CompareServersCard } from "./compare-servers-card"
 import { FleetHealthCard } from "./fleet-health-card"
 import { KeysAttentionCard } from "./keys-attention-card"
-import { StatCard } from "./stat-card"
-import { OVERVIEW_STATS } from "@/lib/mock-dashboard"
+import type { Key, ServerWithUsage } from "@/lib/types"
+
+function mockServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
+  return {
+    id: "server-1",
+    name: "Frankfurt-01",
+    apiUrl: "https://example.com",
+    certSha256: "abc",
+    costUsdPerMonth: null,
+    lastSyncedAt: null,
+    lastSyncError: null,
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    maxKeys: null,
+    defaultLimitBytes: null,
+    defaultPriceMmk: null,
+    hostname: "frankfurt.example.com",
+    health: "healthy",
+    keyCount: 10,
+    activeKeys: 8,
+    totalUsedBytes: 0,
+    monthlyRevenueMmk: 0,
+    unpricedActiveKeys: 0,
+    metrics: null,
+    dailySeries: [
+      { date: "2026-01-01", bytes: 5_000_000_000 },
+      { date: "2026-01-02", bytes: 7_000_000_000 },
+    ],
+    ...overrides,
+  }
+}
+
+function mockKey(overrides: Partial<Key> = {}): Key {
+  return {
+    id: "key-1",
+    serverId: "server-1",
+    outlineKeyId: "1",
+    name: "Ko Ko",
+    accessUrl: "ss://example",
+    dynamicAccessUrl: "",
+    port: null,
+    method: null,
+    usedBytes: 2_900_000_000,
+    customLimitBytes: 50_000_000_000,
+    endDate: null,
+    priceMmk: null,
+    enabled: true,
+    status: "expired",
+    createdAt: "2026-01-01T00:00:00Z",
+    updatedAt: "2026-01-01T00:00:00Z",
+    daysLeft: -1,
+    remainingBytes: null,
+    serverName: "Frankfurt-01",
+    userId: null,
+    ...overrides,
+  }
+}
 
 describe("dashboard overview cards", () => {
-  it("renders a stat card with value, badge and note", () => {
-    const { keys } = OVERVIEW_STATS
-    render(
-      <StatCard
-        label="Total active keys"
-        badge={`+${keys.deltaThisWeek} this week`}
-        value={String(keys.total)}
-        valueSuffix="keys"
-        note={`${keys.expiringIn7Days} expiring in 7 days`}
-        sparkline={keys.spark}
-      />,
-    )
-    expect(screen.getByText("Total active keys")).toBeTruthy()
-    expect(screen.getByText("248")).toBeTruthy()
-    expect(screen.getByText("+12 this week")).toBeTruthy()
-    expect(screen.getByText("31 expiring in 7 days")).toBeTruthy()
-  })
-
-  it("renders the bandwidth consumption card with its default selections", () => {
-    render(<BandwidthConsumptionCard />)
+  it("renders the bandwidth consumption card for the selected server", () => {
+    const servers = [mockServer()]
+    render(<BandwidthConsumptionCard servers={servers} />)
     expect(screen.getByText("Bandwidth consumption")).toBeTruthy()
-    expect(screen.getByText(/Per-server bandwidth · New York-03 · daily/)).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Daily" })).toBeTruthy()
-    expect(screen.getByRole("button", { name: "Monthly" })).toBeTruthy()
+    expect(screen.getByText(/Per-server bandwidth · Frankfurt-01 · daily/)).toBeTruthy()
   })
 
-  it("switches the bandwidth card between daily and monthly", () => {
-    render(<BandwidthConsumptionCard />)
-    fireEvent.click(screen.getByRole("button", { name: "Monthly" }))
-    expect(screen.getByText(/Per-server bandwidth · New York-03 · monthly/)).toBeTruthy()
-  })
-
-  it("renders the compare card with both server series", () => {
-    render(<CompareServersCard />)
-    expect(screen.getByText("Compare server bandwidth")).toBeTruthy()
+  it("shows an empty state when a server has no sync history yet", () => {
+    const servers = [mockServer({ dailySeries: [] })]
+    render(<BandwidthConsumptionCard servers={servers} />)
     expect(
-      screen.getByText(/Singapore-02 vs New York-03 · total bandwidth per period/),
+      screen.getByText(/No traffic history yet/),
     ).toBeTruthy()
   })
 
-  it("lists keys needing attention with usage and status", () => {
-    render(<KeysAttentionCard />)
-    expect(screen.getByText("Keys needing attention")).toBeTruthy()
-    expect(screen.getByText("Ko Ko — Trial 50GB")).toBeTruthy()
-    expect(screen.getByText("Frankfurt-01 · Mytel")).toBeTruthy()
-    expect(screen.getByText("2.9 GB")).toBeTruthy()
-    expect(screen.getByText("Expired")).toBeTruthy()
+  it("renders the compare card with both server series", () => {
+    const servers = [
+      mockServer({ id: "server-1", name: "Frankfurt-01" }),
+      mockServer({ id: "server-2", name: "Singapore-02" }),
+    ]
+    render(<CompareServersCard servers={servers} />)
+    expect(screen.getByText("Compare server bandwidth")).toBeTruthy()
+    expect(
+      screen.getByText(/Frankfurt-01 vs Singapore-02 · total bandwidth per day/),
+    ).toBeTruthy()
   })
 
-  it("renders fleet health with per-server load and latency", () => {
-    render(<FleetHealthCard />)
+  it("lists keys needing attention, filtering out healthy keys", () => {
+    const keys = [
+      mockKey({ id: "key-1", name: "Ko Ko", status: "expired", daysLeft: -1 }),
+      mockKey({ id: "key-2", name: "Zaw", status: "limit_exceeded", daysLeft: null }),
+      mockKey({
+        id: "key-3",
+        name: "Nyein",
+        status: "active",
+        daysLeft: 30,
+        customLimitBytes: null,
+      }),
+    ]
+    render(<KeysAttentionCard keys={keys} />)
+    expect(screen.getByText("Keys needing attention")).toBeTruthy()
+    expect(screen.getByText("Ko Ko")).toBeTruthy()
+    expect(screen.getByText("Zaw")).toBeTruthy()
+    expect(screen.queryByText("Nyein")).toBeNull()
+    expect(screen.getByText("Expired")).toBeTruthy()
+    expect(screen.getByText("Limit")).toBeTruthy()
+  })
+
+  it("renders fleet health with per-server status and key counts", () => {
+    const servers = [
+      mockServer({ id: "server-1", name: "Frankfurt-01", health: "degraded", activeKeys: 8, keyCount: 10 }),
+    ]
+    render(<FleetHealthCard servers={servers} />)
     expect(screen.getByText("Fleet health")).toBeTruthy()
-    expect(screen.getByText("Tokyo-04")).toBeTruthy()
-    expect(screen.getByText("78%")).toBeTruthy()
-    expect(screen.getByText("38 ms")).toBeTruthy()
+    expect(screen.getByText("Frankfurt-01")).toBeTruthy()
+    expect(screen.getByText("8 / 10 keys active")).toBeTruthy()
   })
 })

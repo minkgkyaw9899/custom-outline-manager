@@ -9,7 +9,6 @@ import {
   Dialog,
   DialogClose,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -257,11 +256,6 @@ export function EditKeyDialog({
             <DialogTitle className="font-heading">
               Edit {keyItem ? keyDisplayName(keyItem) : "key"}
             </DialogTitle>
-            <DialogDescription>
-              Rename the key, sell it another period, or write its limit and expiry
-              directly. Renaming is pushed to the Outline server so it stays in step
-              after the next sync.
-            </DialogDescription>
           </DialogHeader>
 
           <FieldGroup className="py-4">
@@ -322,10 +316,6 @@ export function EditKeyDialog({
               <FieldDescription>
                 {mode === "keep" &&
                   `Currently ${formatBytesCompact(keyItem?.customLimitBytes, { decimals: 1 })} · ${keyItem?.endDate ? `expires ${formatDateOnly(keyItem.endDate)}` : "no expiry"}.`}
-                {mode === "extend" &&
-                  "Adds an allowance on top of current usage and pushes the expiry out."}
-                {mode === "set" &&
-                  "Writes the limit and expiry exactly as entered, ignoring current usage."}
               </FieldDescription>
             </Field>
 

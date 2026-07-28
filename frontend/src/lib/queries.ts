@@ -41,6 +41,13 @@ export const unassignedKeysQueryOptions = () =>
     queryFn: () => apiClient.get<Key[]>("keys", { unassigned: "true" }),
   })
 
+/** Every key across every server, holder-linked or not — feeds the Overview dashboard. */
+export const keysQueryOptions = () =>
+  queryOptions({
+    queryKey: ["keys"] as const,
+    queryFn: () => apiClient.get<Key[]>("keys"),
+  })
+
 // Live metrics come from the Outline servers themselves on every request, so
 // these are deliberately short-lived: the bandwidth figure is a current rate
 // and goes stale within seconds, unlike the DB-backed counts alongside it.

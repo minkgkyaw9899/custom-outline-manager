@@ -1,19 +1,55 @@
 import { createFileRoute } from "@tanstack/react-router"
+import { useQuery } from "@tanstack/react-query"
 
-import { Button } from "@/components/ui/button"
 import { BandwidthConsumptionCard } from "@/components/dashboard/bandwidth-consumption-card"
 import { CompareServersCard } from "@/components/dashboard/compare-servers-card"
 import { FleetHealthCard } from "@/components/dashboard/fleet-health-card"
 import { KeysAttentionCard } from "@/components/dashboard/keys-attention-card"
-import { StatCard } from "@/components/dashboard/stat-card"
-import { LAST_SYNC_SECONDS_AGO, OVERVIEW_STATS } from "@/lib/mock-dashboard"
+import { StatCard } from "@/components/stat-card"
+import { SyncPill } from "@/components/sync-pill"
+import { Skeleton } from "@/components/ui/skeleton"
+import { useIsUserActive } from "@/hooks/use-is-user-active"
+import { formatBytesCompact } from "@/lib/format"
+import {
+  LIVE_REFRESH_MS,
+  keysQueryOptions,
+  serversQueryOptions,
+  statsQueryOptions,
+} from "@/lib/queries"
 
 export const Route = createFileRoute("/_authed/admin/overview")({
   component: DashboardPage,
 })
 
 function DashboardPage() {
-  const { keys, servers, bandwidth } = OVERVIEW_STATS
+  // Same idle-aware polling as the Servers page: every refresh fans out to
+  // every Outline server, so an abandoned tab shouldn't keep hitting them.
+  const isActive = useIsUserActive()
+  const { data: servers, isLoading: serversLoading } = useQuery({
+    ...serversQueryOptions(),
+    refetchInterval: isActive ? LIVE_REFRESH_MS : false,
+  })
+  const { data: stats, isLoading: statsLoading } = useQuery(statsQueryOptions())
+  const { data: keys, isLoading: keysLoading } = useQuery(keysQueryOptions())
+
+  const all = servers ?? []
+  const statsLoaded = !statsLoading && stats !== undefined
+
+  const lastSyncedAt = all
+    .map((s) => s.lastSyncedAt)
+    .filter((v): v is string => v !== null)
+    .sort()
+    .at(-1)
+
+  const degraded = all.filter((s) => s.health === "degraded").length
+  const offline = all.filter((s) => s.health === "offline").length
+  const connected = all.length - offline
+
+  const totalBandwidthBytes = all.reduce(
+    (sum, s) => sum + (s.metrics?.totalBytes ?? 0),
+    0,
+  )
+  const serversWithMetrics = all.filter((s) => s.metrics !== null).length
 
   return (
     <div className="flex flex-col gap-6">
@@ -22,55 +58,69 @@ function DashboardPage() {
           <p className="text-sm text-muted-foreground">Dashboard</p>
           <h1 className="font-heading text-2xl font-semibold">Overview</h1>
         </div>
-        <Button
-          variant="outline"
-          className="rounded-full border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary"
-        >
-          <span
-            aria-hidden
-            data-icon="inline-start"
-            className="size-2 animate-pulse rounded-full bg-primary"
+        <SyncPill lastSyncedAt={lastSyncedAt} />
+      </div>
+
+      {serversLoading || !statsLoaded ? (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-32" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <StatCard
+            label="Active keys"
+            value={String(stats.activeKeys)}
+            note={`${stats.totalKeys} total · ${stats.expiredKeys} expired · ${stats.limitExceededKeys} over limit`}
           />
-          Sync {LAST_SYNC_SECONDS_AGO}s ago
-        </Button>
-      </div>
+          <StatCard
+            label="Connected servers"
+            value={`${connected} / ${all.length}`}
+            note={
+              degraded > 0
+                ? `${degraded} degraded${offline > 0 ? `, ${offline} offline` : ""}`
+                : offline > 0
+                  ? `${offline} offline`
+                  : "All healthy"
+            }
+          />
+          <StatCard
+            label="Bandwidth (30d)"
+            value={formatBytesCompact(totalBandwidthBytes)}
+            note={
+              all.length === 0
+                ? "No servers yet"
+                : serversWithMetrics === all.length
+                  ? `Across ${all.length} server${all.length === 1 ? "" : "s"}`
+                  : `${serversWithMetrics} of ${all.length} servers reporting live metrics`
+            }
+          />
+        </div>
+      )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <StatCard
-          label="Total active keys"
-          badge={`+${keys.deltaThisWeek} this week`}
-          badgeTone="positive"
-          value={String(keys.total)}
-          valueSuffix="keys"
-          note={`${keys.expiringIn7Days} expiring in 7 days`}
-          sparkline={keys.spark}
-        />
-        <StatCard
-          label="Connected servers"
-          badge={`${servers.degraded} degraded`}
-          badgeTone="warning"
-          value={String(servers.connected)}
-          valueSuffix={`of ${servers.total}`}
-          note={servers.note}
-          sparkline={servers.spark}
-        />
-        <StatCard
-          label="Aggregate bandwidth"
-          badge={`+${bandwidth.deltaPct}%`}
-          badgeTone="positive"
-          value={(bandwidth.monthlyBytes / 1e12).toFixed(1)}
-          valueSuffix="TB / mo"
-          note={`In ${(bandwidth.inBytes / 1e12).toFixed(1)} TB · Out ${(bandwidth.outBytes / 1e12).toFixed(1)} TB`}
-          sparkline={bandwidth.spark}
-        />
-      </div>
-
-      <BandwidthConsumptionCard />
-      <CompareServersCard />
+      {serversLoading ? (
+        <Skeleton className="h-80" />
+      ) : (
+        <BandwidthConsumptionCard servers={all} />
+      )}
+      {serversLoading ? (
+        <Skeleton className="h-72" />
+      ) : (
+        <CompareServersCard servers={all} />
+      )}
 
       <div className="grid items-stretch gap-4 lg:grid-cols-5">
-        <KeysAttentionCard className="lg:col-span-3" />
-        <FleetHealthCard className="lg:col-span-2" />
+        {keysLoading ? (
+          <Skeleton className="h-64 lg:col-span-3" />
+        ) : (
+          <KeysAttentionCard keys={keys ?? []} className="lg:col-span-3" />
+        )}
+        {serversLoading ? (
+          <Skeleton className="h-64 lg:col-span-2" />
+        ) : (
+          <FleetHealthCard servers={all} className="lg:col-span-2" />
+        )}
       </div>
     </div>
   )

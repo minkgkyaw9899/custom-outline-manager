@@ -1,49 +1,41 @@
-import { SERVER_STATUS_STYLES } from "@/components/server-status-badge"
+import { ServerStatusBadge } from "@/components/server-status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Separator } from "@/components/ui/separator"
-import { AVG_LATENCY_MS, OVERVIEW_SERVERS } from "@/lib/mock-dashboard"
-import { cn } from "@/lib/utils"
+import { formatRelativeTime } from "@/lib/format"
+import type { ServerWithUsage } from "@/lib/types"
 
-export function FleetHealthCard({ className }: Readonly<{ className?: string }>) {
+export function FleetHealthCard({
+  servers,
+  className,
+}: Readonly<{ servers: ServerWithUsage[]; className?: string }>) {
   return (
     <Card className={className}>
       <CardHeader>
         <CardTitle className="font-heading text-lg">Fleet health</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-5">
-        {OVERVIEW_SERVERS.map((server) => (
-          <div key={server.id} className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span
-                aria-hidden
-                className={cn(
-                  "size-2 shrink-0 rounded-full",
-                  SERVER_STATUS_STYLES[server.status].dot,
-                )}
-              />
-              <span className="flex-1 truncate text-sm font-medium">{server.name}</span>
-              <span className="font-mono text-xs tabular-nums text-muted-foreground">
-                {server.loadPct}%
-              </span>
+      <CardContent className="flex flex-col gap-4">
+        {servers.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No servers yet.</p>
+        ) : (
+          servers.map((server) => (
+            <div
+              key={server.id}
+              className="flex items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{server.name}</p>
+                <p className="text-xs text-muted-foreground">
+                  {server.activeKeys} / {server.keyCount} keys active
+                </p>
+              </div>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                <ServerStatusBadge status={server.health} />
+                <span className="text-xs text-muted-foreground">
+                  Synced {formatRelativeTime(server.lastSyncedAt)}
+                </span>
+              </div>
             </div>
-            <Progress
-              value={server.loadPct}
-              aria-label={`${server.name} load`}
-              className={cn(
-                "gap-0 [&_[data-slot=progress-track]]:h-1 [&_[data-slot=progress-track]]:rounded-full",
-                SERVER_STATUS_STYLES[server.status].bar,
-              )}
-            />
-          </div>
-        ))}
-        <div className="mt-auto flex flex-col gap-4">
-          <Separator />
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Avg latency</span>
-            <span className="font-mono text-sm tabular-nums">{AVG_LATENCY_MS} ms</span>
-          </div>
-        </div>
+          ))
+        )}
       </CardContent>
     </Card>
   )

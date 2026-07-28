@@ -28,12 +28,12 @@ import { useAuth, useLogout } from "@/lib/auth"
 
 const NAV_ITEMS = [
   { title: "Overview", url: "/admin/overview", icon: LayoutDashboardIcon },
-  { title: "Servers", url: "/admin/servers", icon: ServerIcon },
-  { title: "Revenue", url: "/admin/revenue", icon: WalletIcon },
   // Both key holders and dashboard operators live here, on one page with a
   // table each — they are two kinds of "user" and were never worth two nav
   // entries.
   { title: "Users", url: "/admin/users", icon: UsersIcon },
+  { title: "Servers", url: "/admin/servers", icon: ServerIcon },
+  { title: "Revenue", url: "/admin/revenue", icon: WalletIcon },
 ]
 
 export function AppSidebar() {
