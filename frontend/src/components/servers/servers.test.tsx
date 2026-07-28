@@ -163,15 +163,6 @@ describe("server card", () => {
     expect(screen.getByText("ASes")).toBeTruthy()
   })
 
-  // The chart needs two days of snapshots to produce a single delta, so a
-  // freshly-added server must explain itself rather than render an empty box.
-  it("explains the chart instead of drawing one without enough history", async () => {
-    renderCard(makeServer({ dailySeries: [{ date: "2026-07-25", bytes: 1e9 }] }))
-    expect(
-      await screen.findByText(/Daily traffic appears once this server has/),
-    ).toBeTruthy()
-  })
-
   it("asks for confirmation before removing a server, and says what survives", async () => {
     renderCard(makeServer())
     fireEvent.click(await screen.findByRole("button", { name: "Remove LSD 1 Yamin" }))

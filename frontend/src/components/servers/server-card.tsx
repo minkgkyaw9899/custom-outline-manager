@@ -6,7 +6,6 @@ import { ArrowRightIcon, TriangleAlertIcon, Trash2Icon } from "lucide-react"
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { ServerStatusBadge } from "@/components/server-status-badge"
 import { AsShareList } from "@/components/servers/as-share-list"
-import { UsageChart } from "@/components/servers/usage-chart"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -198,8 +197,6 @@ export function ServerCard({ server }: Readonly<{ server: ServerWithUsage }>) {
           </div>
           <AsShareList ases={metrics?.ases ?? []} limit={3} hideCaption />
         </div>
-
-        <UsageChart series={server.dailySeries} />
       </CardContent>
 
       <ConfirmDialog

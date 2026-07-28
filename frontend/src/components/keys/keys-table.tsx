@@ -216,6 +216,20 @@ export function KeysTable({
           </Link>
         ),
       }),
+      columnHelper.accessor((row) => (row.key.userId ? row.key.userName || "" : ""), {
+        id: "holder",
+        header: "Holder",
+        cell: ({ row }) =>
+          row.original.key.userId ? (
+            <Badge variant="secondary">
+              {row.original.key.userName || "Linked"}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-muted-foreground">
+              Unassigned
+            </Badge>
+          ),
+      }),
       columnHelper.accessor((row) => row.key.status, {
         id: "status",
         header: "Status",
@@ -417,7 +431,9 @@ export function KeysTable({
                         key={header.id}
                         header={header}
                         align={
-                          ["name", "status", "usage"].includes(header.column.id)
+                          ["name", "holder", "status", "usage"].includes(
+                            header.column.id,
+                          )
                             ? "start"
                             : "end"
                         }
