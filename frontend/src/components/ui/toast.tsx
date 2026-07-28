@@ -22,7 +22,14 @@ function ToastViewport({ className, ...props }: ToastPrimitive.Viewport.Props) {
     <ToastPrimitive.Viewport
       data-slot="toast-viewport"
       className={cn(
-        "pointer-events-none fixed inset-x-4 bottom-4 z-50 mx-auto w-auto max-w-sm outline-none sm:right-4 sm:left-auto sm:mx-0 sm:w-full",
+        // Every other overlay (dialog, sheet, select, dropdown, tooltip,
+        // popover) uses z-50 and relies on DOM order within that tier to
+        // stack correctly against each other (e.g. a select opened inside a
+        // dialog portals later, so it wins). Toasts report the outcome of an
+        // action that's often triggered from inside one of those overlays,
+        // so they need to sit above the whole z-50 tier unconditionally,
+        // not just win-by-DOM-order within it.
+        "pointer-events-none fixed inset-x-4 bottom-4 z-100 mx-auto w-auto max-w-sm outline-none sm:right-4 sm:left-auto sm:mx-0 sm:w-full",
         className
       )}
       {...props}
