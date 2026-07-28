@@ -489,7 +489,7 @@ function KeyDetailPage() {
               </DetailRow>
               <DetailRow label="Host">
                 <span className="font-mono text-xs">
-                  {serverDetail?.hostname ?? "—"}
+                  {serverDetail?.accessKeyHostname || "—"}
                 </span>
               </DetailRow>
               <DetailRow label="Port">
