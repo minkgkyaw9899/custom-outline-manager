@@ -241,6 +241,9 @@ function KeyDetailPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["servers"] })
       queryClient.invalidateQueries({ queryKey: ["keys"] })
+      // A sync can change this key's link, usage or status — the user pages
+      // embed that same key data and go stale otherwise.
+      queryClient.invalidateQueries({ queryKey: ["users"] })
     },
   })
 
@@ -252,6 +255,7 @@ function KeyDetailPage() {
       queryClient.invalidateQueries({ queryKey: ["servers"] })
       queryClient.invalidateQueries({ queryKey: ["keys"] })
       queryClient.invalidateQueries({ queryKey: ["stats"] })
+      queryClient.invalidateQueries({ queryKey: ["users"] })
       navigate({
         to: "/admin/servers/$serverId",
         params: { serverId: keyItem?.serverId ?? "" },

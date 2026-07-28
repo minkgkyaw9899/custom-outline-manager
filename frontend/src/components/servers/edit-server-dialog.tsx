@@ -161,6 +161,9 @@ export function EditServerDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["servers"] })
       queryClient.invalidateQueries({ queryKey: ["keys"] })
+      // A hostname change rewrites every key's static link — the user pages
+      // embed that same key data and go stale otherwise.
+      queryClient.invalidateQueries({ queryKey: ["users"] })
       onOpenChange(false)
     },
     onError: (error) => setErrors(fieldErrorsFrom(error)),

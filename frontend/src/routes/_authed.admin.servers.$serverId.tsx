@@ -85,7 +85,13 @@ function ServerDetailPage() {
 
   const sync = useMutation({
     mutationFn: () => apiClient.post<{ status: string }>(`servers/${serverId}/sync`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["servers"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["servers"] })
+      // A sync can change key links, usage or status — the user pages embed
+      // that same key data and go stale otherwise.
+      queryClient.invalidateQueries({ queryKey: ["keys"] })
+      queryClient.invalidateQueries({ queryKey: ["users"] })
+    },
   })
 
   const removeServer = useMutation({
