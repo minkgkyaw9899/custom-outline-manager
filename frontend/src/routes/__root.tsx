@@ -5,6 +5,8 @@ import { ReactQueryDevtoolsPanel } from '@tanstack/react-query-devtools'
 import { QueryClientProvider } from "@tanstack/react-query"
 import { formDevtoolsPlugin } from '@tanstack/react-form-devtools'
 
+import { ErrorPage } from "@/components/error-page"
+import { NotFoundPage } from "@/components/not-found-page"
 import { queryClient } from "@/lib/query-client"
 import { ThemeProvider, themeInitScript } from "@/lib/theme"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -21,14 +23,8 @@ export const Route = createRootRoute({
     ],
     links: [{ rel: "stylesheet", href: appCss }],
   }),
-  notFoundComponent: () => (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-2 p-4 text-center">
-      <h1 className="font-heading text-2xl font-semibold">404</h1>
-      <p className="text-muted-foreground">
-        The requested page could not be found.
-      </p>
-    </main>
-  ),
+  notFoundComponent: NotFoundPage,
+  errorComponent: ErrorPage,
   shellComponent: RootDocument,
 })
 
