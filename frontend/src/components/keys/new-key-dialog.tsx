@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
+import { PlanPresetPicker } from "@/components/keys/plan-preset-picker"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -103,6 +104,16 @@ export function NewKeyDialog({
                 {errors.name ??
                   "Shown in this dashboard and on the holder's device. Whoever gets the link is the only one who can use it, so name it after them."}
               </FieldDescription>
+            </Field>
+
+            <Field>
+              <FieldLabel>Quick pick</FieldLabel>
+              <PlanPresetPicker
+                onPick={(presetGb, presetDays) => {
+                  setLimitGb(String(presetGb))
+                  setDays(String(presetDays))
+                }}
+              />
             </Field>
 
             <Field data-invalid={!!errors.add_gb || undefined}>

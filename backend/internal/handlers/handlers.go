@@ -113,6 +113,7 @@ func (a *API) RegisterRoutes(r fiber.Router) {
 			protected.Delete("/keys/:id", a.deleteKey)
 			protected.Post("/keys/:id/renew", a.renewKey)
 			protected.Get("/keys/:id/renewals", a.listRenewals)
+			protected.Patch("/keys/:id/renewals/:renewalId/payment", a.updateRenewalPayment)
 			protected.Get("/keys/:id/daily", a.getKeyDaily)
 		}
 	}

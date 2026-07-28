@@ -89,6 +89,12 @@ export interface Key {
   userId: string | null
   /** Joined in on list endpoints; empty when the key has no holder. */
   userName?: string
+  /**
+   * Opts this key into the cron topping it up automatically once it crosses
+   * the same running-low/near-expiry condition the Telegram alert uses.
+   * Off by default. Each auto-renewal logs unpaid — see RenewalLog.paid.
+   */
+  autoRenew: boolean
 }
 
 export interface Server {
@@ -284,6 +290,9 @@ export interface RenewalLog {
   newLimitBytes: number | null
   newEndDate: string | null
   createdAt: string
+  /** Bookkeeping only — whether payment was actually collected for this renewal. */
+  paid: boolean
+  paymentNote: string | null
 }
 
 export interface DashboardStats {

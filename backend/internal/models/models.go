@@ -269,6 +269,13 @@ type Key struct {
 	// that way, since Outline has no concept of a user.
 	UserID *string `json:"userId"`
 
+	// AutoRenew opts this key into the cron topping it up automatically once
+	// it crosses the same "running low" condition the Telegram alert uses,
+	// instead of waiting for the admin to renew it by hand. Off by default —
+	// existing and new keys behave exactly as before unless explicitly opted
+	// in. See enforcement.AutoRenewKeys.
+	AutoRenew bool `json:"autoRenew"`
+
 	// Computed, not persisted directly (status/enabled are persisted caches
 	// but recomputed live wherever the key is read).
 	DaysLeft       *int64 `json:"daysLeft"`
@@ -345,6 +352,21 @@ type RenewalLog struct {
 	NewLimitBytes *int64     `json:"newLimitBytes"`
 	NewEndDate    *time.Time `json:"newEndDate"`
 	CreatedAt     time.Time  `json:"createdAt"`
+	// Whether payment was actually collected for this renewal — a bookkeeping
+	// flag, independent of ServerWithUsage.monthlyRevenueMmk (which is what
+	// active keys are worth right now, not what's actually been paid).
+	Paid bool `json:"paid"`
+	// Free text, e.g. "Bank transfer 7/28" or "Auto-renewed, needs confirming".
+	PaymentNote *string `json:"paymentNote"`
+}
+
+// DeviceAlert is a key whose peak simultaneous device count over the last day
+// looks like more than one person's normal set of devices — a signal worth an
+// admin's attention, not proof of abuse on its own.
+type DeviceAlert struct {
+	Key             Key
+	ServerName      string
+	PeakDeviceCount int
 }
 
 type UsageSnapshot struct {

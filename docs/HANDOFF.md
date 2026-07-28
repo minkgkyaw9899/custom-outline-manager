@@ -54,7 +54,7 @@ someone's key never requires resending them a new link. Everywhere in the
 codebase that touches "which key is this," check whether the *user's*
 identity should stay stable across it — it almost always should.
 
-## 3. Data model (11 migrations, in order)
+## 3. Data model (16 migrations, in order)
 
 | # | Added |
 |---|---|
@@ -71,6 +71,9 @@ identity should stay stable across it — it almost always should.
 | 0011 | `revenue_snapshots` — daily revenue/cost history for trend charts |
 | 0012 | `servers.bandwidth_limit_bytes`, `bandwidth_disabled_at`, `bandwidth_reenabled_at` — per-server monthly bandwidth kill switch (§4) |
 | 0013 | `keys.low_usage_alert_sent_at` — debounce timestamp for Telegram low-usage/near-expiry alerts (§4) |
+| 0014 | `renewal_logs.paid`, `renewal_logs.payment_note` — payment bookkeeping per renewal (§4) |
+| 0015 | `device_alerts` table — debounce for the Telegram device-count alert (§4) |
+| 0016 | `keys.auto_renew` — opt-in automatic top-up (§4) |
 
 Full column-level detail for `servers`/`keys`/`renewal_logs` is in
 ARCHITECTURE.md §3 and is still accurate. Not covered there: `users`,
@@ -187,6 +190,75 @@ knowing if this needs touching again:
   set TELEGRAM_BOT_TOKEN` etc. (or the GitHub UI), not by editing
   `DEPLOY_ENV_FILE`.
 
+**Payment tracking on renewals (added this session, migration 0014).** Every
+`renewal_logs` row now carries `paid` (bool, default `true` for pre-existing
+rows — see the migration's own comment for why) and `payment_note` (text).
+The dashboard's renew dialog (`EditKeyDialog`, "extend" mode) has a "Payment
+received" switch defaulting **on** — an admin renewing a key has ordinarily
+already collected payment — plus an optional note. The Telegram extend-button
+webhook always logs `paid=true, note="Extended via Telegram"`; the two
+zero-allowance "adjustment" paths (`applyKeyPlan`'s free-key claim, and the
+manual "set exact" PATCH) always log `paid=true` since neither is a billable
+event. Corrected after the fact via `PATCH /keys/:id/renewals/:renewalId/payment`
+— the key detail page's renewal history table has a clickable Paid/Unpaid
+badge per row wired to it (`RenewalHistory` in
+`_authed.admin.keys.$keyId.tsx`). This is bookkeeping only: nothing about
+`paid` affects `ServerWithUsage.monthlyRevenueMmk`, which is still "what
+active keys are worth right now," not "what's actually been collected."
+
+**Device-count alert (added this session, migration 0015).** A second,
+independent Telegram sweep — alert-only, nothing here disables a key.
+`enforcement.CheckDeviceLimits` runs after `CheckBandwidthLimits` each cron
+tick: for every server it fetches live `GET /experimental/server/metrics`
+(`outline.Window1d`, the same call the live dashboard uses, not persisted
+anywhere) and flags any key whose `peakDeviceCount` exceeds a fixed threshold
+(5 — generous on purpose, this is a "look into it" signal, not a verdict).
+Debounced 12h via a new standalone `device_alerts` table (`key_id`, `sent_at`)
+rather than a column on `keys`, since device count is never stored on the key
+itself outside of a tick that actually observed a breach —
+`repository.DeviceAlertSentAt`/`SetDeviceAlertSentAt`. `alerts.Checker.SendDeviceAlerts`
+posts one plain-text message per flagged key (no inline button, unlike the
+low-usage alert — this isn't something a tap should resolve automatically).
+
+**Telegram bot gained read-only commands (added this session).** The webhook
+(`handlers.telegramWebhook`) now also parses `message` updates (previously
+only `callback_query`), gated by the same `TelegramAdminUserID` check.
+`/servers` replies with each server's DB-recorded sync status (no live
+Outline calls, so it's instant); `/find <name>` substring-matches a key or
+holder name across `ListAllKeys` and replies with quota/expiry/status for up
+to 15 matches (`telegramFindResultLimit`); `/help` lists both. All DB-only —
+nothing here can change a key's state, unlike the extend button.
+
+**Opt-in auto-renew (added this session, migration 0016).** `keys.auto_renew`
+(default `false` — every existing key is unaffected until explicitly opted
+in via the switch in `EditKeyDialog`). Each cron tick,
+`enforcement.AutoRenewKeys` re-checks every opted-in key against the exact
+same "running low" condition the Telegram alert uses (<3GB remaining or <2
+days left — thresholds duplicated locally rather than imported from
+`internal/alerts`, intentionally, to keep `enforcement` from depending on
+`alerts`) and calls the shared `RenewKey` with the standard plan floor
+(`models.MinPlanGB`/`MinPlanDays`). No separate debounce bookkeeping needed:
+a renewal always grants a full period on top of current usage, so one
+auto-renewal reliably pushes the key back out of the "running low" window
+before the next tick. Logged **unpaid** (`autoRenewNote = "Auto-renewed —
+confirm payment"`) every time — staying online automatically is not the same
+as being paid for, and the admin is expected to confirm/flip it from the
+renewal history table (see the payment-tracking paragraph above).
+
+**QR codes (added this session).** `KeyLinkField` (shared by the key detail,
+user detail, and public holder status pages — one change covers all three)
+grew a QR button next to the existing copy button, rendering the link via
+`qrcode.react`'s `QRCodeSVG` in a popover. Scannable by the Outline client's
+own "scan to import" flow.
+
+**Plan preset quick-picks (added this session, frontend-only).**
+`PLAN_PRESETS` (`lib/plan-presets.ts`) is three GB tiers (1x/2.5x/5x
+`MIN_PLAN_GB`, all at `MIN_PLAN_DAYS`) rendered as one-click chips
+(`PlanPresetPicker`) in both `NewKeyDialog` and `EditKeyDialog`'s extend mode.
+Deliberately doesn't touch price — that varies per admin/server and isn't
+something to hardcode a figure for. No backend change; this is strictly a
+faster way to fill the same GB/days fields that were always there.
+
 **Two completely separate auth systems** — don't conflate them:
 - **Admin**: email + OTP → JWT in `auth_token` cookie (`SameSite=Lax`,
   `HttpOnly`), 7-day TTL by default. Root admin is identified by
@@ -212,10 +284,14 @@ cards, health filter, bandwidth-cap alert + progress bar — **no traffic chart
 on the card itself as of this session**, removed as redundant with the detail
 page's chart), `servers/:id` (key table with a **Holder column** — added this
 session, badge shows the linked user or "Unassigned" at a glance — plus AS
-breakdown, daily traffic), `keys/:id` (single key detail), `revenue`
-(per-server revenue/cost/profit table + trend chart, with a free-key count
-alongside the existing unpriced-key count and a "N paying" sub-line under the
-active-keys figure).
+breakdown, daily traffic), `keys/:id` (single key detail, renewal history
+table with a clickable paid/unpaid badge per row — added this session),
+`revenue` (per-server revenue/cost/profit table + trend chart, with a
+free-key count alongside the existing unpriced-key count and a "N paying"
+sub-line under the active-keys figure; each row links to
+`revenue/:serverId`, a **per-server revenue detail page — added this
+session**, same trend chart scoped to one server plus a monthly breakdown
+table).
 
 Public (no `_authed` guard): `admin.login` / `admin.verify-otp` (admin sign-
 in), `users.setup.$slug` / `users.login.$slug` / `users.keys-status.$slug`
@@ -228,14 +304,18 @@ It's now a proper 3-option dropdown (`components/mode-toggle.tsx`).
 
 ## 6. Suggestions for next time
 
-**Explicitly chosen as the next task (admin's own words, end of this
-session): a per-server revenue detail page.** Drill into one server from the
-Revenue table to see its own monthly cost/revenue/profit breakdown and history
-in more depth than the shared table row currently shows. Deliberately
-deferred to a *future* session rather than built now. The
-`revenueDailySeries`/`revenue_snapshots` data it needs already exists — see
-§4's revenue paragraph and migration 0011 — so this is mostly a new route +
-query, not new backend plumbing.
+The per-server revenue detail page (previously the explicitly-chosen next
+task) is **done** — see §5. This session also built, off the admin's own
+request to compare against 3x-ui/Marzban and act on the gaps: payment
+tracking on renewals, a device-count abuse alert, read-only Telegram
+commands, plan preset quick-picks, opt-in auto-renew, and QR codes — all
+detailed in §4/§5. Not done from that comparison: a fuller plan **catalog**
+(a real admin-editable table of named tiers with their own prices, vs. the
+lightweight frontend-only GB presets built instead — see §4's plan-presets
+paragraph for why price was deliberately left out) and a self-serve
+storefront/checkout (a bigger philosophical shift from admin-provisions-
+everything to customer-picks-and-pays, not something to default into without
+asking first).
 
 Everything else below, ranked by value, not urgency — none of these are on
 fire, and none were requested for the next session specifically:

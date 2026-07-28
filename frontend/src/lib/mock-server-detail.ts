@@ -96,6 +96,7 @@ function keyFromSeed(seed: Seed): { key: Key; metrics: KeyMetrics } {
       // The preview fixture has no users behind it, so its keys are unassigned
       // — the same state a key adopted from an Outline server arrives in.
       userId: null,
+      autoRenew: false,
     },
     metrics: {
       bytesTransferred: usedBytes,

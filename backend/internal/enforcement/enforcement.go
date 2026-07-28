@@ -127,6 +127,117 @@ func (e *Enforcer) CheckBandwidthLimits(ctx context.Context) {
 	}
 }
 
+// deviceCountThreshold is how many simultaneous devices a key can show in a
+// day before it looks like more than one person's normal phone+laptop+tablet
+// set. Deliberately generous — this flags for a human to look at, it never
+// disables anything on its own.
+const deviceCountThreshold = 5
+
+// deviceAlertDebounceHours keeps a key that stays over threshold across
+// multiple ticks from being re-flagged every tick, mirroring the low-usage
+// alert's debounce window.
+const deviceAlertDebounceHours = 12
+
+// CheckDeviceLimits reads live per-key device counts across every server and
+// returns the ones over deviceCountThreshold that haven't been flagged
+// recently. Detection only — nothing here disables a key or changes its
+// state; the caller decides what to do with the list (internal/alerts posts
+// it to Telegram).
+func (e *Enforcer) CheckDeviceLimits(ctx context.Context) []models.DeviceAlert {
+	servers, err := e.repo.ListAllServers(ctx)
+	if err != nil {
+		log.Printf("check device limits: list servers: %v", err)
+		return nil
+	}
+
+	now := time.Now()
+	var out []models.DeviceAlert
+	for _, server := range servers {
+		client, err := e.cache.Get(server.ID, server.APIURL, server.CertSHA256)
+		if err != nil {
+			continue
+		}
+		metrics, err := client.GetServerMetrics(ctx, outline.Window1d)
+		if err != nil {
+			log.Printf("check device limits: metrics for %s: %v", server.Name, err)
+			continue
+		}
+		byOutlineID := models.BuildKeyMetrics(now, metrics)
+
+		keys, err := e.repo.ListKeysByServer(ctx, server.ID)
+		if err != nil {
+			log.Printf("check device limits: list keys for %s: %v", server.Name, err)
+			continue
+		}
+		for _, key := range keys {
+			km, ok := byOutlineID[key.OutlineKeyID]
+			if !ok || km.PeakDeviceCount <= deviceCountThreshold {
+				continue
+			}
+			sentAt, err := e.repo.DeviceAlertSentAt(ctx, key.ID)
+			if err != nil {
+				log.Printf("check device limits: debounce lookup for key %s: %v", key.ID, err)
+				continue
+			}
+			if sentAt != nil && now.Sub(*sentAt) < deviceAlertDebounceHours*time.Hour {
+				continue
+			}
+			out = append(out, models.DeviceAlert{Key: key, ServerName: server.Name, PeakDeviceCount: km.PeakDeviceCount})
+		}
+	}
+	return out
+}
+
+// autoRenewNote is stamped on every renewal AutoRenewKeys logs, so it reads
+// clearly in the renewal history and the admin knows to go collect payment
+// for it rather than assuming a manual renewal already means paid.
+const autoRenewNote = "Auto-renewed — confirm payment"
+
+// AutoRenewKeys tops up every auto_renew-opted-in key that has crossed the
+// same "running low" condition the Telegram alert uses (see internal/alerts'
+// remainingBytesThreshold/daysLeftThreshold — duplicated here rather than
+// imported, since enforcement doesn't otherwise depend on alerts).
+//
+// A renewal always grants a full plan period on top of what's already used,
+// so one auto-renewal reliably pushes the key back out of the "running low"
+// window — the next tick naturally sees it as fine again, no separate
+// debounce bookkeeping needed. Every auto-renewal is logged unpaid
+// (autoRenewNote) since staying online is not the same as being paid for;
+// the admin confirms payment and flips it from the renewal history table.
+func (e *Enforcer) AutoRenewKeys(ctx context.Context) []models.Key {
+	const (
+		remainingBytesThreshold = 3 * models.BytesPerGB
+		daysLeftThreshold       = 2
+	)
+
+	keys, err := e.repo.ListKeysWithAutoRenew(ctx)
+	if err != nil {
+		log.Printf("auto renew: list keys: %v", err)
+		return nil
+	}
+
+	now := time.Now()
+	note := autoRenewNote
+	var renewed []models.Key
+	for _, key := range keys {
+		key = key.Enrich(now)
+		runningLow := key.RemainingBytes != nil && *key.RemainingBytes < remainingBytesThreshold
+		nearExpiry := key.DaysLeft != nil && *key.DaysLeft < daysLeftThreshold
+		if !runningLow && !nearExpiry {
+			continue
+		}
+		updated, _, err := e.RenewKey(ctx, key.ID, models.MinPlanGB, models.MinPlanDays, false, &note)
+		if err != nil && !errors.Is(err, ErrPushFailed) {
+			log.Printf("auto renew: renew key %s: %v", key.ID, err)
+			continue
+		}
+		if updated != nil {
+			renewed = append(renewed, *updated)
+		}
+	}
+	return renewed
+}
+
 // failSync records why a sync attempt failed on the server row and wraps the
 // error with the stage it failed at.
 func (e *Enforcer) failSync(ctx context.Context, server models.Server, stage string, cause error) error {
@@ -202,9 +313,14 @@ func (e *Enforcer) ReconcileServerKeys(ctx context.Context, server models.Server
 
 // RenewKey applies a smart quota renewal (see models.RenewalTarget) to one
 // key, logs it, and pushes the result to Outline immediately. Shared by the
-// HTTP renew endpoint and the Telegram extend-button webhook so both go
-// through the exact same sequence: compute target, persist, log, reconcile.
-func (e *Enforcer) RenewKey(ctx context.Context, keyID string, addGB float64, addDays int) (*models.Key, *models.RenewalLog, error) {
+// HTTP renew endpoint, the Telegram extend-button webhook, and the auto-renew
+// cron path so all three go through the exact same sequence: compute target,
+// persist, log, reconcile.
+//
+// paid/paymentNote are bookkeeping only — they never affect what's granted,
+// just what the renewal history and any "needs confirming" surfacing show
+// afterward.
+func (e *Enforcer) RenewKey(ctx context.Context, keyID string, addGB float64, addDays int, paid bool, paymentNote *string) (*models.Key, *models.RenewalLog, error) {
 	key, err := e.repo.GetKey(ctx, keyID)
 	if err != nil {
 		return nil, nil, err
@@ -216,7 +332,7 @@ func (e *Enforcer) RenewKey(ctx context.Context, keyID string, addGB float64, ad
 		return nil, nil, fmt.Errorf("set key limit and end date: %w", err)
 	}
 
-	renewal, err := e.repo.InsertRenewalLog(ctx, keyID, addGB, addDays, newLimitBytes, newEndDate)
+	renewal, err := e.repo.InsertRenewalLog(ctx, keyID, addGB, addDays, newLimitBytes, newEndDate, paid, paymentNote)
 	if err != nil {
 		return nil, nil, fmt.Errorf("insert renewal log: %w", err)
 	}

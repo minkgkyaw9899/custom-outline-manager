@@ -176,7 +176,7 @@ function RevenuePage() {
                     <TableRow key={server.id}>
                       <TableCell>
                         <Link
-                          to="/admin/servers/$serverId"
+                          to="/admin/revenue/$serverId"
                           params={{ serverId: server.id }}
                           className="font-medium hover:underline"
                         >

@@ -36,6 +36,7 @@ function makeKey(index: number, overrides: Partial<Key> = {}): Key {
     daysLeft: 30,
     remainingBytes: customLimitBytes - usedBytes,
     userId: null,
+    autoRenew: false,
     ...overrides,
   }
 }

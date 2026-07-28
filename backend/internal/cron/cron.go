@@ -106,10 +106,20 @@ func (j *Job) RunOnce(ctx context.Context) {
 	// fresh usage snapshots rather than the previous tick's.
 	j.enforcer.CheckBandwidthLimits(ctx)
 
+	// Opted-in keys that have crossed the low-usage/near-expiry condition get
+	// topped up automatically, using this tick's freshest usage figures.
+	j.enforcer.AutoRenewKeys(ctx)
+
 	// Low-usage/near-expiry Telegram alerts, last, using this tick's freshest
 	// usage figures.
 	if j.alertChecker != nil {
 		j.alertChecker.Run(ctx)
+
+		// Device-count check does its own live metrics read per server, so it
+		// runs only when there's somewhere to report a finding.
+		if flagged := j.enforcer.CheckDeviceLimits(ctx); len(flagged) > 0 {
+			j.alertChecker.SendDeviceAlerts(ctx, flagged)
+		}
 	}
 
 	log.Printf("cron: sync complete")

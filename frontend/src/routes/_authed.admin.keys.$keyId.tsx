@@ -113,15 +113,29 @@ function UsageBar({ keyItem }: Readonly<{ keyItem: Key }>) {
 }
 
 function RenewalHistory({
+  keyId,
   renewals,
   isLoading,
-}: Readonly<{ renewals: RenewalLog[] | undefined; isLoading: boolean }>) {
+}: Readonly<{ keyId: string; renewals: RenewalLog[] | undefined; isLoading: boolean }>) {
+  const queryClient = useQueryClient()
+  const togglePaid = useMutation({
+    mutationFn: (renewal: RenewalLog) =>
+      apiClient.patch(`keys/${keyId}/renewals/${renewal.id}/payment`, {
+        paid: !renewal.paid,
+        note: renewal.paymentNote ?? "",
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["keys", keyId, "renewals"] })
+    },
+  })
+
   return (
     <Card>
       <CardHeader>
         <CardTitle className="font-heading text-lg">Renewal history</CardTitle>
         <CardDescription>
-          Every top-up applied to this key, newest first.
+          Every top-up applied to this key, newest first. Click a payment badge
+          to correct it.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -140,6 +154,7 @@ function RenewalHistory({
                 <TableHead className="text-right">Added days</TableHead>
                 <TableHead className="text-right">New limit</TableHead>
                 <TableHead className="text-right">New expiry</TableHead>
+                <TableHead>Payment</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -171,6 +186,18 @@ function RenewalHistory({
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
                       {formatDateOnly(renewal.newEndDate)}
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        type="button"
+                        title={renewal.paymentNote ?? undefined}
+                        disabled={togglePaid.isPending}
+                        onClick={() => togglePaid.mutate(renewal)}
+                      >
+                        <Badge variant={renewal.paid ? "secondary" : "destructive"}>
+                          {renewal.paid ? "Paid" : "Unpaid"}
+                        </Badge>
+                      </button>
                     </TableCell>
                   </TableRow>
                 )
@@ -525,7 +552,7 @@ function KeyDetailPage() {
 
       <KeyLimitHistoryChart renewals={renewals ?? []} />
 
-      <RenewalHistory renewals={renewals} isLoading={renewalsLoading} />
+      <RenewalHistory keyId={keyId} renewals={renewals} isLoading={renewalsLoading} />
 
       <EditKeyDialog
         keyItem={keyItem}

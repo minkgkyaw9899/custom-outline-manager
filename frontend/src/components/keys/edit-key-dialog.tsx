@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { CalendarIcon } from "lucide-react"
 
 import { keyDisplayName } from "@/components/keys/key-connection-status"
+import { PlanPresetPicker } from "@/components/keys/plan-preset-picker"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -23,6 +24,8 @@ import {
 } from "@/components/ui/input-group"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Spinner } from "@/components/ui/spinner"
+import { Switch } from "@/components/ui/switch"
+import { Textarea } from "@/components/ui/textarea"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { apiClient } from "@/lib/api"
 import { fieldErrorsFrom } from "@/lib/form-errors"
@@ -90,8 +93,13 @@ export function EditKeyDialog({
   const [mode, setMode] = useState<PlanMode>("keep")
   const [addGb, setAddGb] = useState(String(MIN_PLAN_GB))
   const [addDays, setAddDays] = useState(String(MIN_PLAN_DAYS))
+  // Defaults to checked: an admin renewing a key has ordinarily already
+  // collected payment for it. Unchecking is for renewing on credit/goodwill.
+  const [paid, setPaid] = useState(true)
+  const [paymentNote, setPaymentNote] = useState("")
   const [limitGb, setLimitGb] = useState(String(MIN_PLAN_GB))
   const [priceMmk, setPriceMmk] = useState("")
+  const [autoRenew, setAutoRenew] = useState(false)
   const [endDate, setEndDate] = useState(() => toCalendarDate(null))
   const [pickerOpen, setPickerOpen] = useState(false)
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
@@ -121,6 +129,8 @@ export function EditKeyDialog({
       )
       setAddGb(String(MIN_PLAN_GB))
       setAddDays(String(MIN_PLAN_DAYS))
+      setPaid(true)
+      setPaymentNote("")
       setLimitGb(
         keyItem.customLimitBytes === null
           ? String(MIN_PLAN_GB)
@@ -130,6 +140,7 @@ export function EditKeyDialog({
       )
       setEndDate(toCalendarDate(keyItem.endDate))
       setPriceMmk(keyItem.priceMmk === null ? "" : String(keyItem.priceMmk))
+      setAutoRenew(keyItem.autoRenew)
       setPickerOpen(false)
       setErrors({})
     }
@@ -157,21 +168,26 @@ export function EditKeyDialog({
   // No date check: the picker always holds a day, it can only be pointed at
   // another one, so the only way "set" goes wrong is the limit.
   const invalidTotal = mode === "set" && totalGb <= 0
-  const nothingToDo = !nameChanged && !priceMmkChanged && mode === "keep"
+  const autoRenewChanged = !!keyItem && autoRenew !== keyItem.autoRenew
+  const nothingToDo = !nameChanged && !priceMmkChanged && !autoRenewChanged && mode === "keep"
 
   const save = useMutation({
     mutationFn: async () => {
       if (!keyItem) throw new Error("No key selected")
       const mock = isMockId(keyItem.id)
 
-      // Price is independent of the plan mode, so every branch below folds
-      // it into whatever PATCH it's already sending (or sends its own
-      // price-only PATCH if nothing else changed).
+      // Price and auto-renew are independent of the plan mode, so every
+      // branch below folds them into whatever PATCH it's already sending
+      // (or sends its own PATCH if nothing else changed).
       const priceFields = clearingPriceMmk
         ? { clear_price_mmk: true }
         : priceMmkChanged
           ? { price_mmk: parsedPriceMmk }
           : {}
+      const otherFields = {
+        ...priceFields,
+        ...(autoRenewChanged ? { auto_renew: autoRenew } : {}),
+      }
 
       if (mode === "set") {
         const day = toDateParam(endDate)
@@ -193,12 +209,12 @@ export function EditKeyDialog({
               // end of that day in UTC, which reads back here as the *next*
               // day and creeps forward every time the key is edited.
               end_date: new Date(`${day}T23:59:59`).toISOString(),
-              ...priceFields,
+              ...otherFields,
             }))
         return
       }
 
-      if (nameChanged || priceMmkChanged) {
+      if (nameChanged || priceMmkChanged || autoRenewChanged) {
         await (mock
           ? Promise.all([
               nameChanged ? mockRenameKey(keyItem.id, trimmedName) : null,
@@ -208,13 +224,18 @@ export function EditKeyDialog({
             ])
           : apiClient.patch(`keys/${keyItem.id}`, {
               ...(nameChanged ? { name: trimmedName } : {}),
-              ...priceFields,
+              ...otherFields,
             }))
       }
       if (mode === "extend") {
         await (mock
           ? mockExtendKey(keyItem.id, gb, days)
-          : apiClient.post(`keys/${keyItem.id}/renew`, { add_gb: gb, add_days: days }))
+          : apiClient.post(`keys/${keyItem.id}/renew`, {
+              add_gb: gb,
+              add_days: days,
+              paid,
+              note: paymentNote.trim(),
+            }))
       }
     },
     onSuccess: () => {
@@ -295,6 +316,22 @@ export function EditKeyDialog({
               </FieldDescription>
             </Field>
 
+            <Field orientation="horizontal">
+              <div className="flex flex-col gap-1">
+                <FieldLabel htmlFor="edit-key-auto-renew">Auto-renew</FieldLabel>
+                <FieldDescription>
+                  Tops this key up automatically when it runs low or is about to
+                  expire, instead of waiting for a manual renewal. Logged as
+                  unpaid each time — confirm payment from the renewal history.
+                </FieldDescription>
+              </div>
+              <Switch
+                id="edit-key-auto-renew"
+                checked={autoRenew}
+                onCheckedChange={setAutoRenew}
+              />
+            </Field>
+
             <Field>
               <FieldLabel>Plan</FieldLabel>
               <ToggleGroup
@@ -321,6 +358,16 @@ export function EditKeyDialog({
 
             {mode === "extend" && (
               <>
+                <Field>
+                  <FieldLabel>Quick pick</FieldLabel>
+                  <PlanPresetPicker
+                    onPick={(presetGb, presetDays) => {
+                      setAddGb(String(presetGb))
+                      setAddDays(String(presetDays))
+                    }}
+                  />
+                </Field>
+
                 <Field data-invalid={!!errors.add_gb || undefined}>
                   <FieldLabel htmlFor="edit-key-gb">Add data</FieldLabel>
                   <InputGroup>
@@ -373,6 +420,30 @@ export function EditKeyDialog({
                         ? `A plan period is at least ${MIN_PLAN_DAYS} days.`
                         : `New limit ${formatBytesCompact(extendedLimitBytes, { decimals: 1 })} · expires ${formatDateOnly(extendedEndDate)}.`)}
                   </FieldDescription>
+                </Field>
+
+                <Field orientation="horizontal">
+                  <div className="flex flex-col gap-1">
+                    <FieldLabel htmlFor="edit-key-paid">Payment received</FieldLabel>
+                    <FieldDescription>
+                      Off leaves this renewal marked unpaid in the history below —
+                      for renewing on credit or before the transfer clears.
+                    </FieldDescription>
+                  </div>
+                  <Switch id="edit-key-paid" checked={paid} onCheckedChange={setPaid} />
+                </Field>
+
+                <Field>
+                  <FieldLabel htmlFor="edit-key-payment-note">
+                    Payment note (optional)
+                  </FieldLabel>
+                  <Textarea
+                    id="edit-key-payment-note"
+                    rows={2}
+                    placeholder="e.g. Bank transfer, KBZPay screenshot confirmed"
+                    value={paymentNote}
+                    onChange={(e) => setPaymentNote(e.target.value)}
+                  />
                 </Field>
               </>
             )}

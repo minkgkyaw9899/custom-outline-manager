@@ -102,6 +102,31 @@ func (c *Checker) Run(ctx context.Context) {
 	}
 }
 
+// SendDeviceAlerts posts one Telegram message per key CheckDeviceLimits
+// flagged, and marks each as sent so the next sweep's debounce window holds.
+// No inline button — unlike the low-usage alert this isn't something a tap
+// should act on automatically; the admin looks into it and decides.
+func (c *Checker) SendDeviceAlerts(ctx context.Context, flagged []models.DeviceAlert) {
+	now := time.Now()
+	for _, d := range flagged {
+		holder := d.Key.UserName
+		if holder == "" {
+			holder = d.Key.Name
+		}
+		text := fmt.Sprintf(
+			"👀 <b>%s</b> had %d devices connected at once in the last day\nServer: %s\nMight be shared beyond one person — check before assuming abuse.",
+			holder, d.PeakDeviceCount, d.ServerName,
+		)
+		if _, err := c.tg.SendMessage(ctx, c.chatID, text, nil); err != nil {
+			log.Printf("alerts: send device alert for key %s: %v", d.Key.ID, err)
+			continue
+		}
+		if err := c.repo.SetDeviceAlertSentAt(ctx, d.Key.ID, now); err != nil {
+			log.Printf("alerts: mark device alert sent for key %s: %v", d.Key.ID, err)
+		}
+	}
+}
+
 func alertText(key models.Key) string {
 	holder := key.UserName
 	if holder == "" {

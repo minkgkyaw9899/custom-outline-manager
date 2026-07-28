@@ -20,6 +20,7 @@ import { Route as UsersKeysStatusSlugRouteImport } from './routes/users.keys-sta
 import { Route as UsersLoginSlugRouteImport } from './routes/users.login.$slug'
 import { Route as UsersSetupSlugRouteImport } from './routes/users.setup.$slug'
 import { Route as AuthedAdminKeysKeyIdRouteImport } from './routes/_authed.admin.keys.$keyId'
+import { Route as AuthedAdminRevenueServerIdRouteImport } from './routes/_authed.admin.revenue.$serverId'
 import { Route as AuthedAdminServersIndexRouteImport } from './routes/_authed.admin.servers.index'
 import { Route as AuthedAdminServersServerIdRouteImport } from './routes/_authed.admin.servers.$serverId'
 import { Route as AuthedAdminUsersIndexRouteImport } from './routes/_authed.admin.users.index'
@@ -79,6 +80,12 @@ const AuthedAdminKeysKeyIdRoute = AuthedAdminKeysKeyIdRouteImport.update({
   path: '/admin/keys/$keyId',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedAdminRevenueServerIdRoute =
+  AuthedAdminRevenueServerIdRouteImport.update({
+    id: '/$serverId',
+    path: '/$serverId',
+    getParentRoute: () => AuthedAdminRevenueRoute,
+  } as any)
 const AuthedAdminServersIndexRoute = AuthedAdminServersIndexRouteImport.update({
   id: '/admin/servers/',
   path: '/admin/servers/',
@@ -106,12 +113,13 @@ export interface FileRoutesByFullPath {
   '/admin/login': typeof AdminLoginRoute
   '/admin/verify-otp': typeof AdminVerifyOtpRoute
   '/admin/overview': typeof AuthedAdminOverviewRoute
-  '/admin/revenue': typeof AuthedAdminRevenueRoute
+  '/admin/revenue': typeof AuthedAdminRevenueRouteWithChildren
   '/users/keys-status/$slug': typeof UsersKeysStatusSlugRoute
   '/users/login/$slug': typeof UsersLoginSlugRoute
   '/users/setup/$slug': typeof UsersSetupSlugRoute
   '/admin/': typeof AuthedAdminIndexRoute
   '/admin/keys/$keyId': typeof AuthedAdminKeysKeyIdRoute
+  '/admin/revenue/$serverId': typeof AuthedAdminRevenueServerIdRoute
   '/admin/servers/$serverId': typeof AuthedAdminServersServerIdRoute
   '/admin/users/$userId': typeof AuthedAdminUsersUserIdRoute
   '/admin/servers/': typeof AuthedAdminServersIndexRoute
@@ -122,12 +130,13 @@ export interface FileRoutesByTo {
   '/admin/login': typeof AdminLoginRoute
   '/admin/verify-otp': typeof AdminVerifyOtpRoute
   '/admin/overview': typeof AuthedAdminOverviewRoute
-  '/admin/revenue': typeof AuthedAdminRevenueRoute
+  '/admin/revenue': typeof AuthedAdminRevenueRouteWithChildren
   '/users/keys-status/$slug': typeof UsersKeysStatusSlugRoute
   '/users/login/$slug': typeof UsersLoginSlugRoute
   '/users/setup/$slug': typeof UsersSetupSlugRoute
   '/admin': typeof AuthedAdminIndexRoute
   '/admin/keys/$keyId': typeof AuthedAdminKeysKeyIdRoute
+  '/admin/revenue/$serverId': typeof AuthedAdminRevenueServerIdRoute
   '/admin/servers/$serverId': typeof AuthedAdminServersServerIdRoute
   '/admin/users/$userId': typeof AuthedAdminUsersUserIdRoute
   '/admin/servers': typeof AuthedAdminServersIndexRoute
@@ -140,12 +149,13 @@ export interface FileRoutesById {
   '/admin/login': typeof AdminLoginRoute
   '/admin/verify-otp': typeof AdminVerifyOtpRoute
   '/_authed/admin/overview': typeof AuthedAdminOverviewRoute
-  '/_authed/admin/revenue': typeof AuthedAdminRevenueRoute
+  '/_authed/admin/revenue': typeof AuthedAdminRevenueRouteWithChildren
   '/users/keys-status/$slug': typeof UsersKeysStatusSlugRoute
   '/users/login/$slug': typeof UsersLoginSlugRoute
   '/users/setup/$slug': typeof UsersSetupSlugRoute
   '/_authed/admin/': typeof AuthedAdminIndexRoute
   '/_authed/admin/keys/$keyId': typeof AuthedAdminKeysKeyIdRoute
+  '/_authed/admin/revenue/$serverId': typeof AuthedAdminRevenueServerIdRoute
   '/_authed/admin/servers/$serverId': typeof AuthedAdminServersServerIdRoute
   '/_authed/admin/users/$userId': typeof AuthedAdminUsersUserIdRoute
   '/_authed/admin/servers/': typeof AuthedAdminServersIndexRoute
@@ -164,6 +174,7 @@ export interface FileRouteTypes {
     | '/users/setup/$slug'
     | '/admin/'
     | '/admin/keys/$keyId'
+    | '/admin/revenue/$serverId'
     | '/admin/servers/$serverId'
     | '/admin/users/$userId'
     | '/admin/servers/'
@@ -180,6 +191,7 @@ export interface FileRouteTypes {
     | '/users/setup/$slug'
     | '/admin'
     | '/admin/keys/$keyId'
+    | '/admin/revenue/$serverId'
     | '/admin/servers/$serverId'
     | '/admin/users/$userId'
     | '/admin/servers'
@@ -197,6 +209,7 @@ export interface FileRouteTypes {
     | '/users/setup/$slug'
     | '/_authed/admin/'
     | '/_authed/admin/keys/$keyId'
+    | '/_authed/admin/revenue/$serverId'
     | '/_authed/admin/servers/$serverId'
     | '/_authed/admin/users/$userId'
     | '/_authed/admin/servers/'
@@ -292,6 +305,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAdminKeysKeyIdRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/admin/revenue/$serverId': {
+      id: '/_authed/admin/revenue/$serverId'
+      path: '/$serverId'
+      fullPath: '/admin/revenue/$serverId'
+      preLoaderRoute: typeof AuthedAdminRevenueServerIdRouteImport
+      parentRoute: typeof AuthedAdminRevenueRoute
+    }
     '/_authed/admin/servers/': {
       id: '/_authed/admin/servers/'
       path: '/admin/servers'
@@ -323,9 +343,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthedAdminRevenueRouteChildren {
+  AuthedAdminRevenueServerIdRoute: typeof AuthedAdminRevenueServerIdRoute
+}
+
+const AuthedAdminRevenueRouteChildren: AuthedAdminRevenueRouteChildren = {
+  AuthedAdminRevenueServerIdRoute: AuthedAdminRevenueServerIdRoute,
+}
+
+const AuthedAdminRevenueRouteWithChildren =
+  AuthedAdminRevenueRoute._addFileChildren(AuthedAdminRevenueRouteChildren)
+
 interface AuthedRouteChildren {
   AuthedAdminOverviewRoute: typeof AuthedAdminOverviewRoute
-  AuthedAdminRevenueRoute: typeof AuthedAdminRevenueRoute
+  AuthedAdminRevenueRoute: typeof AuthedAdminRevenueRouteWithChildren
   AuthedAdminIndexRoute: typeof AuthedAdminIndexRoute
   AuthedAdminKeysKeyIdRoute: typeof AuthedAdminKeysKeyIdRoute
   AuthedAdminServersServerIdRoute: typeof AuthedAdminServersServerIdRoute
@@ -336,7 +367,7 @@ interface AuthedRouteChildren {
 
 const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAdminOverviewRoute: AuthedAdminOverviewRoute,
-  AuthedAdminRevenueRoute: AuthedAdminRevenueRoute,
+  AuthedAdminRevenueRoute: AuthedAdminRevenueRouteWithChildren,
   AuthedAdminIndexRoute: AuthedAdminIndexRoute,
   AuthedAdminKeysKeyIdRoute: AuthedAdminKeysKeyIdRoute,
   AuthedAdminServersServerIdRoute: AuthedAdminServersServerIdRoute,

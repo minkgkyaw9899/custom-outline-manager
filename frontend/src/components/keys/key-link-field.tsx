@@ -1,5 +1,29 @@
+import { QrCodeIcon } from "lucide-react"
+import { QRCodeSVG } from "qrcode.react"
+
 import { CopyButton } from "@/components/copy-button"
+import { Button } from "@/components/ui/button"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+
+/** A link's connection QR code, scannable by the Outline client's "scan" import. */
+function LinkQrButton({ value, label }: Readonly<{ value: string; label: string }>) {
+  return (
+    <Popover>
+      <PopoverTrigger
+        render={
+          <Button type="button" variant="outline" size="icon-sm" className="shrink-0" />
+        }
+      >
+        <QrCodeIcon className="size-3.5" />
+        <span className="sr-only">Show QR code for {label}</span>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-auto p-3">
+        <QRCodeSVG value={value} size={192} marginSize={2} />
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 /** One link + copy affordance, shown as its own labeled block rather than a `dl` row. */
 export function KeyLinkField({
@@ -34,6 +58,7 @@ export function KeyLinkField({
               {value}
             </TooltipContent>
           </Tooltip>
+          <LinkQrButton value={value} label={label} />
           <CopyButton value={value} className="shrink-0" />
         </div>
       ) : (

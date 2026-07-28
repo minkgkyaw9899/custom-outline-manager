@@ -198,7 +198,8 @@ func (a *API) applyKeyPlan(ctx context.Context, keyID string, plan keyPlan) erro
 	}
 	// Logged with a zero allowance: nothing was *added*, the figures were set
 	// outright, and the renewal history table reads that as an adjustment.
-	if _, err := a.repo.InsertRenewalLog(ctx, keyID, 0, 0, plan.limitBytes, plan.endDate); err != nil {
+	// paid=true: claiming a spare free key isn't a billable event.
+	if _, err := a.repo.InsertRenewalLog(ctx, keyID, 0, 0, plan.limitBytes, plan.endDate, true, nil); err != nil {
 		return err
 	}
 	if err := a.enforcer.ReconcileKeyByID(ctx, keyID); err != nil {
@@ -375,6 +376,9 @@ type updateKeyRequest struct {
 	// and "explicitly none" cannot both be expressed by nil.
 	PriceMmk      *int64 `json:"price_mmk"`
 	ClearPriceMmk bool   `json:"clear_price_mmk"`
+	// AutoRenew opts this key in or out of the cron's automatic top-up. Nil
+	// leaves the current setting alone.
+	AutoRenew *bool `json:"auto_renew"`
 }
 
 // updateKey applies absolute edits to one key: its name, its total data limit,
@@ -429,7 +433,7 @@ func (a *API) updateKey(c fiber.Ctx) error {
 	}
 
 	if req.Name == nil && req.LimitGB == nil && req.EndDate == nil &&
-		req.PriceMmk == nil && !req.ClearPriceMmk {
+		req.PriceMmk == nil && !req.ClearPriceMmk && req.AutoRenew == nil {
 		return apiresponse.Validation(c, apiresponse.FieldError{Field: "name", Message: "Nothing to update"})
 	}
 
@@ -457,7 +461,9 @@ func (a *API) updateKey(c fiber.Ctx) error {
 		}
 		// Logged with a zero allowance: nothing was *added*, the figures were
 		// set outright, and the history table reads that as an adjustment.
-		if _, err := a.repo.InsertRenewalLog(c.Context(), id, 0, 0, limitBytes, endDate); err != nil {
+		// paid=true since no charge is implied here — an unpaid flag would
+		// falsely read as "still owed" on what's just a correction.
+		if _, err := a.repo.InsertRenewalLog(c.Context(), id, 0, 0, limitBytes, endDate, true, nil); err != nil {
 			return apiresponse.Internal(c, "")
 		}
 		if err := a.enforcer.ReconcileKeyByID(c.Context(), id); err != nil {
@@ -473,6 +479,12 @@ func (a *API) updateKey(c fiber.Ctx) error {
 		}
 	} else if req.PriceMmk != nil {
 		if err := a.repo.SetKeyPrice(c.Context(), id, req.PriceMmk); err != nil {
+			return apiresponse.Internal(c, "")
+		}
+	}
+
+	if req.AutoRenew != nil {
+		if err := a.repo.SetKeyAutoRenew(c.Context(), id, *req.AutoRenew); err != nil {
 			return apiresponse.Internal(c, "")
 		}
 	}
@@ -503,6 +515,14 @@ func parseEndDate(raw string) (*time.Time, error) {
 type renewKeyRequest struct {
 	AddGB   float64 `json:"add_gb"`
 	AddDays int     `json:"add_days"`
+	// Paid defaults to true when omitted: the dashboard's renew dialog always
+	// sends it explicitly (defaulting its own checkbox to checked, since an
+	// admin renewing a key has ordinarily already collected payment for it),
+	// so an omitted value here only happens from an older/external caller —
+	// treating that as paid keeps today's behavior rather than silently
+	// starting to flag every such renewal as owed.
+	Paid *bool  `json:"paid"`
+	Note string `json:"note"`
 }
 
 // renewKey implements the "smart quota renewal & extension" logic: add_gb tops
@@ -522,7 +542,13 @@ func (a *API) renewKey(c fiber.Ctx) error {
 		return apiresponse.Validation(c, *err)
 	}
 
-	updated, renewal, err := a.enforcer.RenewKey(c.Context(), id, req.AddGB, req.AddDays)
+	paid := req.Paid == nil || *req.Paid
+	var note *string
+	if trimmed := strings.TrimSpace(req.Note); trimmed != "" {
+		note = &trimmed
+	}
+
+	updated, renewal, err := a.enforcer.RenewKey(c.Context(), id, req.AddGB, req.AddDays, paid, note)
 	if errors.Is(err, enforcement.ErrPushFailed) {
 		return apiresponse.BadGateway(c, "Renewal was saved but could not be pushed to the Outline server yet")
 	}
@@ -583,4 +609,31 @@ func (a *API) listRenewals(c fiber.Ctx) error {
 		return respondRepoErr(c, err)
 	}
 	return apiresponse.Success(c, logs, "")
+}
+
+type updateRenewalPaymentRequest struct {
+	Paid bool   `json:"paid"`
+	Note string `json:"note"`
+}
+
+// updateRenewalPayment corrects a renewal's payment bookkeeping after the
+// fact — marking an auto-renewal paid once the transfer is confirmed, or
+// fixing a mistaken checkbox. Never touches the key's actual quota/expiry.
+func (a *API) updateRenewalPayment(c fiber.Ctx) error {
+	id := c.Params("renewalId")
+
+	var req updateRenewalPaymentRequest
+	if !bindJSON(c, &req) {
+		return nil
+	}
+	var note *string
+	if trimmed := strings.TrimSpace(req.Note); trimmed != "" {
+		note = &trimmed
+	}
+
+	renewal, err := a.repo.UpdateRenewalPayment(c.Context(), id, req.Paid, note)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+	return apiresponse.Success(c, renewal, "Payment status updated")
 }

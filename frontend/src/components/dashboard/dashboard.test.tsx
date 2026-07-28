@@ -64,6 +64,7 @@ function mockKey(overrides: Partial<Key> = {}): Key {
     remainingBytes: null,
     serverName: "Frankfurt-01",
     userId: null,
+    autoRenew: false,
     ...overrides,
   }
 }

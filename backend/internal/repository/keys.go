@@ -14,7 +14,7 @@ import (
 
 const keyColumns = `k.id, k.server_id, k.outline_key_id, k.name, k.access_url, k.port, k.method,
 	k.used_bytes, k.custom_limit_bytes, k.end_date, k.enabled, k.status, k.created_at, k.updated_at,
-	k.password, k.dynamic_token, k.user_id, k.price_mmk`
+	k.password, k.dynamic_token, k.user_id, k.price_mmk, k.auto_renew`
 
 // maxDynamicTokenAttempts bounds the retry loop for a colliding dynamic
 // token. Collision on 128 bits of random entropy is astronomically unlikely;
@@ -296,6 +296,28 @@ func (r *Repository) SetKeyPrice(ctx context.Context, id string, priceMmk *int64
 	return err
 }
 
+func (r *Repository) SetKeyAutoRenew(ctx context.Context, id string, autoRenew bool) error {
+	_, err := r.pool.Exec(ctx, `UPDATE keys SET auto_renew = $2, updated_at = now() WHERE id = $1`, id, autoRenew)
+	return err
+}
+
+// ListKeysWithAutoRenew returns every opted-in key, across every server, for
+// the cron sweep to check against the low-usage/near-expiry condition.
+func (r *Repository) ListKeysWithAutoRenew(ctx context.Context) ([]models.Key, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT `+keyColumns+`, s.name, COALESCE(u.name, '')
+		FROM keys k
+		JOIN servers s ON s.id = k.server_id
+		LEFT JOIN users u ON u.id = k.user_id
+		WHERE k.auto_renew = true
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("list keys with auto renew: %w", err)
+	}
+	defer rows.Close()
+	return collectKeys(rows, keyJoins{serverName: true, userName: true})
+}
+
 func (r *Repository) DeleteKey(ctx context.Context, id string) error {
 	if !isUUID(id) {
 		return ErrNotFound
@@ -332,7 +354,7 @@ func scanKey(row pgx.Row) (*models.Key, error) {
 	var k models.Key
 	if err := row.Scan(&k.ID, &k.ServerID, &k.OutlineKeyID, &k.Name, &k.AccessURL, &k.Port, &k.Method,
 		&k.UsedBytes, &k.CustomLimitBytes, &k.EndDate, &k.Enabled, &k.Status, &k.CreatedAt, &k.UpdatedAt,
-		&k.Password, &k.DynamicToken, &k.UserID, &k.PriceMmk); err != nil {
+		&k.Password, &k.DynamicToken, &k.UserID, &k.PriceMmk, &k.AutoRenew); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
 		}
@@ -359,7 +381,7 @@ func collectKeys(rows pgx.Rows, joins keyJoins) ([]models.Key, error) {
 		var userName *string
 		dest := []any{&k.ID, &k.ServerID, &k.OutlineKeyID, &k.Name, &k.AccessURL, &k.Port, &k.Method,
 			&k.UsedBytes, &k.CustomLimitBytes, &k.EndDate, &k.Enabled, &k.Status, &k.CreatedAt, &k.UpdatedAt,
-			&k.Password, &k.DynamicToken, &k.UserID, &k.PriceMmk}
+			&k.Password, &k.DynamicToken, &k.UserID, &k.PriceMmk, &k.AutoRenew}
 		if joins.serverName {
 			dest = append(dest, &k.ServerName)
 		}
