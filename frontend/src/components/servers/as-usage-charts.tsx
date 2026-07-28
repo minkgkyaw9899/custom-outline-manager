@@ -63,7 +63,7 @@ export function AsUsageCharts({
           Bandwidth by autonomous system, last {windowLabel}
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-8 lg:grid-cols-2">
+      <CardContent className="grid gap-4 lg:grid-cols-2">
         <ChartContainer config={chartConfig} className="h-64 w-full">
           <BarChart data={top} layout="vertical" margin={{ left: 8, right: 16 }}>
             <CartesianGrid horizontal={false} strokeDasharray="3 3" />

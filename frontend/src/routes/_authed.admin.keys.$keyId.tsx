@@ -125,7 +125,9 @@ function RenewalHistory({
         note: renewal.paymentNote ?? "",
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["keys", keyId, "renewals"] })
+      queryClient.invalidateQueries({
+        queryKey: keyRenewalsQueryOptions(keyId).queryKey,
+      })
     },
   })
 

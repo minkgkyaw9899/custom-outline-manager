@@ -125,3 +125,17 @@ export function formatDaysLeft(days: number | null | undefined): string {
 export function formatMmk(n: number): string {
   return `${Math.round(n).toLocaleString("en-US")} MMK`
 }
+
+export function formatUsd(n: number): string {
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD" })
+}
+
+/** A server or month's cost and profit in MMK, converted from its USD hosting cost. */
+export function costProfitMmk(
+  costUsdPerMonth: number | null,
+  revenueMmk: number,
+  mmkPerUsd: number,
+): { costMmk: number; profitMmk: number } {
+  const costMmk = (costUsdPerMonth ?? 0) * mmkPerUsd
+  return { costMmk, profitMmk: revenueMmk - costMmk }
+}

@@ -28,6 +28,16 @@ const (
 // itself, not the cap number the admin entered.
 const BandwidthDisableMarginBytes = 2 * BytesPerGB
 
+// RunningLowRemainingBytes and RunningLowDaysLeft are the two independent
+// "running low" trigger conditions shared by the low-usage Telegram alert
+// and key auto-renew: a key qualifies once it has less than 3GB of quota
+// left, or less than 2 days until expiry. Kept as one definition so the two
+// features can never drift onto different thresholds.
+const (
+	RunningLowRemainingBytes = 3 * BytesPerGB
+	RunningLowDaysLeft       = 2
+)
+
 // StartOfMonth truncates to midnight on the 1st of t's calendar month, in t's
 // own location — the boundary a server's monthly bandwidth cap resets on.
 func StartOfMonth(t time.Time) time.Time {

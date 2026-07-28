@@ -31,17 +31,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { costProfitMmk, formatMmk as mmk, formatUsd as usd } from "@/lib/format"
 import { serversQueryOptions } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/_authed/admin/revenue")({
   component: RevenuePage,
 })
-
-const usd = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" })
-
-const mmk = (n: number) => `${Math.round(n).toLocaleString("en-US")} MMK`
 
 function RevenuePage() {
   const { data: servers, isLoading } = useQuery(serversQueryOptions())
@@ -52,9 +48,12 @@ function RevenuePage() {
     (sum, s) => sum + (s.costUsdPerMonth ?? 0),
     0,
   )
-  const totalCostMmk = totalCostUsd * MMK_PER_USD
   const totalRevenueMmk = all.reduce((sum, s) => sum + s.monthlyRevenueMmk, 0)
-  const totalProfitMmk = totalRevenueMmk - totalCostMmk
+  const { costMmk: totalCostMmk, profitMmk: totalProfitMmk } = costProfitMmk(
+    totalCostUsd,
+    totalRevenueMmk,
+    MMK_PER_USD,
+  )
   const totalActiveKeys = all.reduce((sum, s) => sum + s.activeKeys, 0)
   const totalUnpriced = all.reduce((sum, s) => sum + s.unpricedActiveKeys, 0)
 
@@ -170,8 +169,11 @@ function RevenuePage() {
               </TableHeader>
               <TableBody>
                 {all.map((server) => {
-                  const costMmk = (server.costUsdPerMonth ?? 0) * MMK_PER_USD
-                  const profitMmk = server.monthlyRevenueMmk - costMmk
+                  const { costMmk, profitMmk } = costProfitMmk(
+                    server.costUsdPerMonth,
+                    server.monthlyRevenueMmk,
+                    MMK_PER_USD,
+                  )
                   return (
                     <TableRow key={server.id}>
                       <TableCell>

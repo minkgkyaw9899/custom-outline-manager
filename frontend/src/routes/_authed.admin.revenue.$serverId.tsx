@@ -30,6 +30,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { costProfitMmk, formatMmk as mmk, formatUsd as usd } from "@/lib/format"
 import { serversQueryOptions } from "@/lib/queries"
 import type { RevenuePoint } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -37,11 +38,6 @@ import { cn } from "@/lib/utils"
 export const Route = createFileRoute("/_authed/admin/revenue/$serverId")({
   component: ServerRevenueDetailPage,
 })
-
-const usd = (n: number) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD" })
-
-const mmk = (n: number) => `${Math.round(n).toLocaleString("en-US")} MMK`
 
 const monthLabel = (key: string) => {
   const [year, month] = key.split("-")
@@ -109,8 +105,11 @@ function ServerRevenueDetailPage() {
     )
   }
 
-  const costMmk = (server.costUsdPerMonth ?? 0) * MMK_PER_USD
-  const profitMmk = server.monthlyRevenueMmk - costMmk
+  const { costMmk, profitMmk } = costProfitMmk(
+    server.costUsdPerMonth,
+    server.monthlyRevenueMmk,
+    MMK_PER_USD,
+  )
   const payingKeys = server.activeKeys - server.freeActiveKeys
 
   return (
@@ -193,8 +192,11 @@ function ServerRevenueDetailPage() {
               </TableHeader>
               <TableBody>
                 {breakdown.map((p) => {
-                  const rowCostMmk = (p.costUsdPerMonth ?? 0) * MMK_PER_USD
-                  const rowProfitMmk = p.revenueMmk - rowCostMmk
+                  const { costMmk: rowCostMmk, profitMmk: rowProfitMmk } = costProfitMmk(
+                    p.costUsdPerMonth,
+                    p.revenueMmk,
+                    MMK_PER_USD,
+                  )
                   return (
                     <TableRow key={p.date}>
                       <TableCell>{monthLabel(p.date)}</TableCell>

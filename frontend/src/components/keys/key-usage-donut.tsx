@@ -46,7 +46,7 @@ export function KeyUsageDonut({
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-3">
         {data === null ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
+          <p className="py-6 text-center text-sm text-muted-foreground">
             No data limit set on this key.
           </p>
         ) : (

@@ -339,8 +339,7 @@ export function UsersTable({
             Users ({users.length})
           </CardTitle>
           <CardDescription>
-            The people holding keys. Open a row for their detail, where you can
-            change their server or key without changing the link they were sent.
+            Open a row to change their server or key.
           </CardDescription>
         </div>
 

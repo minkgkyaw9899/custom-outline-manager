@@ -194,9 +194,8 @@ func (e *Enforcer) CheckDeviceLimits(ctx context.Context) []models.DeviceAlert {
 const autoRenewNote = "Auto-renewed — confirm payment"
 
 // AutoRenewKeys tops up every auto_renew-opted-in key that has crossed the
-// same "running low" condition the Telegram alert uses (see internal/alerts'
-// remainingBytesThreshold/daysLeftThreshold — duplicated here rather than
-// imported, since enforcement doesn't otherwise depend on alerts).
+// same "running low" condition the Telegram alert uses
+// (models.RunningLowRemainingBytes/RunningLowDaysLeft).
 //
 // A renewal always grants a full plan period on top of what's already used,
 // so one auto-renewal reliably pushes the key back out of the "running low"
@@ -205,11 +204,6 @@ const autoRenewNote = "Auto-renewed — confirm payment"
 // (autoRenewNote) since staying online is not the same as being paid for;
 // the admin confirms payment and flips it from the renewal history table.
 func (e *Enforcer) AutoRenewKeys(ctx context.Context) []models.Key {
-	const (
-		remainingBytesThreshold = 3 * models.BytesPerGB
-		daysLeftThreshold       = 2
-	)
-
 	keys, err := e.repo.ListKeysWithAutoRenew(ctx)
 	if err != nil {
 		log.Printf("auto renew: list keys: %v", err)
@@ -221,8 +215,8 @@ func (e *Enforcer) AutoRenewKeys(ctx context.Context) []models.Key {
 	var renewed []models.Key
 	for _, key := range keys {
 		key = key.Enrich(now)
-		runningLow := key.RemainingBytes != nil && *key.RemainingBytes < remainingBytesThreshold
-		nearExpiry := key.DaysLeft != nil && *key.DaysLeft < daysLeftThreshold
+		runningLow := key.RemainingBytes != nil && *key.RemainingBytes < models.RunningLowRemainingBytes
+		nearExpiry := key.DaysLeft != nil && *key.DaysLeft < models.RunningLowDaysLeft
 		if !runningLow && !nearExpiry {
 			continue
 		}

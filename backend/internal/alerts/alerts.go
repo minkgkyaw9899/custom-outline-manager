@@ -16,11 +16,6 @@ import (
 )
 
 const (
-	// remainingBytesThreshold and daysLeftThreshold are the two independent
-	// trigger conditions: alert when a key has less than 3GB of quota left,
-	// or less than 2 days until expiry.
-	remainingBytesThreshold = 3 * models.BytesPerGB
-	daysLeftThreshold       = 2
 	// debounceHours keeps a key that stays under threshold across multiple
 	// cron ticks from re-alerting every tick.
 	debounceHours = 12
@@ -77,7 +72,7 @@ func KeyIDFromCallbackData(data string) (keyID string, ok bool) {
 // and marks it alerted so the next tick's debounce window skips it. Errors
 // for one key are logged and don't stop the sweep.
 func (c *Checker) Run(ctx context.Context) {
-	keys, err := c.repo.ListKeysNeedingLowUsageAlert(ctx, remainingBytesThreshold, daysLeftThreshold, debounceHours)
+	keys, err := c.repo.ListKeysNeedingLowUsageAlert(ctx, models.RunningLowRemainingBytes, models.RunningLowDaysLeft, debounceHours)
 	if err != nil {
 		log.Printf("alerts: list keys needing alert: %v", err)
 		return
