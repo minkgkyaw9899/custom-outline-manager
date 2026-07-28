@@ -17,7 +17,7 @@ DOMAINS=(
   "light-speed-api.invisigate.asia"
   "dynamic-access-light-speed.invisigate.asia"
 )
-: "${CERTBOT_EMAIL:?Set CERTBOT_EMAIL to the address Let's Encrypt should use for renewal notices}"
+: "${CERTBOT_EMAIL:?Set CERTBOT_EMAIL to the address Certbot should use for renewal notices}"
 
 domain_args=()
 for d in "${DOMAINS[@]}"; do

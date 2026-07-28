@@ -85,6 +85,18 @@ func (r *Repository) SetSharePasscode(ctx context.Context, id, passcodeHash stri
 	return err
 }
 
+// UpdateSharePasscodeHash overwrites the stored hash for the same passcode
+// without touching passcode_set_at, failed_attempts, or locked_until — used
+// only to transparently upgrade a legacy SHA-256 hash to bcrypt right after
+// it verifies successfully (see authn.VerifyPasscode). Never called for an
+// actual passcode change; that's SetSharePasscode.
+func (r *Repository) UpdateSharePasscodeHash(ctx context.Context, id, passcodeHash string) error {
+	_, err := r.pool.Exec(ctx, `
+		UPDATE user_shares SET passcode_hash = $2, updated_at = now() WHERE id = $1
+	`, id, passcodeHash)
+	return err
+}
+
 // ResetSharePasscode is the admin's "holder forgot their passcode" action: it
 // clears the passcode entirely, so the public page falls back to the setup
 // screen on the holder's next visit.

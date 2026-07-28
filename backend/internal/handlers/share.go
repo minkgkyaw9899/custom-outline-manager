@@ -93,7 +93,11 @@ func (a *API) shareSetup(c fiber.Ctx) error {
 		return apiresponse.Conflict(c, "A passcode has already been set for this link — enter it instead")
 	}
 
-	if err := a.repo.SetSharePasscode(c.Context(), share.ID, authn.HashOTP(req.Code)); err != nil {
+	passcodeHash, err := authn.HashPasscode(req.Code)
+	if err != nil {
+		return apiresponse.Internal(c, "")
+	}
+	if err := a.repo.SetSharePasscode(c.Context(), share.ID, passcodeHash); err != nil {
 		return apiresponse.Internal(c, "")
 	}
 
@@ -125,7 +129,8 @@ func (a *API) shareVerify(c fiber.Ctx) error {
 		return apiresponse.Forbidden(c, "Too many incorrect attempts — try again in a few minutes")
 	}
 
-	if !authn.VerifyOTP(req.Code, *share.PasscodeHash) {
+	ok, needsRehash := authn.VerifyPasscode(req.Code, *share.PasscodeHash)
+	if !ok {
 		if err := a.repo.RecordShareFailure(c.Context(), share.ID, a.cfg.ShareMaxAttempts, time.Now().Add(a.cfg.ShareLockDuration)); err != nil {
 			log.Printf("record share failure %s: %v", share.ID, err)
 		}
@@ -133,6 +138,16 @@ func (a *API) shareVerify(c fiber.Ctx) error {
 	}
 	if err := a.repo.ResetShareFailures(c.Context(), share.ID); err != nil {
 		return apiresponse.Internal(c, "")
+	}
+	// Transparently upgrade a legacy SHA-256 hash to bcrypt now that the
+	// holder has proven they know the passcode — same passcode, stronger
+	// storage, no action required from them.
+	if needsRehash {
+		if newHash, err := authn.HashPasscode(req.Code); err == nil {
+			if err := a.repo.UpdateSharePasscodeHash(c.Context(), share.ID, newHash); err != nil {
+				log.Printf("rehash share passcode %s: %v", share.ID, err)
+			}
+		}
 	}
 
 	payload, err := a.newShareTokenPayload(share.Slug, share.UserID)
