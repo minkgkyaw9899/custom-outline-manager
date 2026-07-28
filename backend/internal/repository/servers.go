@@ -188,7 +188,11 @@ func (r *Repository) ListServers(ctx context.Context) ([]models.ServerWithUsage,
 		       COUNT(k.id) FILTER (WHERE k.status = 'active') AS active_keys,
 		       COALESCE(SUM(k.used_bytes), 0) AS total_used_bytes,
 		       COALESCE(SUM(COALESCE(k.price_mmk, s.default_price_mmk, 0)) FILTER (WHERE k.status = 'active'), 0) AS monthly_revenue_mmk,
-		       COUNT(k.id) FILTER (WHERE k.status = 'active' AND k.price_mmk IS NULL AND s.default_price_mmk IS NULL) AS unpriced_active_keys
+		       COUNT(k.id) FILTER (WHERE k.status = 'active' AND k.price_mmk IS NULL AND s.default_price_mmk IS NULL) AS unpriced_active_keys,
+		       COUNT(k.id) FILTER (
+		         WHERE k.status = 'active' AND
+		               (k.price_mmk = 0 OR (k.price_mmk IS NULL AND s.default_price_mmk = 0))
+		       ) AS free_active_keys
 		FROM servers s
 		LEFT JOIN keys k ON k.server_id = s.id
 		WHERE s.deleted_at IS NULL
@@ -207,7 +211,7 @@ func (r *Repository) ListServers(ctx context.Context) ([]models.ServerWithUsage,
 			&s.MaxKeys, &s.DefaultLimitBytes, &s.DefaultPriceMmk,
 			&s.BandwidthLimitBytes, &s.BandwidthDisabledAt, &s.BandwidthReenabledAt,
 			&s.KeyCount, &s.ActiveKeys, &s.TotalUsedBytes,
-			&s.MonthlyRevenueMmk, &s.UnpricedActiveKeys); err != nil {
+			&s.MonthlyRevenueMmk, &s.UnpricedActiveKeys, &s.FreeActiveKeys); err != nil {
 			return nil, fmt.Errorf("scan server: %w", err)
 		}
 		out = append(out, s)

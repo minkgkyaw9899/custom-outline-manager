@@ -19,6 +19,7 @@ import {
 } from "@/components/keys/key-connection-status"
 import { KeyLimitHistoryChart } from "@/components/keys/key-limit-history-chart"
 import { KeyLinkField } from "@/components/keys/key-link-field"
+import { KeyPriceTypeBadge } from "@/components/keys/key-price-type-badge"
 import { KeyUsageDonut } from "@/components/keys/key-usage-donut"
 import { DailyTrafficCard } from "@/components/servers/daily-traffic-card"
 import { StatCard } from "@/components/stat-card"
@@ -53,9 +54,11 @@ import {
   formatDateOnly,
   formatDaysLeft,
   formatHours,
+  formatMmk,
   formatRelativeTime,
   formatUsagePair,
 } from "@/lib/format"
+import { effectivePriceMmk, keyPriceType } from "@/lib/key-price-type"
 import {
   keyDailyQueryOptions,
   keyRenewalsQueryOptions,
@@ -456,6 +459,22 @@ function UserDetailPage() {
                   </DetailRow>
                   <DetailRow label="Time left">
                     {formatDaysLeft(key.daysLeft)}
+                  </DetailRow>
+                  <DetailRow label="Key type">
+                    <div className="flex items-center gap-2">
+                      <KeyPriceTypeBadge
+                        type={keyPriceType(key.priceMmk, serverDetail?.server.defaultPriceMmk)}
+                      />
+                      {keyPriceType(key.priceMmk, serverDetail?.server.defaultPriceMmk) ===
+                        "paid" && (
+                        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                          {formatMmk(
+                            effectivePriceMmk(key.priceMmk, serverDetail?.server.defaultPriceMmk) ?? 0,
+                          )}{" "}
+                          / month
+                        </span>
+                      )}
+                    </div>
                   </DetailRow>
                 </dl>
               </>

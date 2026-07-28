@@ -188,12 +188,23 @@ function RevenuePage() {
                             {server.unpricedActiveKeys === 1 ? "" : "s"}
                           </p>
                         )}
+                        {server.freeActiveKeys > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            {server.freeActiveKeys} free key
+                            {server.freeActiveKeys === 1 ? "" : "s"}
+                          </p>
+                        )}
                       </TableCell>
                       <TableCell>
                         <ServerStatusBadge status={server.health} />
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums">
                         {server.activeKeys}
+                        {server.freeActiveKeys > 0 && (
+                          <span className="block text-xs font-normal text-muted-foreground">
+                            {server.activeKeys - server.freeActiveKeys} paying
+                          </span>
+                        )}
                       </TableCell>
                       <TableCell className="text-right font-mono tabular-nums">
                         {mmk(server.monthlyRevenueMmk)}

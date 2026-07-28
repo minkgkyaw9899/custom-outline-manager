@@ -187,8 +187,15 @@ type ServerWithUsage struct {
 	// UnpricedActiveKeys counts active keys with neither their own price nor
 	// a server default to fall back to — a caveat that MonthlyRevenueMmk may
 	// understate actual revenue, surfaced on the Revenue page.
-	UnpricedActiveKeys int            `json:"unpricedActiveKeys"`
-	Metrics            *ServerMetrics `json:"metrics"`
+	UnpricedActiveKeys int `json:"unpricedActiveKeys"`
+	// FreeActiveKeys counts active keys whose effective price (their own, or
+	// the server's default) is explicitly 0 — deliberately free, not simply
+	// unpriced. MonthlyRevenueMmk already excludes them; this is what lets
+	// the Revenue page show *why* a server's total is less than
+	// activeKeys × price, e.g. 7 keys at 10,000 MMK but 1 free means only 6
+	// are actually paying.
+	FreeActiveKeys int            `json:"freeActiveKeys"`
+	Metrics        *ServerMetrics `json:"metrics"`
 	// DailySeries is the card's sparkline. It comes from our snapshot history,
 	// so it only covers days since the server was added and is empty for a
 	// freshly-registered server.

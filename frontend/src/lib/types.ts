@@ -228,6 +228,12 @@ export interface ServerWithUsage extends Server {
    * caveat that monthlyRevenueMmk may understate actual revenue.
    */
   unpricedActiveKeys: number
+  /**
+   * Active keys whose effective price is explicitly 0 — deliberately free,
+   * not simply unpriced. monthlyRevenueMmk already excludes them; this is
+   * what explains why a server's total is less than activeKeys × price.
+   */
+  freeActiveKeys: number
   /** Null when the server could not be reached for a live read. */
   metrics: ServerMetrics | null
   /** Empty until the cron has recorded at least two days of snapshots. */

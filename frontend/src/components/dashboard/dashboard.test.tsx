@@ -30,6 +30,7 @@ function mockServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
     totalUsedBytes: 0,
     monthlyRevenueMmk: 0,
     unpricedActiveKeys: 0,
+    freeActiveKeys: 0,
     metrics: null,
     dailySeries: [
       { date: "2026-01-01", bytes: 5_000_000_000 },

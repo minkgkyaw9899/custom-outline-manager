@@ -121,3 +121,7 @@ export function formatDaysLeft(days: number | null | undefined): string {
   if (days === 0) return "Expires today"
   return `${days} day${days === 1 ? "" : "s"} left`
 }
+
+export function formatMmk(n: number): string {
+  return `${Math.round(n).toLocaleString("en-US")} MMK`
+}

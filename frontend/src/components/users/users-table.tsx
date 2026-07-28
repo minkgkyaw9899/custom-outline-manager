@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react"
 import { Link, useNavigate } from "@tanstack/react-router"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   createColumnHelper,
   flexRender,
@@ -15,6 +15,7 @@ import { CheckIcon, CopyIcon, PlusIcon, Trash2Icon, UsersIcon } from "lucide-rea
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { SortableHead } from "@/components/data-table-header"
+import { KeyPriceTypeBadge } from "@/components/keys/key-price-type-badge"
 import {
   DEFAULT_PAGE_SIZE,
   DataTablePagination,
@@ -57,6 +58,8 @@ import {
   formatDaysLeft,
   formatUsagePair,
 } from "@/lib/format"
+import { keyPriceType } from "@/lib/key-price-type"
+import { serversQueryOptions } from "@/lib/queries"
 import { userShareQueryOptions } from "@/lib/share"
 import type { UserWithKeys } from "@/lib/types"
 import { cn } from "@/lib/utils"
@@ -186,6 +189,16 @@ export function UsersTable({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
 
+  // Only for computing each key's effective price type — the servers list is
+  // already cached from the Servers/Overview pages in the common case, so
+  // this rarely costs an extra request.
+  const { data: servers } = useQuery(serversQueryOptions())
+  const defaultPriceByServer = useMemo(() => {
+    const map = new Map<string, number | null>()
+    for (const s of servers ?? []) map.set(s.id, s.defaultPriceMmk)
+    return map
+  }, [servers])
+
   const removeUser = useMutation({
     mutationFn: (user: UserWithKeys) => apiClient.delete<null>(`users/${user.id}`),
     onSuccess: () => {
@@ -239,6 +252,19 @@ export function UsersTable({
             <span className="text-sm text-muted-foreground">No key</span>
           ),
       }),
+      columnHelper.display({
+        id: "keyType",
+        header: "Key type",
+        cell: ({ row }) => {
+          const key = row.original.primaryKey
+          if (!key) return <span className="text-sm text-muted-foreground">—</span>
+          return (
+            <KeyPriceTypeBadge
+              type={keyPriceType(key.priceMmk, defaultPriceByServer.get(key.serverId))}
+            />
+          )
+        },
+      }),
       columnHelper.accessor(
         (row) =>
           row.primaryKey?.customLimitBytes
@@ -289,7 +315,7 @@ export function UsersTable({
         ),
       }),
     ],
-    [],
+    [defaultPriceByServer],
   )
 
   const table = useReactTable({

@@ -48,6 +48,7 @@ function makeServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
     totalUsedBytes: 6115628839,
     monthlyRevenueMmk: 0,
     unpricedActiveKeys: 0,
+    freeActiveKeys: 0,
     metrics: {
       window: "30d",
       totalBytes: 6115628839,
