@@ -1,6 +1,6 @@
 import { ZapIcon } from "lucide-react"
 
-import { ModeToggle } from "@/components/mode-toggle"
+import { ModeToggle } from "@/components/layout/mode-toggle"
 
 export function AuthLayout({
   children,

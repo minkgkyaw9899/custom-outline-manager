@@ -8,14 +8,14 @@ import {
   TriangleAlertIcon,
 } from "lucide-react"
 
-import { ConfirmDialog } from "@/components/confirm-dialog"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { KeysTable } from "@/components/keys/keys-table"
-import { ServerStatusBadge } from "@/components/server-status-badge"
+import { ServerStatusBadge } from "@/components/common/server-status-badge"
 import { AsTable } from "@/components/servers/as-table"
 import { AsUsageCharts } from "@/components/servers/as-usage-charts"
 import { DailyTrafficCard } from "@/components/servers/daily-traffic-card"
 import { EditServerDialog } from "@/components/servers/edit-server-dialog"
-import { SyncPill } from "@/components/sync-pill"
+import { SyncPill } from "@/components/common/sync-pill"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"

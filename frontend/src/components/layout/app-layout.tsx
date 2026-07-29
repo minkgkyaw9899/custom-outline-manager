@@ -1,8 +1,8 @@
 import { Outlet } from "@tanstack/react-router"
 
-import { AppSidebar } from "@/components/app-sidebar"
-import { ModeToggle } from "@/components/mode-toggle"
-import { PageBreadcrumb } from "@/components/page-breadcrumb"
+import { AppSidebar } from "@/components/layout/app-sidebar"
+import { ModeToggle } from "@/components/layout/mode-toggle"
+import { PageBreadcrumb } from "@/components/layout/page-breadcrumb"
 import { Separator } from "@/components/ui/separator"
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
 

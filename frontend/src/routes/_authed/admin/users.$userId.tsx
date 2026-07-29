@@ -10,8 +10,8 @@ import {
   Trash2Icon,
 } from "lucide-react"
 
-import { ConfirmDialog } from "@/components/confirm-dialog"
-import { DetailRow } from "@/components/detail-row"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
+import { DetailRow } from "@/components/common/detail-row"
 import { EditKeyDialog } from "@/components/keys/edit-key-dialog"
 import {
   KeyConnectionStatus,
@@ -22,8 +22,8 @@ import { KeyLinkField } from "@/components/keys/key-link-field"
 import { KeyPriceTypeBadge } from "@/components/keys/key-price-type-badge"
 import { KeyUsageDonut } from "@/components/keys/key-usage-donut"
 import { DailyTrafficCard } from "@/components/servers/daily-traffic-card"
-import { StatCard } from "@/components/stat-card"
-import { StatusBadge } from "@/components/status-badge"
+import { StatCard } from "@/components/common/stat-card"
+import { StatusBadge } from "@/components/common/status-badge"
 import { ChangeKeyDialog } from "@/components/users/change-key-dialog"
 import { EditUserDialog } from "@/components/users/edit-user-dialog"
 import { UserShareDialog } from "@/components/users/user-share-dialog"

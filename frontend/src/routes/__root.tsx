@@ -5,8 +5,8 @@ import { ReactQueryDevtoolsPanel } from '@tanstack/react-query-devtools'
 import { QueryClientProvider } from "@tanstack/react-query"
 import { formDevtoolsPlugin } from '@tanstack/react-form-devtools'
 
-import { ErrorPage } from "@/components/error-page"
-import { NotFoundPage } from "@/components/not-found-page"
+import { ErrorPage } from "@/components/layout/error-page"
+import { NotFoundPage } from "@/components/layout/not-found-page"
 import { queryClient } from "@/lib/query-client"
 import { ThemeProvider, themeInitScript } from "@/lib/theme"
 import { TooltipProvider } from "@/components/ui/tooltip"

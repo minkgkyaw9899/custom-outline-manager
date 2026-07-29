@@ -1,7 +1,7 @@
 import { useState } from "react"
 
-import { ConfirmDialog } from "@/components/confirm-dialog"
-import { CopyButton } from "@/components/copy-button"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
+import { CopyButton } from "@/components/common/copy-button"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {

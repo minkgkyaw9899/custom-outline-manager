@@ -1,7 +1,7 @@
 import { QrCodeIcon } from "lucide-react"
 import { QRCodeSVG } from "qrcode.react"
 
-import { CopyButton } from "@/components/copy-button"
+import { CopyButton } from "@/components/common/copy-button"
 import { Button } from "@/components/ui/button"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"

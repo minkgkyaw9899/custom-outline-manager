@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 
-import { SyncAllButton } from "@/components/sync-all-button"
+import { SyncAllButton } from "@/components/common/sync-all-button"
 import { AdminsTable } from "@/components/users/admins-table"
 import { UsersTable } from "@/components/users/users-table"
 import { usersQueryOptions } from "@/lib/queries"

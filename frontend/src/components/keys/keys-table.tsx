@@ -14,13 +14,13 @@ import {
 import type {SortingState} from "@tanstack/react-table";
 import { GaugeIcon, KeyRoundIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
 
-import { ConfirmDialog } from "@/components/confirm-dialog"
-import { CopyButton } from "@/components/copy-button"
-import { SortableHead } from "@/components/data-table-header"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
+import { CopyButton } from "@/components/common/copy-button"
+import { SortableHead } from "@/components/common/data-table-header"
 import {
   DEFAULT_PAGE_SIZE,
   DataTablePagination,
-} from "@/components/data-table-pagination"
+} from "@/components/common/data-table-pagination"
 import {
   KeyConnectionStatus,
   keyDisplayName,
@@ -30,7 +30,7 @@ import {
 import { EditKeyDialog } from "@/components/keys/edit-key-dialog"
 import { NewKeyDialog } from "@/components/keys/new-key-dialog"
 import { OverallLimitDialog } from "@/components/keys/overall-limit-dialog"
-import { StatusBadge } from "@/components/status-badge"
+import { StatusBadge } from "@/components/common/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {

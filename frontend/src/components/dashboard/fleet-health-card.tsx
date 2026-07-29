@@ -1,4 +1,4 @@
-import { ServerStatusBadge } from "@/components/server-status-badge"
+import { ServerStatusBadge } from "@/components/common/server-status-badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { formatRelativeTime } from "@/lib/format"
 import type { ServerWithUsage } from "@/lib/types"

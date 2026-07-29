@@ -4,8 +4,8 @@ import { useQuery } from "@tanstack/react-query"
 import { ArrowLeftIcon, WalletIcon } from "lucide-react"
 
 import { RevenueTrendCard } from "@/components/dashboard/revenue-trend-card"
-import { ServerStatusBadge } from "@/components/server-status-badge"
-import { StatCard } from "@/components/stat-card"
+import { ServerStatusBadge } from "@/components/common/server-status-badge"
+import { StatCard } from "@/components/common/stat-card"
 import {
   Card,
   CardContent,

@@ -1,11 +1,11 @@
-import { DetailRow } from "@/components/detail-row"
+import { DetailRow } from "@/components/common/detail-row"
 import { DynamicLinkRecommendedBadge } from "@/components/keys/dynamic-link-info-dialog"
 import { KeyLinkField } from "@/components/keys/key-link-field"
 import { KeyUsageDonut } from "@/components/keys/key-usage-donut"
-import { ServerStatusBadge } from "@/components/server-status-badge"
+import { ServerStatusBadge } from "@/components/common/server-status-badge"
 import { DailyTrafficCard } from "@/components/servers/daily-traffic-card"
-import { StatCard } from "@/components/stat-card"
-import { StatusBadge } from "@/components/status-badge"
+import { StatCard } from "@/components/common/stat-card"
+import { StatusBadge } from "@/components/common/status-badge"
 import {
   Card,
   CardContent,

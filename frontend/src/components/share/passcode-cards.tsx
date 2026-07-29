@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form"
 
-import { AuthLayout } from "@/components/auth-layout"
+import { AuthLayout } from "@/components/layout/auth-layout"
 import { Button } from "@/components/ui/button"
 import {
   Card,

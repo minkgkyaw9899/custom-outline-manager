@@ -3,7 +3,7 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { CheckCircle2Icon } from "lucide-react"
 
-import { AuthLayout } from "@/components/auth-layout"
+import { AuthLayout } from "@/components/layout/auth-layout"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {

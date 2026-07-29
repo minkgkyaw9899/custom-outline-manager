@@ -6,7 +6,7 @@ import { ArrowLeftIcon } from "lucide-react"
 import { isApiError } from "@/lib/api"
 import { applyServerFieldErrors } from "@/lib/form-errors"
 import { useRequestOtp, useVerifyOtp } from "@/lib/auth"
-import { AuthLayout } from "@/components/auth-layout"
+import { AuthLayout } from "@/components/layout/auth-layout"
 import { Button } from "@/components/ui/button"
 import {
   Card,

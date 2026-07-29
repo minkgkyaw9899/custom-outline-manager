@@ -13,16 +13,16 @@ import {
 import type { SortingState } from "@tanstack/react-table"
 import { CheckIcon, CopyIcon, PlusIcon, Trash2Icon, UsersIcon } from "lucide-react"
 
-import { ConfirmDialog } from "@/components/confirm-dialog"
-import { SortableHead } from "@/components/data-table-header"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
+import { SortableHead } from "@/components/common/data-table-header"
 import { KeyPriceTypeBadge } from "@/components/keys/key-price-type-badge"
 import {
   DEFAULT_PAGE_SIZE,
   DataTablePagination,
-} from "@/components/data-table-pagination"
+} from "@/components/common/data-table-pagination"
 import { NewUserDialog } from "@/components/users/new-user-dialog"
 import { userShareUrl } from "@/components/users/user-share-dialog"
-import { StatusBadge } from "@/components/status-badge"
+import { StatusBadge } from "@/components/common/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {

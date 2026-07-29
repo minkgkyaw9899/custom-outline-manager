@@ -2,7 +2,7 @@ import { useEffect, useState } from "react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 
-import { ModeToggle } from "@/components/mode-toggle"
+import { ModeToggle } from "@/components/layout/mode-toggle"
 import { InvalidLinkCard, ShareAuthLayout } from "@/components/share/passcode-cards"
 import { KeyStatusView } from "@/components/share/key-status-view"
 import { Skeleton } from "@/components/ui/skeleton"

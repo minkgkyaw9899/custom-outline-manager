@@ -11,7 +11,7 @@ import {
   ZapIcon,
 } from "lucide-react"
 
-import { ConfirmDialog } from "@/components/confirm-dialog"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import {
   Sidebar,
   SidebarContent,

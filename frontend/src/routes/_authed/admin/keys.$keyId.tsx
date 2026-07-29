@@ -9,7 +9,7 @@ import {
   UserIcon,
 } from "lucide-react"
 
-import { ConfirmDialog } from "@/components/confirm-dialog"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { DynamicLinkRecommendedBadge } from "@/components/keys/dynamic-link-info-dialog"
 import { EditKeyDialog } from "@/components/keys/edit-key-dialog"
 import {
@@ -21,9 +21,9 @@ import { KeyLimitHistoryChart } from "@/components/keys/key-limit-history-chart"
 import { KeyLinkField } from "@/components/keys/key-link-field"
 import { KeyUsageDonut } from "@/components/keys/key-usage-donut"
 import { DailyTrafficCard } from "@/components/servers/daily-traffic-card"
-import { DetailRow } from "@/components/detail-row"
-import { StatCard } from "@/components/stat-card"
-import { StatusBadge } from "@/components/status-badge"
+import { DetailRow } from "@/components/common/detail-row"
+import { StatCard } from "@/components/common/stat-card"
+import { StatusBadge } from "@/components/common/status-badge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"

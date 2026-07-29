@@ -11,13 +11,13 @@ import {
 import type { SortingState } from "@tanstack/react-table"
 import { PlusIcon, ShieldIcon, Trash2Icon } from "lucide-react"
 
-import { ConfirmDialog } from "@/components/confirm-dialog"
-import { SortableHead } from "@/components/data-table-header"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
+import { SortableHead } from "@/components/common/data-table-header"
 import {
   DEFAULT_PAGE_SIZE,
   DataTablePagination,
-} from "@/components/data-table-pagination"
-import { StatusBadge } from "@/components/status-badge"
+} from "@/components/common/data-table-pagination"
+import { StatusBadge } from "@/components/common/status-badge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {

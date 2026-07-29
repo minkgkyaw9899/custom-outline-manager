@@ -10,11 +10,11 @@ import {
 } from "@tanstack/react-table"
 import type {SortingState} from "@tanstack/react-table";
 
-import { SortableHead } from "@/components/data-table-header"
+import { SortableHead } from "@/components/common/data-table-header"
 import {
   DEFAULT_PAGE_SIZE,
   DataTablePagination,
-} from "@/components/data-table-pagination"
+} from "@/components/common/data-table-pagination"
 import {
   Card,
   CardContent,

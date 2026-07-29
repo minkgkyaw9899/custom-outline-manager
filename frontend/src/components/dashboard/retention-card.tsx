@@ -7,7 +7,7 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
-import { StatCard } from "@/components/stat-card"
+import { StatCard } from "@/components/common/stat-card"
 import type { RetentionMetrics } from "@/lib/types"
 
 const chartConfig = {

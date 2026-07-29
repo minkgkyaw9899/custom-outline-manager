@@ -3,8 +3,8 @@ import { createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ShoppingCartIcon, Trash2Icon } from "lucide-react"
 
-import { ConfirmDialog } from "@/components/confirm-dialog"
-import { StatusBadge } from "@/components/status-badge"
+import { ConfirmDialog } from "@/components/common/confirm-dialog"
+import { StatusBadge } from "@/components/common/status-badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import {

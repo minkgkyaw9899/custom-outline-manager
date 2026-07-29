@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
 
-import { AppLayout } from "@/components/app-layout"
+import { AppLayout } from "@/components/layout/app-layout"
 import { queryClient } from "@/lib/query-client"
 import { authMeQueryOptions } from "@/lib/auth"
 
