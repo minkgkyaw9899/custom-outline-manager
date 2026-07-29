@@ -78,6 +78,7 @@ import {
   formatDateOnly,
   formatDaysLeft,
   formatUsagePair,
+  usageBarColor,
 } from "@/lib/format"
 import { isMockId, mockDeleteKey } from "@/lib/mock-server-detail"
 import type { Key, KeyMetrics, KeyStatus } from "@/lib/types"
@@ -95,13 +96,6 @@ const STATUS_FILTERS: { value: string; label: string }[] = [
 interface KeyRow {
   key: Key
   metrics: KeyMetrics | undefined
-}
-
-/** Green until three quarters spent, amber approaching the cap, red at it. */
-function usageBarColor(ratio: number): string {
-  if (ratio >= 1) return "bg-destructive"
-  if (ratio >= 0.75) return "bg-chart-3"
-  return "bg-chart-1"
 }
 
 function UsageCell({ keyItem }: Readonly<{ keyItem: Key }>) {

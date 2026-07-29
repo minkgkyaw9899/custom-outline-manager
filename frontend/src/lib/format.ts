@@ -141,3 +141,21 @@ export function costProfitMmk(
   const costMmk = (costUsdPerMonth ?? 0) * mmkPerUsd
   return { costMmk, profitMmk: revenueMmk - costMmk }
 }
+
+/**
+ * Six-step color for a usage/quota bar, one step per 20% of ratio (0 = no
+ * usage, 1 = at limit). Stays inside this app's own status vocabulary rather
+ * than introducing a new hue family: blue is already "normal" everywhere
+ * else in the UI (StatusBadge's active/synced/approved dot), shading through
+ * four blue steps as usage climbs, then handing off to the same warning/
+ * destructive tokens the rest of the app already uses for "running low" and
+ * "over limit". Every step is an existing theme token — nothing hand-picked.
+ */
+export function usageBarColor(ratio: number): string {
+  if (ratio >= 1) return "bg-destructive"
+  if (ratio >= 0.8) return "bg-warning"
+  if (ratio >= 0.6) return "bg-chart-5"
+  if (ratio >= 0.4) return "bg-chart-4"
+  if (ratio >= 0.2) return "bg-chart-2"
+  return "bg-chart-1"
+}

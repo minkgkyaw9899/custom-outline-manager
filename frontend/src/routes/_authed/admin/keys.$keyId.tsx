@@ -54,6 +54,7 @@ import {
   formatHours,
   formatRelativeTime,
   formatUsagePair,
+  usageBarColor,
 } from "@/lib/format"
 import {
   isMockId,
@@ -74,13 +75,6 @@ import { cn } from "@/lib/utils"
 export const Route = createFileRoute("/_authed/admin/keys/$keyId")({
   component: KeyDetailPage,
 })
-
-/** Matches the keys table: green until three quarters spent, red at the cap. */
-function usageBarColor(ratio: number): string {
-  if (ratio >= 1) return "bg-destructive"
-  if (ratio >= 0.75) return "bg-chart-3"
-  return "bg-chart-1"
-}
 
 function UsageBar({ keyItem }: Readonly<{ keyItem: Key }>) {
   if (keyItem.customLimitBytes === null) {

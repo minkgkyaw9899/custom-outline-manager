@@ -21,16 +21,10 @@ import {
   formatHours,
   formatRelativeTime,
   formatUsagePair,
+  usageBarColor,
 } from "@/lib/format"
 import type { ShareKeyView } from "@/lib/types"
 import { cn } from "@/lib/utils"
-
-/** Matches the admin key detail page: green until three quarters spent, red at the cap. */
-function usageBarColor(ratio: number): string {
-  if (ratio >= 1) return "bg-destructive"
-  if (ratio >= 0.75) return "bg-chart-3"
-  return "bg-chart-1"
-}
 
 function UsageBar({ data }: Readonly<{ data: ShareKeyView }>) {
   if (data.customLimitBytes === null) {
