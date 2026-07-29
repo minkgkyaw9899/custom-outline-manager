@@ -26,10 +26,10 @@ var otpEmailTemplate = template.Must(template.New("otp").Parse(`<!DOCTYPE html>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f5;padding:32px 0;">
       <tr>
         <td align="center">
-          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e4e4e7;">
+          <table role="presentation" width="480" cellpadding="0" cellspacing="0" style="background-color:#ffffff;overflow:hidden;border:1px solid #e4e4e7;">
             <tr>
-              <td style="background-color:#059669;padding:24px 32px;">
-                <span style="font-family:Lora,Helvetica,Arial,sans-serif;font-size:20px;font-weight:700;color:#ffffff;">Invisigate VPN</span>
+              <td style="background-color:#2563eb;padding:24px 32px;">
+                <span style="font-family:'JetBrains Mono',monospace;font-size:20px;font-weight:700;color:#ffffff;">Invisigate VPN</span>
               </td>
             </tr>
             <tr>
@@ -37,7 +37,7 @@ var otpEmailTemplate = template.Must(template.New("otp").Parse(`<!DOCTYPE html>
                 <p style="margin:0 0 8px;font-size:16px;color:#18181b;">Your sign-in code</p>
                 <p style="margin:0 0 24px;font-size:14px;color:#71717a;">Use this code to finish signing in. It expires in {{.TTLMinutes}} minutes.</p>
                 <div style="text-align:center;margin:0 0 24px;">
-                  <span style="display:inline-block;padding:16px 24px;background-color:#ecfdf5;border:1px solid #10B981;border-radius:8px;font-size:32px;font-weight:700;letter-spacing:8px;color:#059669;">{{.Code}}</span>
+                  <span style="display:inline-block;padding:16px 24px;background-color:#eff6ff;border:1px solid #3b82f6;font-size:32px;font-weight:700;letter-spacing:8px;color:#2563eb;">{{.Code}}</span>
                 </div>
                 <p style="margin:0;font-size:13px;color:#a1a1aa;">If you didn't request this code, you can safely ignore this email.</p>
               </td>

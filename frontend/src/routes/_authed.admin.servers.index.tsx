@@ -46,7 +46,9 @@ function ServersPage() {
     offline: all.filter((s) => s.health === "offline").length,
   }
 
-  const visible = filter === "all" ? all : all.filter((s) => s.health === filter)
+  const visible = (filter === "all" ? all : all.filter((s) => s.health === filter))
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name))
   const lastSyncedAt = all
     .map((s) => s.lastSyncedAt)
     .filter((v): v is string => v !== null)

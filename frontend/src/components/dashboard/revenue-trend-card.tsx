@@ -178,14 +178,14 @@ export function RevenueTrendCard({
             className="h-72 w-full [&_.recharts-cartesian-axis-tick_text]:font-mono"
           >
             {chartType === "line" ? (
-              <LineChart data={data} margin={{ left: 4, right: 12 }}>
+              <LineChart data={data} margin={{ left: 4, right: 12, top: 12 }}>
                 {axes}
                 <Line dataKey="revenue" type="monotone" stroke="var(--color-revenue)" strokeWidth={2} dot={false} />
                 <Line dataKey="cost" type="monotone" stroke="var(--color-cost)" strokeWidth={2} dot={false} />
                 <Line dataKey="profit" type="monotone" stroke="var(--color-profit)" strokeWidth={2} dot={false} />
               </LineChart>
             ) : (
-              <BarChart data={data} margin={{ left: 4, right: 12 }} barGap={2}>
+              <BarChart data={data} margin={{ left: 4, right: 12, top: 12 }} barGap={2}>
                 {axes}
                 <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[3, 3, 0, 0]} maxBarSize={16} />
                 <Bar dataKey="cost" fill="var(--color-cost)" radius={[3, 3, 0, 0]} maxBarSize={16} />

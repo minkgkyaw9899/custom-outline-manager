@@ -104,43 +104,52 @@ export function CompareServersCard({
     )
   }
 
-  const axes = (
-    <>
-      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-      <XAxis
-        dataKey="label"
-        tickLine={false}
-        axisLine={false}
-        tickMargin={10}
-        minTickGap={28}
-      />
-      <ChartTooltip
-        content={
-          <ChartTooltipContent
-            formatter={(value, name) => (
-              <span className="flex w-full items-center gap-2">
-                <span
-                  aria-hidden
-                  className="size-2.5 shrink-0 rounded-[2px]"
-                  style={{
-                    backgroundColor:
-                      name === "a" ? "var(--color-a)" : "var(--color-b)",
-                  }}
-                />
-                <span className="text-muted-foreground">
-                  {name === "a" ? serverA.name : serverB.name}
-                </span>
-                <span className="ml-auto font-mono tabular-nums">
-                  {formatBytesCompact(Number(value))}
-                </span>
+  const tooltip = (
+    <ChartTooltip
+      content={
+        <ChartTooltipContent
+          formatter={(value, name) => (
+            <span className="flex w-full items-center gap-2">
+              <span
+                aria-hidden
+                className="size-2.5 shrink-0 rounded-[2px]"
+                style={{
+                  backgroundColor:
+                    name === "a" ? "var(--color-a)" : "var(--color-b)",
+                }}
+              />
+              <span className="text-muted-foreground">
+                {name === "a" ? serverA.name : serverB.name}
               </span>
-            )}
-            labelKey="label"
-          />
-        }
-      />
-    </>
+              <span className="ml-auto font-mono tabular-nums">
+                {formatBytesCompact(Number(value))}
+              </span>
+            </span>
+          )}
+          labelKey="label"
+        />
+      }
+    />
   )
+
+  // The line chart is a bare trend line — no axis or grid, just the shape.
+  // The bar chart needs the axis context to read individual values off.
+  const axes =
+    chartType === "line" ? (
+      tooltip
+    ) : (
+      <>
+        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+        <XAxis
+          dataKey="label"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={10}
+          minTickGap={28}
+        />
+        {tooltip}
+      </>
+    )
 
   return (
     <Card>

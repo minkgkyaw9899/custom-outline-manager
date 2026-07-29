@@ -78,33 +78,42 @@ export function BandwidthConsumptionCard({
     )
   }
 
-  const axes = (
-    <>
-      <CartesianGrid vertical={false} strokeDasharray="3 3" />
-      <XAxis
-        dataKey="label"
-        tickLine={false}
-        axisLine={false}
-        tickMargin={10}
-        minTickGap={28}
-      />
-      <YAxis
-        tickLine={false}
-        axisLine={false}
-        tickMargin={8}
-        width={54}
-        tickFormatter={(v: number) => (v === 0 ? "0" : formatBytesCompact(v))}
-      />
-      <ChartTooltip
-        content={
-          <ChartTooltipContent
-            formatter={(value) => formatBytesCompact(Number(value))}
-            labelKey="label"
-          />
-        }
-      />
-    </>
+  const tooltip = (
+    <ChartTooltip
+      content={
+        <ChartTooltipContent
+          formatter={(value) => formatBytesCompact(Number(value))}
+          labelKey="label"
+        />
+      }
+    />
   )
+
+  // The line chart is a bare trend line — no axes or grid, just the shape.
+  // Bar and area need the axis context to read individual values off.
+  const axes =
+    chartType === "line" ? (
+      tooltip
+    ) : (
+      <>
+        <CartesianGrid vertical={false} strokeDasharray="3 3" />
+        <XAxis
+          dataKey="label"
+          tickLine={false}
+          axisLine={false}
+          tickMargin={10}
+          minTickGap={28}
+        />
+        <YAxis
+          tickLine={false}
+          axisLine={false}
+          tickMargin={8}
+          width={54}
+          tickFormatter={(v: number) => (v === 0 ? "0" : formatBytesCompact(v))}
+        />
+        {tooltip}
+      </>
+    )
 
   return (
     <Card>
@@ -184,12 +193,12 @@ export function BandwidthConsumptionCard({
                 />
               </LineChart>
             ) : chartType === "bar" ? (
-              <BarChart data={data} margin={{ left: 4, right: 12 }}>
+              <BarChart data={data} margin={{ left: 4, right: 12, top: 12 }}>
                 {axes}
                 <Bar dataKey="total" fill="var(--color-total)" radius={[4, 4, 0, 0]} />
               </BarChart>
             ) : (
-              <AreaChart data={data} margin={{ left: 4, right: 12 }}>
+              <AreaChart data={data} margin={{ left: 4, right: 12, top: 12 }}>
                 <defs>
                   <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="var(--color-total)" stopOpacity={0.4} />

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 
+import { ModeToggle } from "@/components/mode-toggle"
 import { InvalidLinkCard, ShareAuthLayout } from "@/components/share/passcode-cards"
 import { KeyStatusView } from "@/components/share/key-status-view"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -51,7 +52,10 @@ function KeyStatusPage() {
 
   if (token && viewQuery.data) {
     return (
-      <div className="mx-auto flex min-h-svh max-w-5xl flex-col gap-6 p-6 lg:p-14">
+      <div className="mx-auto flex min-h-svh max-w-7xl flex-col gap-6 p-6 lg:p-14">
+        <div className="flex justify-end">
+          <ModeToggle />
+        </div>
         <KeyStatusView data={viewQuery.data} />
       </div>
     )

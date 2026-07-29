@@ -47,7 +47,7 @@ export function KeyLimitHistoryChart({
             config={chartConfig}
             className="h-40 w-full [&_.recharts-cartesian-axis-tick_text]:font-mono"
           >
-            <LineChart data={data} margin={{ left: 4, right: 12 }}>
+            <LineChart data={data} margin={{ left: 4, right: 12, top: 12 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
               <XAxis
                 dataKey="label"
