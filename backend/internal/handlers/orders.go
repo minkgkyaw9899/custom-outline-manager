@@ -209,3 +209,14 @@ func (a *API) rejectOrder(c fiber.Ctx) error {
 	}
 	return apiresponse.Success(c, updated, "Order rejected")
 }
+
+// deleteOrder removes an order record from the history — for clearing out
+// test/spam submissions. Never touches the user/key a since-approved order
+// produced; those are deleted independently (DELETE /keys/:id, /users/:id)
+// exactly like any other user/key.
+func (a *API) deleteOrder(c fiber.Ctx) error {
+	if err := a.repo.DeleteOrder(c.Context(), c.Params("id")); err != nil {
+		return respondRepoErr(c, err)
+	}
+	return apiresponse.NoContentOK(c, "Order removed")
+}

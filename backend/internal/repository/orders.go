@@ -84,6 +84,24 @@ func (r *Repository) DecideOrder(ctx context.Context, id string, status models.O
 	return r.GetOrder(ctx, id)
 }
 
+// DeleteOrder removes an order row outright — unlike users/servers this has
+// no soft-delete or cascade concerns (resulting_user_id/resulting_key_id are
+// just references, deleting the order never touches the user/key it
+// produced). Mainly for clearing out test/spam submissions from the history.
+func (r *Repository) DeleteOrder(ctx context.Context, id string) error {
+	if !isUUID(id) {
+		return ErrNotFound
+	}
+	tag, err := r.pool.Exec(ctx, `DELETE FROM orders WHERE id = $1`, id)
+	if err != nil {
+		return fmt.Errorf("delete order: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 func scanOrder(row pgx.Row) (*models.Order, error) {
 	var o models.Order
 	if err := row.Scan(&o.ID, &o.CustomerName, &o.Contact, &o.ServerID, &o.ServerName, &o.PlanGB, &o.PlanDays,

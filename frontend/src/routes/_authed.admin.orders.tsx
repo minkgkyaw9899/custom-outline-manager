@@ -1,7 +1,7 @@
 import { useState } from "react"
 import { createFileRoute } from "@tanstack/react-router"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { ShoppingCartIcon } from "lucide-react"
+import { ShoppingCartIcon, Trash2Icon } from "lucide-react"
 
 import { ConfirmDialog } from "@/components/confirm-dialog"
 import { StatusBadge } from "@/components/status-badge"
@@ -41,6 +41,7 @@ function OrdersPage() {
 
   const [approving, setApproving] = useState<Order | null>(null)
   const [rejecting, setRejecting] = useState<Order | null>(null)
+  const [deleting, setDeleting] = useState<Order | null>(null)
   const [adminNote, setAdminNote] = useState("")
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["orders"] })
@@ -60,6 +61,14 @@ function OrdersPage() {
     onSuccess: () => {
       setRejecting(null)
       setAdminNote("")
+      invalidate()
+    },
+  })
+
+  const remove = useMutation({
+    mutationFn: (order: Order) => apiClient.delete(`orders/${order.id}`),
+    onSuccess: () => {
+      setDeleting(null)
       invalidate()
     },
   })
@@ -118,7 +127,7 @@ function OrdersPage() {
                   <TableHead>Plan</TableHead>
                   <TableHead>Payment</TableHead>
                   <TableHead>Status</TableHead>
-                  {statusFilter === "pending" && <TableHead className="text-right">Actions</TableHead>}
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -141,18 +150,32 @@ function OrdersPage() {
                     <TableCell>
                       <StatusBadge status={order.status} />
                     </TableCell>
-                    {statusFilter === "pending" && (
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="outline" onClick={() => setRejecting(order)}>
-                            Reject
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        {statusFilter === "pending" ? (
+                          <>
+                            <Button size="sm" variant="outline" onClick={() => setRejecting(order)}>
+                              Reject
+                            </Button>
+                            <Button size="sm" onClick={() => setApproving(order)}>
+                              Approve
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon-sm"
+                            aria-label={`Delete order from ${order.customerName}`}
+                            title="Delete order"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => setDeleting(order)}
+                          >
+                            <Trash2Icon className="size-3.5" />
                           </Button>
-                          <Button size="sm" onClick={() => setApproving(order)}>
-                            Approve
-                          </Button>
-                        </div>
-                      </TableCell>
-                    )}
+                        )}
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -200,6 +223,20 @@ function OrdersPage() {
           />
         </Field>
       </ConfirmDialog>
+
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(open) => !open && setDeleting(null)}
+        title="Delete this order?"
+        description={
+          deleting
+            ? `Removes the order record for ${deleting.customerName} from the history. ${deleting.status === "approved" ? "The user and key it created are not affected — delete those separately if needed." : "This cannot be undone."}`
+            : ""
+        }
+        confirmLabel="Delete"
+        isPending={remove.isPending}
+        onConfirm={() => deleting && remove.mutate(deleting)}
+      />
     </div>
   )
 }

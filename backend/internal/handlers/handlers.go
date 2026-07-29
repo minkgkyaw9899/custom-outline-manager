@@ -100,6 +100,7 @@ func (a *API) RegisterRoutes(r fiber.Router) {
 			protected.Get("/orders/:id", a.getOrder)
 			protected.Post("/orders/:id/approve", a.approveOrder)
 			protected.Post("/orders/:id/reject", a.rejectOrder)
+			protected.Delete("/orders/:id", a.deleteOrder)
 
 			protected.Get("/admins", a.listAdmins)
 			protected.Post("/admins", a.addAdmin)
