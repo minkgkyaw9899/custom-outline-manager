@@ -5,8 +5,8 @@ import { BandwidthConsumptionCard } from "@/components/dashboard/bandwidth-consu
 import { CompareServersCard } from "@/components/dashboard/compare-servers-card"
 import { FleetHealthCard } from "@/components/dashboard/fleet-health-card"
 import { KeysAttentionCard } from "@/components/dashboard/keys-attention-card"
+import { RetentionCard } from "@/components/dashboard/retention-card"
 import { RevenueTrendCard } from "@/components/dashboard/revenue-trend-card"
-import { MMK_PER_USD } from "@/components/servers/add-server-dialog"
 import { StatCard } from "@/components/stat-card"
 import { SyncPill } from "@/components/sync-pill"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -15,8 +15,10 @@ import { formatBytesCompact } from "@/lib/format"
 import {
   LIVE_REFRESH_MS,
   keysQueryOptions,
+  retentionQueryOptions,
   serversQueryOptions,
   statsQueryOptions,
+  useMmkPerUsd,
 } from "@/lib/queries"
 
 export const Route = createFileRoute("/_authed/admin/overview")({
@@ -33,6 +35,8 @@ function DashboardPage() {
   })
   const { data: stats, isLoading: statsLoading } = useQuery(statsQueryOptions())
   const { data: keys, isLoading: keysLoading } = useQuery(keysQueryOptions())
+  const { data: retention, isLoading: retentionLoading } = useQuery(retentionQueryOptions())
+  const mmkPerUsd = useMmkPerUsd()
 
   const all = servers ?? []
   const statsLoaded = !statsLoading && stats !== undefined
@@ -55,7 +59,7 @@ function DashboardPage() {
 
   const totalRevenueMmk = all.reduce((sum, s) => sum + s.monthlyRevenueMmk, 0)
   const totalCostMmk = all.reduce(
-    (sum, s) => sum + (s.costUsdPerMonth ?? 0) * MMK_PER_USD,
+    (sum, s) => sum + (s.costUsdPerMonth ?? 0) * mmkPerUsd,
     0,
   )
   const totalProfitMmk = totalRevenueMmk - totalCostMmk
@@ -152,6 +156,12 @@ function DashboardPage() {
           <FleetHealthCard servers={all} className="lg:col-span-2" />
         )}
       </div>
+
+      {retentionLoading || !retention ? (
+        <Skeleton className="h-72" />
+      ) : (
+        <RetentionCard metrics={retention} />
+      )}
     </div>
   )
 }

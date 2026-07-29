@@ -24,12 +24,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { apiClient } from "@/lib/api"
 import { fieldErrorsFrom } from "@/lib/form-errors"
 import { MIN_PLAN_GB } from "@/lib/format"
+import { useMmkPerUsd } from "@/lib/queries"
 import type { Server } from "@/lib/types"
 
-/** Static USD→MMK rate, also used by the Revenue page. */
-export const MMK_PER_USD = 4500
-
 export function AddServerDialog({ children }: Readonly<{ children: React.ReactNode }>) {
+  const mmkPerUsd = useMmkPerUsd()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [apiUrl, setApiUrl] = useState("")
@@ -75,7 +74,7 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
   })
 
   const parsedCost = Number(costUsd)
-  const mmk = Number.isFinite(parsedCost) ? parsedCost * MMK_PER_USD : 0
+  const mmk = Number.isFinite(parsedCost) ? parsedCost * mmkPerUsd : 0
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -146,7 +145,7 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
               </InputGroup>
               <FieldDescription>
                 {errors.costUsdPerMonth ??
-                  `Converted at the static rate of ${MMK_PER_USD.toLocaleString("en-US")} MMK per $1 — used on the Revenue page.`}
+                  `Converted at ${mmkPerUsd.toLocaleString("en-US")} MMK per $1 — used on the Revenue page. Editable in Settings.`}
               </FieldDescription>
             </Field>
 

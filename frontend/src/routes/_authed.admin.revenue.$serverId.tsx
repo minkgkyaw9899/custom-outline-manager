@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query"
 import { ArrowLeftIcon, WalletIcon } from "lucide-react"
 
 import { RevenueTrendCard } from "@/components/dashboard/revenue-trend-card"
-import { MMK_PER_USD } from "@/components/servers/add-server-dialog"
 import { ServerStatusBadge } from "@/components/server-status-badge"
 import { StatCard } from "@/components/stat-card"
 import {
@@ -31,7 +30,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { costProfitMmk, formatMmk as mmk, formatUsd as usd } from "@/lib/format"
-import { serversQueryOptions } from "@/lib/queries"
+import { serversQueryOptions, useMmkPerUsd } from "@/lib/queries"
 import type { RevenuePoint } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -59,6 +58,7 @@ function monthlyBreakdown(series: RevenuePoint[]): RevenuePoint[] {
 function ServerRevenueDetailPage() {
   const { serverId } = Route.useParams()
   const { data: servers, isLoading } = useQuery(serversQueryOptions())
+  const mmkPerUsd = useMmkPerUsd()
 
   const server = servers?.find((s) => s.id === serverId)
   const breakdown = useMemo(
@@ -108,7 +108,7 @@ function ServerRevenueDetailPage() {
   const { costMmk, profitMmk } = costProfitMmk(
     server.costUsdPerMonth,
     server.monthlyRevenueMmk,
-    MMK_PER_USD,
+    mmkPerUsd,
   )
   const payingKeys = server.activeKeys - server.freeActiveKeys
 
@@ -195,7 +195,7 @@ function ServerRevenueDetailPage() {
                   const { costMmk: rowCostMmk, profitMmk: rowProfitMmk } = costProfitMmk(
                     p.costUsdPerMonth,
                     p.revenueMmk,
-                    MMK_PER_USD,
+                    mmkPerUsd,
                   )
                   return (
                     <TableRow key={p.date}>

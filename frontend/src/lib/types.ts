@@ -311,6 +311,75 @@ export interface ServerUsage {
   bytesUsed: number
 }
 
+/** Admin-editable settings (migration 0017) — MMK/USD rate + manual payment instructions. */
+export interface AppSettings {
+  mmkPerUsd: number
+  paymentPhone: string
+  paymentWallets: string[]
+  updatedAt: string
+}
+
+/** Subset of AppSettings the unauthenticated /order page may fetch. */
+export interface PublicPaymentInfo {
+  paymentPhone: string
+  paymentWallets: string[]
+}
+
+export interface DailyCount {
+  date: string
+  count: number
+}
+
+/** Name-only server for the public order page's location picker. */
+export interface PublicServer {
+  id: string
+  name: string
+}
+
+export type OrderStatus = "pending" | "approved" | "rejected"
+
+/**
+ * A self-serve order submitted from the public /order page. Payment is
+ * manual — nothing here verifies a transfer actually happened, an admin
+ * reviews and approves/rejects from the Orders page.
+ */
+export interface Order {
+  id: string
+  customerName: string
+  contact: string
+  serverId: string | null
+  serverName: string | null
+  planGb: number
+  planDays: number
+  priceMmk: number | null
+  paymentMethod: string
+  customerNote: string
+  status: OrderStatus
+  adminNote: string | null
+  resultingUserId: string | null
+  resultingKeyId: string | null
+  createdAt: string
+  decidedAt: string | null
+}
+
+/**
+ * Renewal-lapse rate, holder churn, and a new-holders trend over a trailing
+ * window. No currency-denominated LTV — renewal_logs never stored a price
+ * snapshot, so avgActiveHolderTenureDays ("how long has an active holder
+ * been with us") is the honest proxy instead.
+ */
+export interface RetentionMetrics {
+  windowDays: number
+  renewedCount: number
+  lapsedCount: number
+  renewalLapseRatePct: number
+  churnedHolders: number
+  consideredHolders: number
+  holderChurnRatePct: number
+  newHoldersSeries: DailyCount[]
+  avgActiveHolderTenureDays: number
+}
+
 /** The admin-facing "share view" link for one user. */
 export interface UserShare {
   slug: string

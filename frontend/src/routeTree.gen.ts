@@ -11,11 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthedRouteImport } from './routes/_authed'
+import { Route as OrderRouteImport } from './routes/order'
 import { Route as AdminLoginRouteImport } from './routes/admin.login'
 import { Route as AdminVerifyOtpRouteImport } from './routes/admin.verify-otp'
 import { Route as AuthedAdminIndexRouteImport } from './routes/_authed.admin.index'
+import { Route as AuthedAdminOrdersRouteImport } from './routes/_authed.admin.orders'
 import { Route as AuthedAdminOverviewRouteImport } from './routes/_authed.admin.overview'
 import { Route as AuthedAdminRevenueRouteImport } from './routes/_authed.admin.revenue'
+import { Route as AuthedAdminSettingsRouteImport } from './routes/_authed.admin.settings'
 import { Route as UsersKeysStatusSlugRouteImport } from './routes/users.keys-status.$slug'
 import { Route as UsersLoginSlugRouteImport } from './routes/users.login.$slug'
 import { Route as UsersSetupSlugRouteImport } from './routes/users.setup.$slug'
@@ -35,6 +38,11 @@ const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OrderRoute = OrderRouteImport.update({
+  id: '/order',
+  path: '/order',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminLoginRoute = AdminLoginRouteImport.update({
   id: '/admin/login',
   path: '/admin/login',
@@ -50,6 +58,11 @@ const AuthedAdminIndexRoute = AuthedAdminIndexRouteImport.update({
   path: '/admin/',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedAdminOrdersRoute = AuthedAdminOrdersRouteImport.update({
+  id: '/admin/orders',
+  path: '/admin/orders',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedAdminOverviewRoute = AuthedAdminOverviewRouteImport.update({
   id: '/admin/overview',
   path: '/admin/overview',
@@ -58,6 +71,11 @@ const AuthedAdminOverviewRoute = AuthedAdminOverviewRouteImport.update({
 const AuthedAdminRevenueRoute = AuthedAdminRevenueRouteImport.update({
   id: '/admin/revenue',
   path: '/admin/revenue',
+  getParentRoute: () => AuthedRoute,
+} as any)
+const AuthedAdminSettingsRoute = AuthedAdminSettingsRouteImport.update({
+  id: '/admin/settings',
+  path: '/admin/settings',
   getParentRoute: () => AuthedRoute,
 } as any)
 const UsersKeysStatusSlugRoute = UsersKeysStatusSlugRouteImport.update({
@@ -110,10 +128,13 @@ const AuthedAdminUsersUserIdRoute = AuthedAdminUsersUserIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/order': typeof OrderRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/verify-otp': typeof AdminVerifyOtpRoute
+  '/admin/orders': typeof AuthedAdminOrdersRoute
   '/admin/overview': typeof AuthedAdminOverviewRoute
   '/admin/revenue': typeof AuthedAdminRevenueRouteWithChildren
+  '/admin/settings': typeof AuthedAdminSettingsRoute
   '/users/keys-status/$slug': typeof UsersKeysStatusSlugRoute
   '/users/login/$slug': typeof UsersLoginSlugRoute
   '/users/setup/$slug': typeof UsersSetupSlugRoute
@@ -127,10 +148,13 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/order': typeof OrderRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/verify-otp': typeof AdminVerifyOtpRoute
+  '/admin/orders': typeof AuthedAdminOrdersRoute
   '/admin/overview': typeof AuthedAdminOverviewRoute
   '/admin/revenue': typeof AuthedAdminRevenueRouteWithChildren
+  '/admin/settings': typeof AuthedAdminSettingsRoute
   '/users/keys-status/$slug': typeof UsersKeysStatusSlugRoute
   '/users/login/$slug': typeof UsersLoginSlugRoute
   '/users/setup/$slug': typeof UsersSetupSlugRoute
@@ -146,10 +170,13 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authed': typeof AuthedRouteWithChildren
+  '/order': typeof OrderRoute
   '/admin/login': typeof AdminLoginRoute
   '/admin/verify-otp': typeof AdminVerifyOtpRoute
+  '/_authed/admin/orders': typeof AuthedAdminOrdersRoute
   '/_authed/admin/overview': typeof AuthedAdminOverviewRoute
   '/_authed/admin/revenue': typeof AuthedAdminRevenueRouteWithChildren
+  '/_authed/admin/settings': typeof AuthedAdminSettingsRoute
   '/users/keys-status/$slug': typeof UsersKeysStatusSlugRoute
   '/users/login/$slug': typeof UsersLoginSlugRoute
   '/users/setup/$slug': typeof UsersSetupSlugRoute
@@ -165,10 +192,13 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/order'
     | '/admin/login'
     | '/admin/verify-otp'
+    | '/admin/orders'
     | '/admin/overview'
     | '/admin/revenue'
+    | '/admin/settings'
     | '/users/keys-status/$slug'
     | '/users/login/$slug'
     | '/users/setup/$slug'
@@ -182,10 +212,13 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/order'
     | '/admin/login'
     | '/admin/verify-otp'
+    | '/admin/orders'
     | '/admin/overview'
     | '/admin/revenue'
+    | '/admin/settings'
     | '/users/keys-status/$slug'
     | '/users/login/$slug'
     | '/users/setup/$slug'
@@ -200,10 +233,13 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_authed'
+    | '/order'
     | '/admin/login'
     | '/admin/verify-otp'
+    | '/_authed/admin/orders'
     | '/_authed/admin/overview'
     | '/_authed/admin/revenue'
+    | '/_authed/admin/settings'
     | '/users/keys-status/$slug'
     | '/users/login/$slug'
     | '/users/setup/$slug'
@@ -219,6 +255,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthedRoute: typeof AuthedRouteWithChildren
+  OrderRoute: typeof OrderRoute
   AdminLoginRoute: typeof AdminLoginRoute
   AdminVerifyOtpRoute: typeof AdminVerifyOtpRoute
   UsersKeysStatusSlugRoute: typeof UsersKeysStatusSlugRoute
@@ -242,6 +279,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/order': {
+      id: '/order'
+      path: '/order'
+      fullPath: '/order'
+      preLoaderRoute: typeof OrderRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/login': {
       id: '/admin/login'
       path: '/admin/login'
@@ -263,6 +307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAdminIndexRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/admin/orders': {
+      id: '/_authed/admin/orders'
+      path: '/admin/orders'
+      fullPath: '/admin/orders'
+      preLoaderRoute: typeof AuthedAdminOrdersRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/admin/overview': {
       id: '/_authed/admin/overview'
       path: '/admin/overview'
@@ -275,6 +326,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/revenue'
       fullPath: '/admin/revenue'
       preLoaderRoute: typeof AuthedAdminRevenueRouteImport
+      parentRoute: typeof AuthedRoute
+    }
+    '/_authed/admin/settings': {
+      id: '/_authed/admin/settings'
+      path: '/admin/settings'
+      fullPath: '/admin/settings'
+      preLoaderRoute: typeof AuthedAdminSettingsRouteImport
       parentRoute: typeof AuthedRoute
     }
     '/users/keys-status/$slug': {
@@ -355,8 +413,10 @@ const AuthedAdminRevenueRouteWithChildren =
   AuthedAdminRevenueRoute._addFileChildren(AuthedAdminRevenueRouteChildren)
 
 interface AuthedRouteChildren {
+  AuthedAdminOrdersRoute: typeof AuthedAdminOrdersRoute
   AuthedAdminOverviewRoute: typeof AuthedAdminOverviewRoute
   AuthedAdminRevenueRoute: typeof AuthedAdminRevenueRouteWithChildren
+  AuthedAdminSettingsRoute: typeof AuthedAdminSettingsRoute
   AuthedAdminIndexRoute: typeof AuthedAdminIndexRoute
   AuthedAdminKeysKeyIdRoute: typeof AuthedAdminKeysKeyIdRoute
   AuthedAdminServersServerIdRoute: typeof AuthedAdminServersServerIdRoute
@@ -366,8 +426,10 @@ interface AuthedRouteChildren {
 }
 
 const AuthedRouteChildren: AuthedRouteChildren = {
+  AuthedAdminOrdersRoute: AuthedAdminOrdersRoute,
   AuthedAdminOverviewRoute: AuthedAdminOverviewRoute,
   AuthedAdminRevenueRoute: AuthedAdminRevenueRouteWithChildren,
+  AuthedAdminSettingsRoute: AuthedAdminSettingsRoute,
   AuthedAdminIndexRoute: AuthedAdminIndexRoute,
   AuthedAdminKeysKeyIdRoute: AuthedAdminKeysKeyIdRoute,
   AuthedAdminServersServerIdRoute: AuthedAdminServersServerIdRoute,
@@ -382,6 +444,7 @@ const AuthedRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthedRoute: AuthedRouteWithChildren,
+  OrderRoute: OrderRoute,
   AdminLoginRoute: AdminLoginRoute,
   AdminVerifyOtpRoute: AdminVerifyOtpRoute,
   UsersKeysStatusSlugRoute: UsersKeysStatusSlugRoute,

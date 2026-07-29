@@ -4,6 +4,8 @@ import {
   LayoutDashboardIcon,
   LogOutIcon,
   ServerIcon,
+  SettingsIcon,
+  ShoppingCartIcon,
   UsersIcon,
   WalletIcon,
   ZapIcon,
@@ -34,6 +36,8 @@ const NAV_ITEMS = [
   { title: "Users", url: "/admin/users", icon: UsersIcon },
   { title: "Servers", url: "/admin/servers", icon: ServerIcon },
   { title: "Revenue", url: "/admin/revenue", icon: WalletIcon },
+  { title: "Orders", url: "/admin/orders", icon: ShoppingCartIcon },
+  { title: "Settings", url: "/admin/settings", icon: SettingsIcon },
 ]
 
 export function AppSidebar() {

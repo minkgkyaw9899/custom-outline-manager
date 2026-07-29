@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
-import { MMK_PER_USD } from "@/components/servers/add-server-dialog"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -30,6 +29,7 @@ import { Spinner } from "@/components/ui/spinner"
 import { apiClient } from "@/lib/api"
 import { fieldErrorsFrom } from "@/lib/form-errors"
 import { isMockId, mockUpdateServerConfig } from "@/lib/mock-server-detail"
+import { useMmkPerUsd } from "@/lib/queries"
 import type { ServerDetail } from "@/lib/types"
 
 /** A number field's value as the API wants it: blank means "no ceiling". */
@@ -65,6 +65,7 @@ export function EditServerDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }>) {
+  const mmkPerUsd = useMmkPerUsd()
   const [name, setName] = useState("")
   const [costUsd, setCostUsd] = useState("")
   const [maxKeys, setMaxKeys] = useState("")
@@ -188,7 +189,7 @@ export function EditServerDialog({
   })
 
   const parsedCost = Number(costUsd)
-  const mmk = Number.isFinite(parsedCost) ? parsedCost * MMK_PER_USD : 0
+  const mmk = Number.isFinite(parsedCost) ? parsedCost * mmkPerUsd : 0
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -250,7 +251,7 @@ export function EditServerDialog({
                 </InputGroup>
                 <FieldDescription>
                   {errors.costUsdPerMonth ??
-                    `Converted at the static rate of ${MMK_PER_USD.toLocaleString("en-US")} MMK per $1 — used on the Revenue page.`}
+                    `Converted at ${mmkPerUsd.toLocaleString("en-US")} MMK per $1 — used on the Revenue page. Editable in Settings.`}
                 </FieldDescription>
               </Field>
 

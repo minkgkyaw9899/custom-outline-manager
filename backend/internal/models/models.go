@@ -586,3 +586,102 @@ type DashboardStats struct {
 	LimitExceededKeys int   `json:"limitExceededKeys"`
 	CombinedUsedBytes int64 `json:"combinedUsedBytes"`
 }
+
+// RetentionMetrics is the payload for GET /api/v1/analytics/retention.
+//
+// There is no currency-denominated LTV here: renewal_logs records added_gb/
+// added_days, never a price snapshot, so a historical revenue-per-holder
+// figure can't be reconstructed honestly from what's actually stored.
+// AvgActiveHolderTenureDays is the closest honest proxy — "how long has a
+// holder with an active key been with us" — deliberately not expressed in
+// currency.
+type RetentionMetrics struct {
+	WindowDays int `json:"windowDays"`
+
+	// Of keys that came up for renewal in the trailing WindowDays (either
+	// renewed, or lapsed into "expired" and stayed there).
+	RenewedCount        int     `json:"renewedCount"`
+	LapsedCount         int     `json:"lapsedCount"`
+	RenewalLapseRatePct float64 `json:"renewalLapseRatePct"`
+
+	// Of holders who had a live key sometime within the trailing WindowDays,
+	// how many now have none currently active.
+	ChurnedHolders     int     `json:"churnedHolders"`
+	ConsideredHolders  int     `json:"consideredHolders"`
+	HolderChurnRatePct float64 `json:"holderChurnRatePct"`
+
+	NewHoldersSeries          []DailyCount `json:"newHoldersSeries"`
+	AvgActiveHolderTenureDays float64      `json:"avgActiveHolderTenureDays"`
+}
+
+// DailyCount is one point in a per-day count trend (e.g. new holders/day).
+type DailyCount struct {
+	Date  string `json:"date"`
+	Count int    `json:"count"`
+}
+
+// PublicServer is the bare minimum a customer picking a plan on the public
+// order page needs — never api_url, cert_sha256, cost, or any other
+// operational/financial column that Server/ServerWithUsage carry.
+type PublicServer struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type OrderStatus string
+
+const (
+	OrderStatusPending  OrderStatus = "pending"
+	OrderStatusApproved OrderStatus = "approved"
+	OrderStatusRejected OrderStatus = "rejected"
+)
+
+// Order is a self-serve request submitted from the public /order page
+// (migration 0018). Payment is manual — a customer transfers directly to
+// the phone number/wallets in AppSettings and names which one they used;
+// nothing here verifies the transfer actually happened. An admin reviews it
+// and either approves (provisioning a user+key exactly like the "add user"
+// admin flow) or rejects it.
+type Order struct {
+	ID              string      `json:"id"`
+	CustomerName    string      `json:"customerName"`
+	Contact         string      `json:"contact"`
+	ServerID        *string     `json:"serverId"`
+	ServerName      *string     `json:"serverName"`
+	PlanGB          float64     `json:"planGb"`
+	PlanDays        int         `json:"planDays"`
+	PriceMmk        *int64      `json:"priceMmk"`
+	PaymentMethod   string      `json:"paymentMethod"`
+	CustomerNote    string      `json:"customerNote"`
+	Status          OrderStatus `json:"status"`
+	AdminNote       *string     `json:"adminNote"`
+	ResultingUserID *string     `json:"resultingUserId"`
+	ResultingKeyID  *string     `json:"resultingKeyId"`
+	CreatedAt       time.Time   `json:"createdAt"`
+	DecidedAt       *time.Time  `json:"decidedAt"`
+}
+
+// AppSettings is the single admin-editable settings row (migration 0017).
+// MmkPerUsd replaces what used to be a hardcoded frontend constant, used to
+// convert servers.cost_usd_per_month into MMK for the Revenue page's profit
+// math. PaymentPhone/PaymentWallets are the manual payment instructions
+// shown on the public self-serve order page — there is no payment-gateway
+// integration, customers transfer directly and an admin confirms it.
+type AppSettings struct {
+	MmkPerUsd      float64   `json:"mmkPerUsd"`
+	PaymentPhone   string    `json:"paymentPhone"`
+	PaymentWallets []string  `json:"paymentWallets"`
+	UpdatedAt      time.Time `json:"updatedAt"`
+}
+
+// PublicPaymentInfo is the subset of AppSettings safe to expose
+// unauthenticated (never MmkPerUsd, an internal cost figure).
+type PublicPaymentInfo struct {
+	PaymentPhone   string   `json:"paymentPhone"`
+	PaymentWallets []string `json:"paymentWallets"`
+}
+
+// Public strips AppSettings down to what the unauthenticated order page may see.
+func (s AppSettings) Public() PublicPaymentInfo {
+	return PublicPaymentInfo{PaymentPhone: s.PaymentPhone, PaymentWallets: s.PaymentWallets}
+}

@@ -18,6 +18,27 @@ services:
       timeout: 5s
       retries: 10
 
+  # Scheduled pg_dump + rotation, written to a local directory on this host.
+  # Host-local only — protects against DB corruption/accidental data loss,
+  # not against losing the instance itself. See README.md#backups for restore.
+  backup:
+    image: prodrigestivill/postgres-backup-local:17-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-outline_manager}
+      POSTGRES_USER: ${POSTGRES_USER:-outline}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-outline}
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+    volumes:
+      - ./backups:/backups
+
   api:
     # Built by .github/workflows/deploy.yml and pulled from GHCR in
     # production; `build` is only used for local `docker compose build`.

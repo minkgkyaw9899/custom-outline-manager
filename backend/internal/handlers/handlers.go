@@ -53,6 +53,20 @@ func (a *API) RegisterRoutes(r fiber.Router) {
 		// servers have neither). See telegramWebhook.
 		v1.Post("/telegram/webhook", a.telegramWebhook)
 
+		// Public payment instructions for the self-serve order page —
+		// deliberately its own narrow endpoint rather than a public flag on
+		// GET /settings, so mmk_per_usd (an internal cost figure) can never
+		// leak through it. See settings.go.
+		v1.Get("/settings/public", a.getPublicPaymentInfo)
+
+		// Public self-serve order flow. getPublicServers is a narrow,
+		// name-only server list (never api_url/cert/cost, unlike the
+		// protected /servers). createOrder is rate-limited like the other
+		// public write endpoints — the only anti-abuse layer here, since
+		// payment confirmation is manual and happens later, out of band.
+		v1.Get("/servers/public", a.getPublicServers)
+		v1.Post("/orders", a.authRateLimit(), a.createOrder)
+
 		auth := v1.Group("/auth")
 		{
 			auth.Post("/request-otp", a.authRateLimit(), a.requestOTP)
@@ -76,6 +90,16 @@ func (a *API) RegisterRoutes(r fiber.Router) {
 		protected.Use(a.RequireAuth())
 		{
 			protected.Get("/stats", a.getStats)
+
+			protected.Get("/settings", a.getSettings)
+			protected.Patch("/settings", a.updateSettings)
+
+			protected.Get("/analytics/retention", a.getRetentionAnalytics)
+
+			protected.Get("/orders", a.listOrders)
+			protected.Get("/orders/:id", a.getOrder)
+			protected.Post("/orders/:id/approve", a.approveOrder)
+			protected.Post("/orders/:id/reject", a.rejectOrder)
 
 			protected.Get("/admins", a.listAdmins)
 			protected.Post("/admins", a.addAdmin)

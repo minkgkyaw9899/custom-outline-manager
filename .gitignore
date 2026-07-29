@@ -2,6 +2,11 @@
 .env
 .env.local
 
+# Local pg_dump backups (docker-compose.yml / deploy/docker-compose.yml
+# `backup` service) — never commit a database dump.
+/backups/
+/deploy/backups/
+
 # Go
 /backend/server
 /backend/tmp/

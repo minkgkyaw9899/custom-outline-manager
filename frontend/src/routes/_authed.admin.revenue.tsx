@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query"
 import { TriangleAlertIcon, WalletIcon } from "lucide-react"
 
 import { RevenueTrendCard } from "@/components/dashboard/revenue-trend-card"
-import { MMK_PER_USD } from "@/components/servers/add-server-dialog"
 import { ServerStatusBadge } from "@/components/server-status-badge"
 import { StatCard } from "@/components/stat-card"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -32,7 +31,7 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { costProfitMmk, formatMmk as mmk, formatUsd as usd } from "@/lib/format"
-import { serversQueryOptions } from "@/lib/queries"
+import { serversQueryOptions, useMmkPerUsd } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/_authed/admin/revenue")({
@@ -41,6 +40,7 @@ export const Route = createFileRoute("/_authed/admin/revenue")({
 
 function RevenuePage() {
   const { data: servers, isLoading } = useQuery(serversQueryOptions())
+  const mmkPerUsd = useMmkPerUsd()
 
   const all = servers ?? []
   const costTracked = all.filter((s) => s.costUsdPerMonth !== null)
@@ -52,7 +52,7 @@ function RevenuePage() {
   const { costMmk: totalCostMmk, profitMmk: totalProfitMmk } = costProfitMmk(
     totalCostUsd,
     totalRevenueMmk,
-    MMK_PER_USD,
+    mmkPerUsd,
   )
   const totalActiveKeys = all.reduce((sum, s) => sum + s.activeKeys, 0)
   const totalUnpriced = all.reduce((sum, s) => sum + s.unpricedActiveKeys, 0)
@@ -136,8 +136,8 @@ function RevenuePage() {
           <CardDescription>
             Revenue sums each active key's price (its own, or the server's
             default). Cost is the hosting expense entered on the server.
-            Converted to MMK at the static rate of{" "}
-            {MMK_PER_USD.toLocaleString("en-US")} MMK per $1.
+            Converted to MMK at {mmkPerUsd.toLocaleString("en-US")} MMK per
+            $1 (editable in Settings).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -172,7 +172,7 @@ function RevenuePage() {
                   const { costMmk, profitMmk } = costProfitMmk(
                     server.costUsdPerMonth,
                     server.monthlyRevenueMmk,
-                    MMK_PER_USD,
+                    mmkPerUsd,
                   )
                   return (
                     <TableRow key={server.id}>

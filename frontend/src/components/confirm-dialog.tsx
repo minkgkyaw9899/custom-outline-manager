@@ -20,6 +20,7 @@ export function ConfirmDialog({
   confirmVariant = "destructive",
   onConfirm,
   isPending,
+  children,
 }: {
   open: boolean
   onOpenChange: (open: boolean) => void
@@ -29,6 +30,8 @@ export function ConfirmDialog({
   confirmVariant?: "destructive" | "default"
   onConfirm: () => void
   isPending?: boolean
+  /** Extra content between the description and the footer — e.g. a field for an optional note. */
+  children?: React.ReactNode
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -37,6 +40,7 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
+        {children}
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

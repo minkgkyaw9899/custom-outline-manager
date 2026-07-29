@@ -250,6 +250,29 @@ func (r *Repository) ListAllServers(ctx context.Context) ([]models.Server, error
 	return out, rows.Err()
 }
 
+// ListPublicServers returns the bare minimum a customer picking a plan on
+// the public order page needs — never api_url, cert_sha256, cost, or any
+// other operational/financial column, unlike ListServers/ListAllServers.
+func (r *Repository) ListPublicServers(ctx context.Context) ([]models.PublicServer, error) {
+	rows, err := r.pool.Query(ctx, `
+		SELECT id, name FROM servers WHERE deleted_at IS NULL ORDER BY created_at ASC
+	`)
+	if err != nil {
+		return nil, fmt.Errorf("list public servers: %w", err)
+	}
+	defer rows.Close()
+
+	out := make([]models.PublicServer, 0)
+	for rows.Next() {
+		var s models.PublicServer
+		if err := rows.Scan(&s.ID, &s.Name); err != nil {
+			return nil, fmt.Errorf("scan public server: %w", err)
+		}
+		out = append(out, s)
+	}
+	return out, rows.Err()
+}
+
 // DeleteServer archives a server rather than deleting its row outright, so
 // its keys, renewal history and usage-snapshot history all survive under the
 // same server_id — ready for ReviveServer if the same physical server (same

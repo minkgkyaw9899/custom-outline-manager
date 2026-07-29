@@ -16,6 +16,26 @@ services:
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
 
+  # Scheduled pg_dump + rotation, written to ./backups on this host. See
+  # deploy/README.md#backups for the production version and restore steps.
+  backup:
+    image: prodrigestivill/postgres-backup-local:17-alpine
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: ${POSTGRES_DB:-outline_manager}
+      POSTGRES_USER: ${POSTGRES_USER:-outline}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-outline}
+      SCHEDULE: "@daily"
+      BACKUP_KEEP_DAYS: 7
+      BACKUP_KEEP_WEEKS: 4
+      BACKUP_KEEP_MONTHS: 6
+    volumes:
+      - ./backups:/backups
+
   backend:
     build: ./backend
     restart: unless-stopped
@@ -31,7 +51,7 @@ services:
       # server). Empty means same-origin only, and no CORS headers.
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-}
-      ROOT_ADMIN_EMAIL: ${ROOT_ADMIN_EMAIL:-minkgkyaw9899@gmail.com}
+      ROOT_ADMIN_EMAIL: ${ROOT_ADMIN_EMAIL:?set ROOT_ADMIN_EMAIL in .env}
       JWT_SECRET: ${JWT_SECRET:-}
       JWT_TTL: ${JWT_TTL:-168h}
       OTP_TTL: ${OTP_TTL:-10m}
@@ -40,9 +60,9 @@ services:
       COOKIE_DOMAIN: ${COOKIE_DOMAIN:-}
       SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
       SMTP_PORT: ${SMTP_PORT:-587}
-      SMTP_USERNAME: ${SMTP_USERNAME:-minkgkyaw1999@gmail.com}
+      SMTP_USERNAME: ${SMTP_USERNAME:?set SMTP_USERNAME in .env}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
-      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-minkgkyaw1999@gmail.com}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:?set SMTP_FROM_EMAIL in .env}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Invisigate VPN}
       SMTP_TIMEOUT: ${SMTP_TIMEOUT:-10s}
       # Telegram low-usage/near-expiry alerting. Entirely optional — leave

@@ -57,3 +57,27 @@ file contents, piped over SSH stdin — never interpolated into a shell
 string). Update that secret and redeploy to change any runtime value
 (`ALLOWED_ORIGINS`, `JWT_SECRET`, SMTP creds, ...); there's no reason to edit
 `.env` on the server by hand anymore.
+
+## Backups
+
+The `backup` service (`prodrigestivill/postgres-backup-local`) runs `pg_dump`
+once a day and writes gzipped dumps to `./backups` on the instance itself
+(`deploy/backups/`, one file per run, auto-pruned to 7 daily / 4 weekly / 6
+monthly copies — see `BACKUP_KEEP_*` in `docker-compose.yml`). This is
+**host-local disk only**: it protects against DB corruption, a bad migration,
+or an accidental `DELETE`, but *not* against losing the Lightsail instance
+itself. Copying `./backups` off the instance periodically (e.g. to S3/Backblaze)
+is a deliberately deferred next step, not something this covers today.
+
+Trigger an ad-hoc dump outside the daily schedule:
+```
+docker compose exec backup /backup.sh
+```
+
+Restore (stop the API first so nothing writes during the restore):
+```
+docker compose stop api
+gunzip -c backups/daily/outline_manager-<timestamp>.sql.gz | \
+  docker compose exec -T postgres psql -U ${POSTGRES_USER:-outline} -d ${POSTGRES_DB:-outline_manager}
+docker compose start api
+```

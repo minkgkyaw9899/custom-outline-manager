@@ -57,11 +57,11 @@ cd backend && DATABASE_URL="postgres://outline:outline@localhost:5432/outline_ma
 cd backend && go test ./...
 ```
 
-Environment variables (all optional except `DATABASE_URL`):
+Environment variables (all optional except `DATABASE_URL`, `ROOT_ADMIN_EMAIL`, `SMTP_USERNAME`, `SMTP_FROM_EMAIL`):
 
 | Variable               | Default                        | Purpose                                          |
 |------------------------|---------------------------------|--------------------------------------------------|
-| `DATABASE_URL`         | —                                | Postgres connection string (required)            |
+| `DATABASE_URL`         | —                                | Postgres connection string (**required**)            |
 | `PORT`                 | `8080`                           | HTTP listen port                                 |
 | `STATIC_DIR`           | `../frontend`                    | Directory served as the UI                       |
 | `ALLOWED_ORIGINS`      | *(empty)*                        | Comma-separated CORS origins for a separate UI, credentials-enabled |
@@ -69,7 +69,7 @@ Environment variables (all optional except `DATABASE_URL`):
 | `CRON_INTERVAL`        | `30m`                            | Enforcement sync interval                        |
 | `REQUEST_TIMEOUT`      | `15s`                            | Per-request deadline (DB + Outline calls included)|
 | `OUTLINE_HTTP_TIMEOUT` | `10s`                            | Timeout for calls to Outline servers             |
-| `ROOT_ADMIN_EMAIL`     | `minkgkyaw9899@gmail.com`        | Immutable super-admin; seeded on first migration |
+| `ROOT_ADMIN_EMAIL`     | —        | Immutable super-admin; must match a row seeded by migration 0002 (**required**, no fallback — the backend refuses to boot without it) |
 | `JWT_SECRET`           | *(random on boot if unset)*      | Signs session JWTs — set explicitly in production or sessions reset on every restart |
 | `JWT_TTL`              | `168h` (7d)                      | Session lifetime                                 |
 | `OTP_TTL`               | `10m`                            | How long a login code is valid                   |
@@ -78,9 +78,9 @@ Environment variables (all optional except `DATABASE_URL`):
 | `COOKIE_DOMAIN`        | *(empty)*                        | Cookie `Domain` attribute, if needed              |
 | `SMTP_HOST`            | `smtp.gmail.com`                 | OTP email delivery                                |
 | `SMTP_PORT`            | `587`                            | STARTTLS port                                     |
-| `SMTP_USERNAME`        | `minkgkyaw1999@gmail.com`        | SMTP auth username                                |
+| `SMTP_USERNAME`        | —        | SMTP auth username (**required**, no fallback)                                |
 | `SMTP_PASSWORD`        | —                                 | SMTP auth password (Gmail: use an App Password)   |
-| `SMTP_FROM_EMAIL`      | `minkgkyaw1999@gmail.com`        | `From` address on OTP emails                      |
+| `SMTP_FROM_EMAIL`      | —        | `From` address on OTP emails (**required**, no fallback)                      |
 | `SMTP_FROM_NAME`       | `Invisigate VPN`            | `From` display name                               |
 | `SMTP_TIMEOUT`         | `10s`                             | Bounds the whole send so a stalled connection fails fast instead of hanging |
 

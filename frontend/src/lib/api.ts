@@ -4,7 +4,7 @@ import type { ApiError, ApiFailure, ApiSuccess } from "./types"
 
 export type ApiHTTPError = HTTPError & { apiError?: ApiError }
 
-const PUBLIC_PATHS = ["/admin/login", "/admin/verify-otp"]
+const PUBLIC_PATHS = ["/admin/login", "/admin/verify-otp", "/order"]
 
 // The whole /users/... side (setup, login, keys-status) is public and
 // path-dynamic (per-slug), so it can't live in the exact-match PUBLIC_PATHS

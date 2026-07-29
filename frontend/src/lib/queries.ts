@@ -1,12 +1,18 @@
-import { queryOptions } from "@tanstack/react-query"
+import { queryOptions, useQuery } from "@tanstack/react-query"
 import { apiClient } from "./api"
 import type {
   AdminUser,
+  AppSettings,
   DashboardStats,
   Key,
   KeyUsageSeries,
   MetricsWindow,
+  Order,
+  OrderStatus,
+  PublicPaymentInfo,
+  PublicServer,
   RenewalLog,
+  RetentionMetrics,
   ServerDetail,
   ServerUsage,
   ServerWithUsage,
@@ -121,3 +127,51 @@ export const statsQueryOptions = () =>
     queryKey: ["stats"] as const,
     queryFn: () => apiClient.get<DashboardStats>("stats"),
   })
+
+/** MMK/USD rate + payment instructions — the admin-only, full settings row. */
+export const settingsQueryOptions = () =>
+  queryOptions({
+    queryKey: ["settings"] as const,
+    queryFn: () => apiClient.get<AppSettings>("settings"),
+  })
+
+/** Payment instructions only, fetched by the public /order page. */
+export const publicPaymentInfoQueryOptions = () =>
+  queryOptions({
+    queryKey: ["settings", "public"] as const,
+    queryFn: () => apiClient.get<PublicPaymentInfo>("settings/public"),
+  })
+
+/** Name-only server list for the public order page — never the protected /servers. */
+export const publicServersQueryOptions = () =>
+  queryOptions({
+    queryKey: ["servers", "public"] as const,
+    queryFn: () => apiClient.get<PublicServer[]>("servers/public"),
+  })
+
+export const ordersQueryOptions = (status?: OrderStatus) =>
+  queryOptions({
+    queryKey: ["orders", { status: status ?? null }] as const,
+    queryFn: () =>
+      apiClient.get<Order[]>("orders", status ? { status } : undefined),
+  })
+
+export const retentionQueryOptions = (days = 30) =>
+  queryOptions({
+    queryKey: ["analytics", "retention", { days }] as const,
+    queryFn: () =>
+      apiClient.get<RetentionMetrics>("analytics/retention", { days: String(days) }),
+  })
+
+/** Fallback while /settings is still loading — matches the old hardcoded constant. */
+const DEFAULT_MMK_PER_USD = 4500
+
+/**
+ * The admin-editable USD→MMK rate, replacing the old hardcoded MMK_PER_USD
+ * constant. Used anywhere a server's cost_usd_per_month needs converting to
+ * MMK for profit math (Revenue pages, Overview, the add/edit server dialogs).
+ */
+export const useMmkPerUsd = () => {
+  const { data } = useQuery(settingsQueryOptions())
+  return data?.mmkPerUsd ?? DEFAULT_MMK_PER_USD
+}

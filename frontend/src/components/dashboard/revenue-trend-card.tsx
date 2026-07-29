@@ -2,7 +2,6 @@ import { useMemo, useState } from "react"
 import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 
 import { ChartLegendDot } from "@/components/dashboard/chart-legend-dot"
-import { MMK_PER_USD } from "@/components/servers/add-server-dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   ChartContainer,
@@ -19,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+import { useMmkPerUsd } from "@/lib/queries"
 import type { ServerWithUsage } from "@/lib/types"
 
 type ChartType = "line" | "bar"
@@ -35,11 +35,11 @@ interface Point {
 }
 
 /** Sums every server's reading for a given day — cron snapshots every server in the same tick, so dates line up. */
-function mergeByDate(servers: ServerWithUsage[]): Point[] {
+function mergeByDate(servers: ServerWithUsage[], mmkPerUsd: number): Point[] {
   const byDate = new Map<string, Point>()
   for (const server of servers) {
     for (const p of server.revenueDailySeries) {
-      const costMmk = (p.costUsdPerMonth ?? 0) * MMK_PER_USD
+      const costMmk = (p.costUsdPerMonth ?? 0) * mmkPerUsd
       const existing = byDate.get(p.date)
       byDate.set(p.date, {
         date: p.date,
@@ -82,10 +82,11 @@ export function RevenueTrendCard({
   title = "Revenue trend",
   description = "Revenue, cost and profit over time — one reading per cron tick, so a real trend builds up day by day.",
 }: Readonly<{ servers: ServerWithUsage[]; title?: string; description?: string }>) {
+  const mmkPerUsd = useMmkPerUsd()
   const [granularity, setGranularity] = useState<Granularity>("day")
   const [chartType, setChartType] = useState<ChartType>("line")
 
-  const merged = useMemo(() => mergeByDate(servers), [servers])
+  const merged = useMemo(() => mergeByDate(servers, mmkPerUsd), [servers, mmkPerUsd])
   const resampled = useMemo(() => resample(merged, granularity), [merged, granularity])
 
   const data = resampled.map((p) => ({

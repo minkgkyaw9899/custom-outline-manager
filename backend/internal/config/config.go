@@ -130,7 +130,7 @@ func Load() (*Config, error) {
 		AllowedOrigins:     getListEnv("ALLOWED_ORIGINS"),
 		PublicBaseURL:      normalizeBaseURL(getEnv("PUBLIC_BASE_URL", "")),
 
-		RootAdminEmail: strings.ToLower(strings.TrimSpace(getEnv("ROOT_ADMIN_EMAIL", "minkgkyaw9899@gmail.com"))),
+		RootAdminEmail: strings.ToLower(strings.TrimSpace(getEnv("ROOT_ADMIN_EMAIL", ""))),
 
 		JWTSecret:      getEnv("JWT_SECRET", ""),
 		JWTTTL:         getDurationEnv("JWT_TTL", 7*24*time.Hour),
@@ -154,9 +154,9 @@ func Load() (*Config, error) {
 
 		SMTPHost:      getEnv("SMTP_HOST", "smtp.gmail.com"),
 		SMTPPort:      getIntEnv("SMTP_PORT", 587),
-		SMTPUsername:  getEnv("SMTP_USERNAME", "minkgkyaw1999@gmail.com"),
+		SMTPUsername:  getEnv("SMTP_USERNAME", ""),
 		SMTPPassword:  getEnv("SMTP_PASSWORD", ""),
-		SMTPFromEmail: getEnv("SMTP_FROM_EMAIL", "minkgkyaw1999@gmail.com"),
+		SMTPFromEmail: getEnv("SMTP_FROM_EMAIL", ""),
 		SMTPFromName:  getEnv("SMTP_FROM_NAME", "Invisigate VPN"),
 		SMTPTimeout:   getDurationEnv("SMTP_TIMEOUT", 15*time.Second),
 
@@ -169,6 +169,15 @@ func Load() (*Config, error) {
 
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")
+	}
+	if cfg.RootAdminEmail == "" {
+		return nil, fmt.Errorf("ROOT_ADMIN_EMAIL is required")
+	}
+	if cfg.SMTPUsername == "" {
+		return nil, fmt.Errorf("SMTP_USERNAME is required")
+	}
+	if cfg.SMTPFromEmail == "" {
+		return nil, fmt.Errorf("SMTP_FROM_EMAIL is required")
 	}
 
 	if cfg.JWTSecret == "" {
