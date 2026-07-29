@@ -72,6 +72,9 @@ export function ServerSelect({
   claimableKeyCounts?: Record<string, number>
 }>) {
   const { data: servers, isLoading } = useQuery(serversQueryOptions())
+  const sortedServers = [...(servers ?? [])].sort((a, b) =>
+    a.name.localeCompare(b.name)
+  )
 
   return (
     <Field data-invalid={!!error || undefined}>
@@ -88,7 +91,7 @@ export function ServerSelect({
         </SelectTrigger>
         <SelectContent>
           <SelectGroup>
-            {(servers ?? []).map((server) => {
+            {sortedServers.map((server) => {
               const claimable = claimableKeyCounts[server.id] ?? 0
               return (
                 <SelectItem
