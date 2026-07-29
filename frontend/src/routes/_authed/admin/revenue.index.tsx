@@ -42,7 +42,7 @@ function RevenuePage() {
   const { data: servers, isLoading } = useQuery(serversQueryOptions())
   const mmkPerUsd = useMmkPerUsd()
 
-  const all = servers ?? []
+  const all = [...(servers ?? [])].sort((a, b) => a.name.localeCompare(b.name))
   const costTracked = all.filter((s) => s.costUsdPerMonth !== null)
   const totalCostUsd = costTracked.reduce(
     (sum, s) => sum + (s.costUsdPerMonth ?? 0),
