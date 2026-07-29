@@ -13,6 +13,7 @@ type OTPCode struct {
 	ExpiresAt  time.Time
 	Attempts   int
 	ConsumedAt *time.Time
+	CreatedAt  time.Time
 }
 
 func (r *Repository) CreateOTP(ctx context.Context, email, codeHash string, expiresAt time.Time) error {
@@ -28,7 +29,7 @@ func (r *Repository) CreateOTP(ctx context.Context, email, codeHash string, expi
 // LatestOTP returns the most recent unconsumed OTP for email, or ErrNotFound.
 func (r *Repository) LatestOTP(ctx context.Context, email string) (*OTPCode, error) {
 	row := r.pool.QueryRow(ctx, `
-		SELECT id, email, code_hash, expires_at, attempts, consumed_at
+		SELECT id, email, code_hash, expires_at, attempts, consumed_at, created_at
 		FROM otp_codes
 		WHERE email = $1 AND consumed_at IS NULL
 		ORDER BY created_at DESC
@@ -36,7 +37,7 @@ func (r *Repository) LatestOTP(ctx context.Context, email string) (*OTPCode, err
 	`, email)
 
 	var o OTPCode
-	if err := row.Scan(&o.ID, &o.Email, &o.CodeHash, &o.ExpiresAt, &o.Attempts, &o.ConsumedAt); err != nil {
+	if err := row.Scan(&o.ID, &o.Email, &o.CodeHash, &o.ExpiresAt, &o.Attempts, &o.ConsumedAt, &o.CreatedAt); err != nil {
 		return nil, ErrNotFound
 	}
 	return &o, nil

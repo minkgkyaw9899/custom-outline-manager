@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 	"time"
@@ -42,6 +43,17 @@ func (a *API) requestOTP(c fiber.Ctx) error {
 	}
 	if admin.Status == models.AdminStatusSuspended {
 		return apiresponse.Forbidden(c, "This admin account has been suspended")
+	}
+
+	// Per-email cooldown, independent of source IP: without it, someone could
+	// still spam this admin's inbox by rotating IPs to dodge authRateLimit.
+	if latest, err := a.repo.LatestOTP(c.Context(), email); err == nil {
+		if wait := a.cfg.OTPRequestCooldown - time.Since(latest.CreatedAt); wait > 0 {
+			return apiresponse.TooManyRequests(c, fmt.Sprintf(
+				"A code was just sent — wait %d seconds before requesting another",
+				int(wait.Round(time.Second).Seconds()),
+			))
+		}
 	}
 
 	code, err := authn.GenerateOTP()

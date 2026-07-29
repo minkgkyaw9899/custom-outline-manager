@@ -40,6 +40,7 @@ func New(repo *repository.Repository, cache *outline.Cache, enforcer *enforcemen
 // everything else requires a valid admin session.
 func (a *API) RegisterRoutes(r fiber.Router) {
 	v1 := r.Group("/api/v1")
+	v1.Use(a.globalRateLimit())
 	{
 		v1.Get("/health", a.health)
 
@@ -54,8 +55,8 @@ func (a *API) RegisterRoutes(r fiber.Router) {
 
 		auth := v1.Group("/auth")
 		{
-			auth.Post("/request-otp", a.requestOTP)
-			auth.Post("/verify-otp", a.verifyOTP)
+			auth.Post("/request-otp", a.authRateLimit(), a.requestOTP)
+			auth.Post("/verify-otp", a.authRateLimit(), a.verifyOTP)
 			auth.Post("/logout", a.logout)
 			auth.Get("/me", a.RequireAuth(), a.me)
 		}
@@ -65,9 +66,9 @@ func (a *API) RegisterRoutes(r fiber.Router) {
 		// visitor session scoped to one slug (see RequireShareAuth).
 		share := v1.Group("/share/:slug")
 		{
-			share.Get("/status", a.shareStatus)
-			share.Post("/setup", a.shareSetup)
-			share.Post("/verify", a.shareVerify)
+			share.Get("/status", a.authRateLimit(), a.shareStatus)
+			share.Post("/setup", a.authRateLimit(), a.shareSetup)
+			share.Post("/verify", a.authRateLimit(), a.shareVerify)
 			share.Get("/view", a.RequireShareAuth(), a.shareView)
 		}
 

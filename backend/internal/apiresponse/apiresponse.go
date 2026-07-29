@@ -25,6 +25,7 @@ const (
 	CodeConflict          ErrorCode = "CONFLICT"
 	CodeBadGateway        ErrorCode = "BAD_GATEWAY"
 	CodeInternalServerErr ErrorCode = "INTERNAL_SERVER_ERROR"
+	CodeRateLimited       ErrorCode = "RATE_LIMITED"
 )
 
 // FieldError is one entry in an error envelope's details array, binding a
@@ -116,6 +117,13 @@ func Conflict(c fiber.Ctx, message string) error {
 
 func BadGateway(c fiber.Ctx, message string) error {
 	return Error(c, 502, CodeBadGateway, message)
+}
+
+func TooManyRequests(c fiber.Ctx, message string) error {
+	if message == "" {
+		message = "Too many requests — please wait a moment and try again"
+	}
+	return Error(c, 429, CodeRateLimited, message)
 }
 
 func Internal(c fiber.Ctx, message string) error {

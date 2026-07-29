@@ -56,6 +56,28 @@ type Config struct {
 	ShareMaxAttempts  int
 	ShareLockDuration time.Duration
 
+	// RateLimitMax/RateLimitWindow bound every /api/v1 request by IP — a
+	// baseline against scraping/flooding. Generous enough not to interfere
+	// with the dashboard's own polling (see frontend LIVE_REFRESH_MS).
+	RateLimitMax    int
+	RateLimitWindow time.Duration
+
+	// AuthRateLimitMax/AuthRateLimitWindow apply a tighter, IP-scoped limit
+	// on top of the global one, only on the public endpoints most worth
+	// abusing: OTP request/verify and the share passcode status/setup/verify
+	// flow. Both already have their own attempt caps (OTPMaxAttempts,
+	// ShareMaxAttempts) that lock a specific email/share; this bounds the
+	// request rate itself, so an attacker can't burn through those caps (or
+	// just flood the server) by firing requests as fast as the network allows.
+	AuthRateLimitMax    int
+	AuthRateLimitWindow time.Duration
+
+	// OTPRequestCooldown is the minimum time between OTP requests for the
+	// same email, regardless of source IP — closes the gap the IP-scoped
+	// limiter above leaves open: someone spamming one admin's inbox from
+	// rotating IPs.
+	OTPRequestCooldown time.Duration
+
 	// CookieSecure should be true in production (HTTPS). Off by default so
 	// plain-HTTP local dev still gets the cookie set.
 	CookieSecure bool
@@ -118,6 +140,14 @@ func Load() (*Config, error) {
 		ShareTokenTTL:     getDurationEnv("SHARE_TOKEN_TTL", 24*time.Hour),
 		ShareMaxAttempts:  getIntEnv("SHARE_MAX_ATTEMPTS", 5),
 		ShareLockDuration: getDurationEnv("SHARE_LOCK_DURATION", 15*time.Minute),
+
+		RateLimitMax:    getIntEnv("RATE_LIMIT_MAX", 200),
+		RateLimitWindow: getDurationEnv("RATE_LIMIT_WINDOW", time.Minute),
+
+		AuthRateLimitMax:    getIntEnv("AUTH_RATE_LIMIT_MAX", 10),
+		AuthRateLimitWindow: getDurationEnv("AUTH_RATE_LIMIT_WINDOW", time.Minute),
+
+		OTPRequestCooldown: getDurationEnv("OTP_REQUEST_COOLDOWN", 30*time.Second),
 
 		CookieSecure: getEnv("COOKIE_SECURE", "false") == "true",
 		CookieDomain: getEnv("COOKIE_DOMAIN", ""),
