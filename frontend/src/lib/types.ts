@@ -248,6 +248,16 @@ export interface ServerWithUsage extends Server {
   revenueDailySeries: RevenuePoint[]
   /** Transfer since the start of the current calendar month; 0 when bandwidthLimitBytes is null. */
   bandwidthUsedBytesThisMonth: number
+  /** Earliest usage snapshot on file for this server, or null if none yet. */
+  bandwidthTrackingSince: string | null
+  /**
+   * False when bandwidthTrackingSince postdates this calendar month's start
+   * — bandwidthUsedBytesThisMonth is then a partial figure: the server (or
+   * a key on it) was added/adopted partway through the month, so usage that
+   * already happened on Outline's side before our first observation has no
+   * snapshot to diff against and is invisible to us, not zero.
+   */
+  bandwidthTrackingComplete: boolean
 }
 
 export interface KeyMetrics {
@@ -280,6 +290,10 @@ export interface ServerDetail {
   dailySeries: DailyUsage[]
   /** Transfer since the start of the current calendar month; 0 when the server has no bandwidthLimitBytes set. */
   bandwidthUsedBytesThisMonth: number
+  /** Earliest usage snapshot on file for this server, or null if none yet. */
+  bandwidthTrackingSince: string | null
+  /** False when bandwidthUsedBytesThisMonth is a partial figure — see ServerWithUsage's field doc. */
+  bandwidthTrackingComplete: boolean
 }
 
 export interface RenewalLog {

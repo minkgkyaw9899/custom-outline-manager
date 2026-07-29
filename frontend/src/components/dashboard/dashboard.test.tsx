@@ -38,6 +38,8 @@ function mockServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
     ],
     revenueDailySeries: [],
     bandwidthUsedBytesThisMonth: 0,
+    bandwidthTrackingSince: null,
+    bandwidthTrackingComplete: true,
     ...overrides,
   }
 }

@@ -33,6 +33,7 @@ import {
   formatBandwidth,
   formatBytesCompact,
   formatDate,
+  formatDateOnly,
   formatHours,
 } from "@/lib/format"
 import { useIsUserActive } from "@/hooks/use-is-user-active"
@@ -264,6 +265,14 @@ function ServerDetailPage() {
               data.bandwidthUsedBytesThisMonth / data.server.bandwidthLimitBytes
             )}
           />
+          {!data.bandwidthTrackingComplete && (
+            <p className="text-xs text-muted-foreground">
+              Tracking since {formatDateOnly(data.bandwidthTrackingSince)} —
+              this may not reflect the full month yet. The bandwidth cap
+              still checks against Outline&apos;s own live 30-day figure as a
+              safety net while tracking catches up.
+            </p>
+          )}
         </div>
       )}
 

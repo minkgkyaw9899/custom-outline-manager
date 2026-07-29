@@ -258,3 +258,24 @@ func (r *Repository) ServerUsageInRange(ctx context.Context, serverID string, fr
 	}
 	return total, nil
 }
+
+// EarliestServerUsageSnapshot returns the earliest server-wide usage
+// snapshot (key_id IS NULL rows) we have on file for a server, or nil if
+// none exist yet. Tells the caller whether a ServerUsageInRange figure for
+// "this calendar month" is a complete reading or a partial one: the server
+// (or a key on it) may have been added/adopted partway through the month,
+// already carrying real usage on Outline's side that predates our first
+// observation — ServerUsageInRange's per-key delta has no snapshot to diff
+// that against, so it's invisible to us rather than genuinely zero.
+func (r *Repository) EarliestServerUsageSnapshot(ctx context.Context, serverID string) (*time.Time, error) {
+	if !isUUID(serverID) {
+		return nil, ErrNotFound
+	}
+	var t *time.Time
+	if err := r.pool.QueryRow(ctx, `
+		SELECT MIN(recorded_at) FROM usage_snapshots WHERE server_id = $1 AND key_id IS NULL
+	`, serverID).Scan(&t); err != nil {
+		return nil, fmt.Errorf("earliest server usage snapshot: %w", err)
+	}
+	return t, nil
+}

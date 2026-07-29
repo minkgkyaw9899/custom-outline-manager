@@ -263,18 +263,36 @@ func (a *API) listServers(c fiber.Ctx) error {
 			if s.RevenueDailySeries = revenueSeries[s.ID]; s.RevenueDailySeries == nil {
 				s.RevenueDailySeries = []models.RevenuePoint{}
 			}
-			if s.BandwidthLimitBytes != nil {
-				if used, err := a.repo.ServerUsageInRange(ctx, s.ID, models.StartOfMonth(time.Now()), time.Now()); err == nil {
-					s.BandwidthUsedBytesThisMonth = used
-				} else {
-					log.Printf("list servers: bandwidth this month for %s: %v", s.Name, err)
-				}
-			}
+			s.BandwidthUsedBytesThisMonth, s.BandwidthTrackingSince, s.BandwidthTrackingComplete =
+				a.bandwidthThisMonth(ctx, s.Server)
 		}(&servers[i])
 	}
 	wg.Wait()
 
 	return apiresponse.Success(c, servers, "")
+}
+
+// bandwidthThisMonth computes a server's calendar-month-to-date transfer
+// (nil BandwidthLimitBytes means no cap is configured, so it's skipped
+// entirely rather than returning a meaningless zero) plus whether that
+// figure is a complete reading — see models.ServerWithUsage's field docs for
+// why an incomplete one under-reports rather than being simply small.
+func (a *API) bandwidthThisMonth(ctx context.Context, server models.Server) (used int64, trackingSince *time.Time, complete bool) {
+	if server.BandwidthLimitBytes == nil {
+		return 0, nil, true
+	}
+	monthStart := models.StartOfMonth(time.Now())
+	used, err := a.repo.ServerUsageInRange(ctx, server.ID, monthStart, time.Now())
+	if err != nil {
+		log.Printf("bandwidth this month for %s: %v", server.Name, err)
+	}
+	trackingSince, err = a.repo.EarliestServerUsageSnapshot(ctx, server.ID)
+	if err != nil {
+		log.Printf("bandwidth tracking start for %s: %v", server.Name, err)
+		return used, nil, true
+	}
+	complete = trackingSince != nil && !trackingSince.After(monthStart)
+	return used, trackingSince, complete
 }
 
 // accessKeyHostname reads the host baked into the first key with a non-empty
@@ -313,14 +331,7 @@ func (a *API) getServer(c fiber.Ctx) error {
 		dailySeries = []models.DailyUsage{}
 	}
 
-	var bandwidthUsedThisMonth int64
-	if server.BandwidthLimitBytes != nil {
-		if used, uerr := a.repo.ServerUsageInRange(c.Context(), id, models.StartOfMonth(time.Now()), time.Now()); uerr == nil {
-			bandwidthUsedThisMonth = used
-		} else {
-			log.Printf("get server %s: bandwidth this month: %v", id, uerr)
-		}
-	}
+	bandwidthUsedThisMonth, bandwidthTrackingSince, bandwidthTrackingComplete := a.bandwidthThisMonth(c.Context(), *server)
 
 	return apiresponse.Success(c, fiber.Map{
 		"server":   server,
@@ -337,6 +348,8 @@ func (a *API) getServer(c fiber.Ctx) error {
 		"keyMetrics":                  keyMetrics,
 		"dailySeries":                 dailySeries,
 		"bandwidthUsedBytesThisMonth": bandwidthUsedThisMonth,
+		"bandwidthTrackingSince":      bandwidthTrackingSince,
+		"bandwidthTrackingComplete":   bandwidthTrackingComplete,
 	}, "")
 }
 

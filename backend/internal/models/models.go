@@ -218,7 +218,22 @@ type ServerWithUsage struct {
 	// calendar month, measured the same way as the usage snapshots (derived
 	// from Outline's cumulative counters, not a live probe) — compared
 	// against BandwidthLimitBytes to decide whether the kill switch trips.
+	//
+	// This is a delta against our own earliest recorded snapshot for each
+	// key, so it under-reports for a server/key that already had real usage
+	// on Outline before we ever observed it (adopted mid-month, or the
+	// server was only just added) — that earlier usage has no snapshot to
+	// diff against and is invisible to us, not zero. BandwidthTrackingSince/
+	// BandwidthTrackingComplete say whether that's happening right now, so
+	// the UI can caveat the figure instead of presenting it as complete.
 	BandwidthUsedBytesThisMonth int64 `json:"bandwidthUsedBytesThisMonth"`
+	// BandwidthTrackingSince is the earliest server-wide usage snapshot we
+	// have on file, or nil if we have none yet.
+	BandwidthTrackingSince *time.Time `json:"bandwidthTrackingSince"`
+	// BandwidthTrackingComplete is false when BandwidthTrackingSince postdates
+	// this calendar month's start — meaning BandwidthUsedBytesThisMonth is a
+	// partial figure, not a full month's transfer.
+	BandwidthTrackingComplete bool `json:"bandwidthTrackingComplete"`
 }
 
 // KeyMetrics is the per-key slice of a server's live metrics, keyed by the

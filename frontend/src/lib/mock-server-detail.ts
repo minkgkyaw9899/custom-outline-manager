@@ -327,6 +327,8 @@ export function mockServerDetail(): Promise<ServerDetail> {
     keyMetrics: store.keyMetrics,
     dailySeries: mockDailySeries(4.0e12 / 30),
     bandwidthUsedBytesThisMonth: 0,
+    bandwidthTrackingSince: null,
+    bandwidthTrackingComplete: true,
   })
 }
 

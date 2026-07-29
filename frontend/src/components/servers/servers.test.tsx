@@ -69,6 +69,8 @@ function makeServer(overrides: Partial<ServerWithUsage> = {}): ServerWithUsage {
     dailySeries: [],
     revenueDailySeries: [],
     bandwidthUsedBytesThisMonth: 0,
+    bandwidthTrackingSince: null,
+    bandwidthTrackingComplete: true,
     ...overrides,
   }
 }
@@ -248,6 +250,8 @@ describe("edit server dialog", () => {
       keyMetrics: null,
       dailySeries,
       bandwidthUsedBytesThisMonth: 0,
+      bandwidthTrackingSince: null,
+      bandwidthTrackingComplete: true,
       ...overrides,
     }
   }

@@ -111,6 +111,26 @@ func (e *Enforcer) CheckBandwidthLimits(ctx context.Context) {
 			log.Printf("check bandwidth limits: usage for %s: %v", server.Name, err)
 			continue
 		}
+
+		// Safety fallback: ServerUsageInRange is a delta against our own
+		// earliest recorded snapshot for each key, so it under-reports for a
+		// server (or a key on it) adopted partway through the month —
+		// whatever usage already happened on Outline's side before our first
+		// observation has no snapshot to diff against and is invisible to
+		// us, not zero. When that's the situation, also check Outline's own
+		// live 30-day figure and trip on whichever is higher, so a server
+		// with a lot of pre-existing traffic can't sail past its cap
+		// undetected just because our own tracking hasn't caught up yet.
+		if earliest, eerr := e.repo.EarliestServerUsageSnapshot(ctx, server.ID); eerr != nil {
+			log.Printf("check bandwidth limits: tracking start for %s: %v", server.Name, eerr)
+		} else if earliest == nil || earliest.After(monthStart) {
+			if live := e.liveBandwidth30d(ctx, server); live > used {
+				log.Printf("server %s: tracked month-to-date (%d bytes) is a partial figure (tracking since %v) — using Outline's live 30d total (%d bytes) instead",
+					server.Name, used, earliest, live)
+				used = live
+			}
+		}
+
 		if used < *server.BandwidthLimitBytes-models.BandwidthDisableMarginBytes {
 			continue
 		}
@@ -125,6 +145,25 @@ func (e *Enforcer) CheckBandwidthLimits(ctx context.Context) {
 			log.Printf("check bandwidth limits: reconcile %s: %v", server.Name, err)
 		}
 	}
+}
+
+// liveBandwidth30d is the CheckBandwidthLimits safety fallback's data
+// source: Outline's own rolling-30-day transfer total for the server,
+// fetched live rather than derived from our own snapshot history. Returns 0
+// on any failure to reach the server — a fallback that can't be reached
+// simply doesn't raise the figure, it never lowers it or blocks the
+// tick, so a bad request here can't itself trip (or hide) a bandwidth cap.
+func (e *Enforcer) liveBandwidth30d(ctx context.Context, server models.Server) int64 {
+	client, err := e.cache.Get(server.ID, server.APIURL, server.CertSHA256)
+	if err != nil {
+		return 0
+	}
+	metrics, err := client.GetServerMetrics(ctx, outline.Window30d)
+	if err != nil {
+		log.Printf("live bandwidth fallback for %s: %v", server.Name, err)
+		return 0
+	}
+	return int64(metrics.Server.DataTransferred.Bytes)
 }
 
 // deviceCountThreshold is how many simultaneous devices a key can show in a

@@ -13,7 +13,12 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Spinner } from "@/components/ui/spinner"
 import { apiClient } from "@/lib/api"
-import { formatBandwidth, formatBytesCompact, formatHours } from "@/lib/format"
+import {
+  formatBandwidth,
+  formatBytesCompact,
+  formatDateOnly,
+  formatHours,
+} from "@/lib/format"
 import type { ServerWithUsage } from "@/lib/types"
 
 function Metric({ label, value }: Readonly<{ label: string; value: string }>) {
@@ -165,6 +170,13 @@ export function ServerCard({ server }: Readonly<{ server: ServerWithUsage }>) {
                     : undefined
               }
             />
+            {!server.bandwidthTrackingComplete && (
+              <p className="text-xs text-muted-foreground">
+                Tracking since{" "}
+                {formatDateOnly(server.bandwidthTrackingSince)} — may not
+                reflect the full month yet.
+              </p>
+            )}
           </div>
         )}
 
