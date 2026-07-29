@@ -14,7 +14,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   InputGroup,
@@ -22,7 +27,11 @@ import {
   InputGroupInput,
   InputGroupText,
 } from "@/components/ui/input-group"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
@@ -111,7 +120,10 @@ export function EditKeyDialog({
    */
   const monthBounds = useMemo(() => {
     const year = new Date().getFullYear()
-    return { startMonth: new Date(year - 1, 0), endMonth: new Date(year + 5, 11) }
+    return {
+      startMonth: new Date(year - 1, 0),
+      endMonth: new Date(year + 5, 11),
+    }
   }, [])
 
   const queryClient = useQueryClient()
@@ -125,7 +137,7 @@ export function EditKeyDialog({
       setMode(
         keyItem.status === "expired" || keyItem.status === "limit_exceeded"
           ? "extend"
-          : "keep",
+          : "keep"
       )
       setAddGb(String(MIN_PLAN_GB))
       setAddDays(String(MIN_PLAN_DAYS))
@@ -136,7 +148,9 @@ export function EditKeyDialog({
           ? String(MIN_PLAN_GB)
           : // Round to a tenth: an inherited limit is rarely a whole number and
             // a full-precision default would be unreadable in the field.
-            String(Math.round((keyItem.customLimitBytes / BYTES_PER_GB) * 10) / 10),
+            String(
+              Math.round((keyItem.customLimitBytes / BYTES_PER_GB) * 10) / 10
+            )
       )
       setEndDate(toCalendarDate(keyItem.endDate))
       setPriceMmk(keyItem.priceMmk === null ? "" : String(keyItem.priceMmk))
@@ -153,7 +167,9 @@ export function EditKeyDialog({
   const nameChanged = !!keyItem && trimmedName !== keyDisplayName(keyItem)
 
   const currentPriceMmk =
-    keyItem?.priceMmk === null || keyItem === null ? "" : String(keyItem.priceMmk)
+    keyItem?.priceMmk === null || keyItem === null
+      ? ""
+      : String(keyItem.priceMmk)
   const priceMmkChanged = priceMmk.trim() !== currentPriceMmk
   // "Absent" and "explicitly none" can't both be nil on the wire — clearing
   // the field means "go back to following the server's default price",
@@ -162,14 +178,17 @@ export function EditKeyDialog({
   const clearingPriceMmk = priceMmkChanged && priceMmk.trim() === ""
   const parsedPriceMmk = priceMmk.trim() === "" ? null : Number(priceMmk)
   const invalidPrice =
-    priceMmk.trim() !== "" && (!Number.isFinite(parsedPriceMmk) || parsedPriceMmk! < 0)
+    priceMmk.trim() !== "" &&
+    (!Number.isFinite(parsedPriceMmk) || parsedPriceMmk! < 0)
 
-  const belowFloor = mode === "extend" && (gb < MIN_PLAN_GB || days < MIN_PLAN_DAYS)
+  const belowFloor =
+    mode === "extend" && (gb < MIN_PLAN_GB || days < MIN_PLAN_DAYS)
   // No date check: the picker always holds a day, it can only be pointed at
   // another one, so the only way "set" goes wrong is the limit.
   const invalidTotal = mode === "set" && totalGb <= 0
   const autoRenewChanged = !!keyItem && autoRenew !== keyItem.autoRenew
-  const nothingToDo = !nameChanged && !priceMmkChanged && !autoRenewChanged && mode === "keep"
+  const nothingToDo =
+    !nameChanged && !priceMmkChanged && !autoRenewChanged && mode === "keep"
 
   const save = useMutation({
     mutationFn: async () => {
@@ -258,11 +277,12 @@ export function EditKeyDialog({
       ? new Date(keyItem.endDate)
       : new Date()
   const extendedEndDate = new Date(
-    baseDate.getTime() + days * 86_400_000,
+    baseDate.getTime() + days * 86_400_000
   ).toISOString()
 
   const totalBytes = totalGb * BYTES_PER_GB
-  const overspent = mode === "set" && !!keyItem && keyItem.usedBytes >= totalBytes
+  const overspent =
+    mode === "set" && !!keyItem && keyItem.usedBytes >= totalBytes
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -289,10 +309,14 @@ export function EditKeyDialog({
                 aria-invalid={!!errors.name || undefined}
                 onChange={(e) => setName(e.target.value)}
               />
-              {errors.name && <FieldDescription>{errors.name}</FieldDescription>}
+              {errors.name && (
+                <FieldDescription>{errors.name}</FieldDescription>
+              )}
             </Field>
 
-            <Field data-invalid={!!errors.price_mmk || invalidPrice || undefined}>
+            <Field
+              data-invalid={!!errors.price_mmk || invalidPrice || undefined}
+            >
               <FieldLabel htmlFor="edit-key-price">Price</FieldLabel>
               <InputGroup>
                 <InputGroupInput
@@ -318,7 +342,9 @@ export function EditKeyDialog({
 
             <Field orientation="horizontal">
               <div className="flex flex-col gap-1">
-                <FieldLabel htmlFor="edit-key-auto-renew">Auto-renew</FieldLabel>
+                <FieldLabel htmlFor="edit-key-auto-renew">
+                  Auto-renew
+                </FieldLabel>
                 <FieldDescription>
                   Tops this key up automatically when it runs low or is about to
                   expire, instead of waiting for a manual renewal. Logged as
@@ -424,13 +450,19 @@ export function EditKeyDialog({
 
                 <Field orientation="horizontal">
                   <div className="flex flex-col gap-1">
-                    <FieldLabel htmlFor="edit-key-paid">Payment received</FieldLabel>
+                    <FieldLabel htmlFor="edit-key-paid">
+                      Payment received
+                    </FieldLabel>
                     <FieldDescription>
-                      Off leaves this renewal marked unpaid in the history below —
-                      for renewing on credit or before the transfer clears.
+                      Off leaves this renewal marked unpaid in the history below
+                      — for renewing on credit or before the transfer clears.
                     </FieldDescription>
                   </div>
-                  <Switch id="edit-key-paid" checked={paid} onCheckedChange={setPaid} />
+                  <Switch
+                    id="edit-key-paid"
+                    checked={paid}
+                    onCheckedChange={setPaid}
+                  />
                 </Field>
 
                 <Field>
@@ -450,8 +482,12 @@ export function EditKeyDialog({
 
             {mode === "set" && (
               <>
-                <Field data-invalid={!!errors.limit_gb || overspent || undefined}>
-                  <FieldLabel htmlFor="edit-key-total">Total data limit</FieldLabel>
+                <Field
+                  data-invalid={!!errors.limit_gb || overspent || undefined}
+                >
+                  <FieldLabel htmlFor="edit-key-total">
+                    Total data limit
+                  </FieldLabel>
                   <InputGroup>
                     <InputGroupInput
                       id="edit-key-total"
@@ -515,7 +551,8 @@ export function EditKeyDialog({
                     </PopoverContent>
                   </Popover>
                   <FieldDescription>
-                    {errors.end_date ?? "The key works through the end of this day."}
+                    {errors.end_date ??
+                      "The key works through the end of this day."}
                   </FieldDescription>
                 </Field>
               </>
@@ -525,7 +562,11 @@ export function EditKeyDialog({
           <DialogFooter>
             <DialogClose
               render={
-                <Button type="button" variant="outline" disabled={save.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={save.isPending}
+                >
                   Cancel
                 </Button>
               }

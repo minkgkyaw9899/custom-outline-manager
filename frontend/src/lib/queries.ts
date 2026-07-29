@@ -81,7 +81,7 @@ export const serversQueryOptions = (window: MetricsWindow = "30d") =>
 
 export const serverDetailQueryOptions = (
   serverId: string,
-  window: MetricsWindow = "30d",
+  window: MetricsWindow = "30d"
 ) =>
   queryOptions({
     queryKey: ["servers", serverId, { window }] as const,
@@ -92,15 +92,19 @@ export const serverDetailQueryOptions = (
     refetchOnWindowFocus: true,
   })
 
-export const serverUsageQueryOptions = (serverId: string, from?: string, to?: string) =>
+export const serverUsageQueryOptions = (
+  serverId: string,
+  from?: string,
+  to?: string
+) =>
   queryOptions({
     queryKey: ["servers", serverId, "usage", from ?? null, to ?? null] as const,
     queryFn: () =>
       apiClient.get<ServerUsage>(
         `servers/${serverId}/usage`,
         Object.fromEntries(
-          Object.entries({ from, to }).filter(([, v]) => v !== undefined),
-        ) as Record<string, string>,
+          Object.entries({ from, to }).filter(([, v]) => v !== undefined)
+        ) as Record<string, string>
       ),
   })
 
@@ -160,7 +164,9 @@ export const retentionQueryOptions = (days = 30) =>
   queryOptions({
     queryKey: ["analytics", "retention", { days }] as const,
     queryFn: () =>
-      apiClient.get<RetentionMetrics>("analytics/retention", { days: String(days) }),
+      apiClient.get<RetentionMetrics>("analytics/retention", {
+        days: String(days),
+      }),
   })
 
 /** Fallback while /settings is still loading — matches the old hardcoded constant. */

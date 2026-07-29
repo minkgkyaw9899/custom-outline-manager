@@ -37,7 +37,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
@@ -64,7 +69,8 @@ function NewAdminDialog({ children }: Readonly<{ children: React.ReactNode }>) {
   const queryClient = useQueryClient()
 
   const addAdmin = useMutation({
-    mutationFn: () => apiClient.post<AdminUser>("admins", { email: email.trim() }),
+    mutationFn: () =>
+      apiClient.post<AdminUser>("admins", { email: email.trim() }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admins"] })
       setEmail("")
@@ -120,12 +126,19 @@ function NewAdminDialog({ children }: Readonly<{ children: React.ReactNode }>) {
           <DialogFooter>
             <DialogClose
               render={
-                <Button type="button" variant="outline" disabled={addAdmin.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={addAdmin.isPending}
+                >
                   Cancel
                 </Button>
               }
             />
-            <Button type="submit" disabled={addAdmin.isPending || !email.trim()}>
+            <Button
+              type="submit"
+              disabled={addAdmin.isPending || !email.trim()}
+            >
               {addAdmin.isPending && <Spinner data-icon="inline-start" />}
               Add admin
             </Button>
@@ -158,10 +171,16 @@ export function AdminsTable() {
   })
 
   const setStatus = useMutation({
-    mutationFn: ({ admin, status }: { admin: AdminUser; status: AdminUser["status"] }) =>
+    mutationFn: ({
+      admin,
+      status,
+    }: {
+      admin: AdminUser
+      status: AdminUser["status"]
+    }) =>
       apiClient.patch<AdminUser>(
         `admins/${encodeURIComponent(admin.email)}/status`,
-        { status },
+        { status }
       ),
     onSuccess: invalidate,
   })
@@ -204,6 +223,11 @@ export function AdminsTable() {
             </div>
           ) : (
             <div className="flex items-center justify-end gap-3">
+              {/* Switch already carries its own aria-label below — this
+                  label is the visual "Active" text for sighted users, not
+                  the accessible name, so it isn't wrapping a native control
+                  the way the rule expects. */}
+              {/* eslint-disable-next-line jsx-a11y/label-has-associated-control */}
               <label className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Switch
                   checked={row.original.status === "active"}
@@ -233,7 +257,7 @@ export function AdminsTable() {
           ),
       }),
     ],
-    [setStatus],
+    [setStatus]
   )
 
   const table = useReactTable({
@@ -298,7 +322,10 @@ export function AdminsTable() {
                   <TableRow key={row.id}>
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
                       </TableCell>
                     ))}
                   </TableRow>

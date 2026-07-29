@@ -11,7 +11,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   InputGroup,
@@ -27,7 +32,9 @@ import { MIN_PLAN_GB } from "@/lib/format"
 import { useMmkPerUsd } from "@/lib/queries"
 import type { Server } from "@/lib/types"
 
-export function AddServerDialog({ children }: Readonly<{ children: React.ReactNode }>) {
+export function AddServerDialog({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   const mmkPerUsd = useMmkPerUsd()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
@@ -87,7 +94,9 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
           }}
         >
           <DialogHeader>
-            <DialogTitle className="font-heading">Add Outline server</DialogTitle>
+            <DialogTitle className="font-heading">
+              Add Outline server
+            </DialogTitle>
           </DialogHeader>
 
           <FieldGroup className="py-4">
@@ -101,28 +110,34 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
                 aria-invalid={!!errors.name || undefined}
                 onChange={(e) => setName(e.target.value)}
               />
-              {errors.name && <FieldDescription>{errors.name}</FieldDescription>}
+              {errors.name && (
+                <FieldDescription>{errors.name}</FieldDescription>
+              )}
             </Field>
 
             <Field data-invalid={!!errors.apiUrl || undefined}>
-              <FieldLabel htmlFor="server-api-url">Outline management key</FieldLabel>
+              <FieldLabel htmlFor="server-api-url">
+                Outline management key
+              </FieldLabel>
               <Textarea
                 id="server-api-url"
                 className="font-mono text-xs"
-                placeholder={'Enter Management Key'}
+                placeholder={"Enter Management Key"}
                 autoComplete="off"
                 spellCheck={false}
                 value={apiUrl}
                 aria-invalid={!!errors.apiUrl || undefined}
                 onChange={(e) => setApiUrl(e.target.value)}
               />
-              {errors.apiUrl ?? <FieldDescription>
-                {errors.apiUrl}
-              </FieldDescription>}
+              {errors.apiUrl ?? (
+                <FieldDescription>{errors.apiUrl}</FieldDescription>
+              )}
             </Field>
 
             <Field data-invalid={!!errors.costUsdPerMonth || undefined}>
-              <FieldLabel htmlFor="server-cost">Instance cost (USD / month)</FieldLabel>
+              <FieldLabel htmlFor="server-cost">
+                Instance cost (USD / month)
+              </FieldLabel>
               <InputGroup>
                 <InputGroupAddon>
                   <InputGroupText>$</InputGroupText>
@@ -169,10 +184,7 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
                   <InputGroupText>keys</InputGroupText>
                 </InputGroupAddon>
               </InputGroup>
-              <FieldDescription>
-                {errors.maxKeys ??
-                 ""}
-              </FieldDescription>
+              <FieldDescription>{errors.maxKeys ?? ""}</FieldDescription>
             </Field>
 
             <Field data-invalid={!!errors.defaultLimitGb || undefined}>
@@ -195,10 +207,7 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
                   <InputGroupText>GB</InputGroupText>
                 </InputGroupAddon>
               </InputGroup>
-              <FieldDescription>
-                {errors.defaultLimitGb ??
-                  ""}
-              </FieldDescription>
+              <FieldDescription>{errors.defaultLimitGb ?? ""}</FieldDescription>
             </Field>
 
             <Field data-invalid={!!errors.defaultPriceMmk || undefined}>
@@ -257,7 +266,11 @@ export function AddServerDialog({ children }: Readonly<{ children: React.ReactNo
           <DialogFooter>
             <DialogClose
               render={
-                <Button type="button" variant="outline" disabled={createServer.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={createServer.isPending}
+                >
                   Cancel
                 </Button>
               }

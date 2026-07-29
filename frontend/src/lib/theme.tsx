@@ -19,7 +19,10 @@ function resolveTheme(theme: Theme): "light" | "dark" {
 }
 
 function applyTheme(theme: Theme) {
-  document.documentElement.classList.toggle("dark", resolveTheme(theme) === "dark")
+  document.documentElement.classList.toggle(
+    "dark",
+    resolveTheme(theme) === "dark"
+  )
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -61,5 +64,5 @@ export function useTheme() {
 // Runs before hydration to set the `dark` class from localStorage, avoiding a
 // flash of the wrong theme on first paint.
 export const themeInitScript = `(function(){try{var t=localStorage.getItem(${JSON.stringify(
-  STORAGE_KEY,
+  STORAGE_KEY
 )})||"system";var d=t==="system"?window.matchMedia("(prefers-color-scheme: dark)").matches:t==="dark";if(d)document.documentElement.classList.add("dark");}catch(e){}})();`

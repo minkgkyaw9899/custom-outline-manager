@@ -1,6 +1,6 @@
 import { ArrowUpDownIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
-import { flexRender  } from "@tanstack/react-table"
-import type {Header} from "@tanstack/react-table";
+import { flexRender } from "@tanstack/react-table"
+import type { Header } from "@tanstack/react-table"
 
 import { TableHead } from "@/components/ui/table"
 
@@ -15,7 +15,10 @@ export function SortableHead<TData, TValue>({
   header,
   align = "start",
 }: Readonly<{ header: Header<TData, TValue>; align?: "start" | "end" }>) {
-  const content = flexRender(header.column.columnDef.header, header.getContext())
+  const content = flexRender(
+    header.column.columnDef.header,
+    header.getContext()
+  )
   if (!header.column.getCanSort()) return <TableHead>{content}</TableHead>
 
   const sorted = header.column.getIsSorted()

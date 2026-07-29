@@ -8,11 +8,16 @@ import {
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  useReactTable
-  
+  useReactTable,
 } from "@tanstack/react-table"
-import type {SortingState} from "@tanstack/react-table";
-import { GaugeIcon, KeyRoundIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react"
+import type { SortingState } from "@tanstack/react-table"
+import {
+  GaugeIcon,
+  KeyRoundIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+} from "lucide-react"
 
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { CopyButton } from "@/components/common/copy-button"
@@ -40,7 +45,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { Empty, EmptyDescription, EmptyHeader, EmptyMedia, EmptyTitle } from "@/components/ui/empty"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@/components/ui/empty"
 import {
   Select,
   SelectContent,
@@ -56,7 +67,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { apiClient } from "@/lib/api"
 import {
   formatBytesCompact,
@@ -113,7 +128,7 @@ function UsageCell({ keyItem }: Readonly<{ keyItem: Key }>) {
           style={{ width: `${Math.min(100, Math.max(0, ratio * 100))}%` }}
         />
       </div>
-      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+      <span className="font-mono text-xs text-muted-foreground tabular-nums">
         {formatUsagePair(usedBytes, customLimitBytes)}
       </span>
     </div>
@@ -129,13 +144,15 @@ function ExpiryCell({ keyItem }: Readonly<{ keyItem: Key }>) {
   const soon = daysLeft !== null && daysLeft >= 0 && daysLeft <= 7
   return (
     <div className="flex flex-col items-end gap-1">
-      <span className="font-mono text-xs tabular-nums">{formatDateOnly(endDate)}</span>
+      <span className="font-mono text-xs tabular-nums">
+        {formatDateOnly(endDate)}
+      </span>
       <Badge
         variant="outline"
         className={cn(
           "text-[11px]",
           expired && "border-destructive/30 text-destructive",
-          soon && "border-chart-3/40 text-chart-3",
+          soon && "border-chart-3/40 text-chart-3"
         )}
       >
         {daysLeft !== null && daysLeft < 0
@@ -192,7 +209,7 @@ export function KeysTable({
         key,
         metrics: keyMetrics?.[key.outlineKeyId],
       })),
-    [keys, keyMetrics],
+    [keys, keyMetrics]
   )
 
   const columns = useMemo(
@@ -216,20 +233,23 @@ export function KeysTable({
           </Link>
         ),
       }),
-      columnHelper.accessor((row) => (row.key.userId ? row.key.userName || "" : ""), {
-        id: "holder",
-        header: "Holder",
-        cell: ({ row }) =>
-          row.original.key.userId ? (
-            <Badge variant="secondary">
-              {row.original.key.userName || "Linked"}
-            </Badge>
-          ) : (
-            <Badge variant="outline" className="text-muted-foreground">
-              Unassigned
-            </Badge>
-          ),
-      }),
+      columnHelper.accessor(
+        (row) => (row.key.userId ? row.key.userName || "" : ""),
+        {
+          id: "holder",
+          header: "Holder",
+          cell: ({ row }) =>
+            row.original.key.userId ? (
+              <Badge variant="secondary">
+                {row.original.key.userName || "Linked"}
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-muted-foreground">
+                Unassigned
+              </Badge>
+            ),
+        }
+      ),
       columnHelper.accessor((row) => row.key.status, {
         id: "status",
         header: "Status",
@@ -246,7 +266,7 @@ export function KeysTable({
           id: "usage",
           header: "Usage",
           cell: ({ row }) => <UsageCell keyItem={row.original.key} />,
-        },
+        }
       ),
       columnHelper.accessor((row) => row.metrics?.peakDeviceCount ?? -1, {
         id: "peakDevices",
@@ -267,7 +287,11 @@ export function KeysTable({
         header: () => <span className="block text-right">Actions</span>,
         cell: ({ row }) => (
           // The row itself opens the key, so the controls inside it have to
-          // stop the click before it reaches the row.
+          // stop the click before it reaches the row. Not an interactive
+          // element in its own right — every real control inside it (the
+          // buttons, the copy button) is already independently keyboard-
+          // accessible, this div only guards their click from bubbling up.
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
           <div
             className="flex items-center justify-end gap-1.5"
             onClick={(e) => e.stopPropagation()}
@@ -314,7 +338,7 @@ export function KeysTable({
         ),
       }),
     ],
-    [],
+    []
   )
 
   // Stable identity matters: the table auto-resets the page index whenever the
@@ -322,7 +346,7 @@ export function KeysTable({
   // admin back to page 1 the moment they paged forward.
   const columnFilters = useMemo(
     () => [{ id: "status", value: statusFilter }],
-    [statusFilter],
+    [statusFilter]
   )
 
   const table = useReactTable({
@@ -362,7 +386,11 @@ export function KeysTable({
               table.setPageIndex(0)
             }}
           >
-            <SelectTrigger size="sm" className="min-w-44" aria-label="Filter by status">
+            <SelectTrigger
+              size="sm"
+              className="min-w-44"
+              aria-label="Filter by status"
+            >
               <SelectValue>
                 {(value: string) =>
                   `Filter: ${STATUS_FILTERS.find((f) => f.value === value)?.label ?? ""}`
@@ -410,7 +438,8 @@ export function KeysTable({
               </EmptyMedia>
               <EmptyTitle>No access keys yet</EmptyTitle>
               <EmptyDescription>
-                Create a key to hand out an Outline connection link for this server.
+                Create a key to hand out an Outline connection link for this
+                server.
               </EmptyDescription>
             </EmptyHeader>
             <NewKeyDialog serverId={serverId}>
@@ -432,7 +461,7 @@ export function KeysTable({
                         header={header}
                         align={
                           ["name", "holder", "status", "usage"].includes(
-                            header.column.id,
+                            header.column.id
                           )
                             ? "start"
                             : "end"
@@ -468,7 +497,10 @@ export function KeysTable({
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
                         </TableCell>
                       ))}
                     </TableRow>

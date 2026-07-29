@@ -60,7 +60,9 @@ function useCrumbs(): Crumb[] {
   const keyServerId = key.data?.serverId
   const keyServer = useQuery({
     ...serverDetailQueryOptions(keyServerId ?? ""),
-    ...(keyServerId && isMockId(keyServerId) ? { queryFn: mockServerDetail } : {}),
+    ...(keyServerId && isMockId(keyServerId)
+      ? { queryFn: mockServerDetail }
+      : {}),
     enabled: !!keyServerId,
   })
 

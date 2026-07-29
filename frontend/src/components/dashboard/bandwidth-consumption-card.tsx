@@ -11,7 +11,13 @@ import {
   YAxis,
 } from "recharts"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import {
   ChartContainer,
   ChartTooltip,
@@ -55,7 +61,10 @@ export function BandwidthConsumptionCard({
   const serverItems = Object.fromEntries(servers.map((s) => [s.id, s.name]))
 
   const chartConfig = {
-    total: { label: server ? `${server.name} total` : "Total", color: "var(--chart-3)" },
+    total: {
+      label: server ? `${server.name} total` : "Total",
+      color: "var(--chart-3)",
+    },
   } satisfies ChartConfig
 
   const data = useMemo(
@@ -64,14 +73,16 @@ export function BandwidthConsumptionCard({
         label: shortDate(point.date),
         total: point.bytes,
       })),
-    [server],
+    [server]
   )
 
   if (!server) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle className="font-heading text-lg">Bandwidth consumption</CardTitle>
+          <CardTitle className="font-heading text-lg">
+            Bandwidth consumption
+          </CardTitle>
           <CardDescription>No servers yet.</CardDescription>
         </CardHeader>
       </Card>
@@ -119,7 +130,9 @@ export function BandwidthConsumptionCard({
     <Card>
       <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
-          <CardTitle className="font-heading text-lg">Bandwidth consumption</CardTitle>
+          <CardTitle className="font-heading text-lg">
+            Bandwidth consumption
+          </CardTitle>
           <CardDescription>
             {data.length === 0
               ? `Per-server bandwidth · ${server.name} · not enough sync history yet`
@@ -127,11 +140,15 @@ export function BandwidthConsumptionCard({
           </CardDescription>
           <p className="text-xs text-muted-foreground">
             Lifetime usage: {formatBytesCompact(server.totalUsedBytes)}
-            {data.length === 0 && " — the chart above only starts once monitoring has two days of history"}
+            {data.length === 0 &&
+              " — the chart above only starts once monitoring has two days of history"}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-4">
-          <ChartLegendDot color="var(--chart-3)" label={`${server.name} total`} />
+          <ChartLegendDot
+            color="var(--chart-3)"
+            label={`${server.name} total`}
+          />
           <Select
             items={serverItems}
             value={serverId}
@@ -195,14 +212,26 @@ export function BandwidthConsumptionCard({
             ) : chartType === "bar" ? (
               <BarChart data={data} margin={{ left: 4, right: 12, top: 12 }}>
                 {axes}
-                <Bar dataKey="total" fill="var(--color-total)" radius={[4, 4, 0, 0]} />
+                <Bar
+                  dataKey="total"
+                  fill="var(--color-total)"
+                  radius={[4, 4, 0, 0]}
+                />
               </BarChart>
             ) : (
               <AreaChart data={data} margin={{ left: 4, right: 12, top: 12 }}>
                 <defs>
                   <linearGradient id="fillTotal" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-total)" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="var(--color-total)" stopOpacity={0.05} />
+                    <stop
+                      offset="5%"
+                      stopColor="var(--color-total)"
+                      stopOpacity={0.4}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor="var(--color-total)"
+                      stopOpacity={0.05}
+                    />
                   </linearGradient>
                 </defs>
                 {axes}

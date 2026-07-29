@@ -3,7 +3,10 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
 
 import { ModeToggle } from "@/components/layout/mode-toggle"
-import { InvalidLinkCard, ShareAuthLayout } from "@/components/share/passcode-cards"
+import {
+  InvalidLinkCard,
+  ShareAuthLayout,
+} from "@/components/share/passcode-cards"
 import { KeyStatusView } from "@/components/share/key-status-view"
 import { Skeleton } from "@/components/ui/skeleton"
 import { isApiError } from "@/lib/api"
@@ -22,11 +25,14 @@ function KeyStatusPage() {
   const { slug } = Route.useParams()
   const navigate = useNavigate()
   const [token, setToken] = useState<string | null>(
-    () => getStoredShareToken(slug)?.token ?? null,
+    () => getStoredShareToken(slug)?.token ?? null
   )
 
   const viewQuery = useQuery(shareViewQueryOptions(slug, token))
-  const statusQuery = useQuery({ ...shareStatusQueryOptions(slug), enabled: !token })
+  const statusQuery = useQuery({
+    ...shareStatusQueryOptions(slug),
+    enabled: !token,
+  })
 
   // An expired or otherwise-rejected token falls back to the passcode screen
   // rather than getting stuck on an error — the holder still knows their
@@ -43,7 +49,9 @@ function KeyStatusPage() {
   useEffect(() => {
     if (!token && statusQuery.data) {
       navigate({
-        to: statusQuery.data.passcodeSet ? "/users/login/$slug" : "/users/setup/$slug",
+        to: statusQuery.data.passcodeSet
+          ? "/users/login/$slug"
+          : "/users/setup/$slug",
         params: { slug },
         replace: true,
       })

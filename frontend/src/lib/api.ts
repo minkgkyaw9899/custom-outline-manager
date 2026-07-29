@@ -62,26 +62,26 @@ async function unwrap<T>(promise: Promise<Response>): Promise<T> {
 }
 
 export const apiClient = {
-  get: <T,>(
+  get: <T>(
     url: string,
     searchParams?: Record<string, string>,
-    opts?: { headers?: Record<string, string> },
+    opts?: { headers?: Record<string, string> }
   ): Promise<T> =>
     unwrap<T>(api.get(url, { searchParams, headers: opts?.headers })),
-  post: <T,>(
+  post: <T>(
     url: string,
     json?: unknown,
-    opts?: { silentToast?: boolean },
+    opts?: { silentToast?: boolean }
   ): Promise<T> =>
     unwrap<T>(
       api.post(url, {
         ...(json === undefined ? {} : { json }),
         ...(opts?.silentToast ? { context: { silentToast: true } } : {}),
-      }),
+      })
     ),
-  patch: <T,>(url: string, json?: unknown): Promise<T> =>
+  patch: <T>(url: string, json?: unknown): Promise<T> =>
     unwrap<T>(api.patch(url, json === undefined ? {} : { json })),
-  delete: <T,>(url: string, searchParams?: Record<string, string>): Promise<T> =>
+  delete: <T>(url: string, searchParams?: Record<string, string>): Promise<T> =>
     unwrap<T>(api.delete(url, { searchParams })),
 }
 

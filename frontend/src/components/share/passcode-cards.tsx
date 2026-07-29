@@ -44,7 +44,11 @@ export function OtpSlots() {
   return (
     <InputOTPGroup className="w-full justify-between gap-2">
       {Array.from({ length: 6 }, (_, index) => (
-        <InputOTPSlot key={index} index={index} className="h-12 flex-1 text-lg" />
+        <InputOTPSlot
+          key={index}
+          index={index}
+          className="h-12 flex-1 text-lg"
+        />
       ))}
     </InputOTPGroup>
   )
@@ -160,7 +164,12 @@ export function SetupCard({
                       )
                     }}
                   </form.Field>
-                  <Button type="submit" size="lg" disabled={isSubmitting} className="w-full">
+                  <Button
+                    type="submit"
+                    size="lg"
+                    disabled={isSubmitting}
+                    className="w-full"
+                  >
                     {isSubmitting && <Spinner data-icon="inline-start" />}
                     {isSubmitting ? "Setting up" : "Set passcode"}
                   </Button>
@@ -193,7 +202,7 @@ export function VerifyCard({
         if (isApiError(error) && error.apiError?.details?.length) {
           applyServerFieldErrors(form, error.apiError.details)
         } else if (isApiError(error) && error.apiError) {
-          const message = error.apiError.message
+          const { message } = error.apiError
           form.setFieldMeta("code", (prev) => ({
             ...prev,
             errorMap: { ...prev.errorMap, onSubmit: message },
@@ -251,7 +260,12 @@ export function VerifyCard({
                       )
                     }}
                   </form.Field>
-                  <Button type="submit" size="lg" disabled={isSubmitting} className="w-full">
+                  <Button
+                    type="submit"
+                    size="lg"
+                    disabled={isSubmitting}
+                    className="w-full"
+                  >
                     {isSubmitting && <Spinner data-icon="inline-start" />}
                     {isSubmitting ? "Verifying" : "View my key"}
                   </Button>
@@ -273,8 +287,8 @@ export function InvalidLinkCard() {
           Link not found
         </CardTitle>
         <CardDescription>
-          This share link is no longer valid. Ask the person who gave it to
-          you for a new one.
+          This share link is no longer valid. Ask the person who gave it to you
+          for a new one.
         </CardDescription>
       </CardHeader>
     </Card>

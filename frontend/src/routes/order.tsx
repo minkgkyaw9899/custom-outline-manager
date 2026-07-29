@@ -20,7 +20,12 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   Select,
@@ -37,7 +42,10 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { apiClient } from "@/lib/api"
 import { fieldErrorsFrom } from "@/lib/form-errors"
 import { PLAN_PRESETS } from "@/lib/plan-presets"
-import { publicPaymentInfoQueryOptions, publicServersQueryOptions } from "@/lib/queries"
+import {
+  publicPaymentInfoQueryOptions,
+  publicServersQueryOptions,
+} from "@/lib/queries"
 import type { Order } from "@/lib/types"
 
 export const Route = createFileRoute("/order")({
@@ -46,9 +54,11 @@ export const Route = createFileRoute("/order")({
 
 function OrderPage() {
   const { data: paymentInfo, isLoading: paymentInfoLoading } = useQuery(
-    publicPaymentInfoQueryOptions(),
+    publicPaymentInfoQueryOptions()
   )
-  const { data: servers, isLoading: serversLoading } = useQuery(publicServersQueryOptions())
+  const { data: servers, isLoading: serversLoading } = useQuery(
+    publicServersQueryOptions()
+  )
 
   const [customerName, setCustomerName] = useState("")
   const [contact, setContact] = useState("")
@@ -87,7 +97,8 @@ function OrderPage() {
             <EmptyTitle>Thanks, {submit.data.customerName}!</EmptyTitle>
             <EmptyDescription>
               Your order for {submit.data.planGb} GB / {submit.data.planDays}{" "}
-              days is in — you&apos;ll be contacted at &ldquo;{submit.data.contact}
+              days is in — you&apos;ll be contacted at &ldquo;
+              {submit.data.contact}
               &rdquo; once it&apos;s confirmed.
             </EmptyDescription>
           </EmptyHeader>
@@ -113,8 +124,8 @@ function OrderPage() {
           <CardHeader>
             <CardTitle className="font-heading text-lg">Payment</CardTitle>
             <CardDescription>
-              Manual transfer only — no card or automatic checkout. Send
-              payment first, then submit this form.
+              Manual transfer only — no card or automatic checkout. Send payment
+              first, then submit this form.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -168,7 +179,9 @@ function OrderPage() {
                   aria-invalid={!!errors.contact || undefined}
                   onChange={(e) => setContact(e.target.value)}
                 />
-                {errors.contact && <FieldDescription>{errors.contact}</FieldDescription>}
+                {errors.contact && (
+                  <FieldDescription>{errors.contact}</FieldDescription>
+                )}
               </Field>
 
               <Field data-invalid={!!errors.serverId || undefined}>
@@ -177,11 +190,16 @@ function OrderPage() {
                   <Skeleton className="h-9" />
                 ) : (
                   <Select
-                    items={Object.fromEntries((servers ?? []).map((s) => [s.id, s.name]))}
+                    items={Object.fromEntries(
+                      (servers ?? []).map((s) => [s.id, s.name])
+                    )}
                     value={serverId}
                     onValueChange={(v) => setServerId(v as string)}
                   >
-                    <SelectTrigger id="order-server" aria-invalid={!!errors.serverId || undefined}>
+                    <SelectTrigger
+                      id="order-server"
+                      aria-invalid={!!errors.serverId || undefined}
+                    >
                       <SelectValue placeholder="Choose a server" />
                     </SelectTrigger>
                     <SelectContent>
@@ -195,7 +213,9 @@ function OrderPage() {
                     </SelectContent>
                   </Select>
                 )}
-                {errors.serverId && <FieldDescription>{errors.serverId}</FieldDescription>}
+                {errors.serverId && (
+                  <FieldDescription>{errors.serverId}</FieldDescription>
+                )}
               </Field>
 
               <Field>
@@ -211,7 +231,7 @@ function OrderPage() {
                     <ToggleGroupItem
                       key={preset.label}
                       value={String(i)}
-                      className="text-sm normal-case tracking-normal"
+                      className="text-sm tracking-normal normal-case"
                     >
                       {preset.label} — {preset.gb} GB / {preset.days}d
                     </ToggleGroupItem>
@@ -228,7 +248,7 @@ function OrderPage() {
                 ) : (
                   <Select
                     items={Object.fromEntries(
-                      (paymentInfo?.paymentWallets ?? []).map((w) => [w, w]),
+                      (paymentInfo?.paymentWallets ?? []).map((w) => [w, w])
                     )}
                     value={paymentMethod}
                     onValueChange={(v) => setPaymentMethod(v as string)}
@@ -256,9 +276,7 @@ function OrderPage() {
               </Field>
 
               <Field data-invalid={!!errors.customerNote || undefined}>
-                <FieldLabel htmlFor="order-note">
-                  Note (optional)
-                </FieldLabel>
+                <FieldLabel htmlFor="order-note">Note (optional)</FieldLabel>
                 <Textarea
                   id="order-note"
                   placeholder="Transaction reference, or anything else worth knowing"
@@ -277,7 +295,11 @@ function OrderPage() {
           type="submit"
           size="lg"
           disabled={
-            submit.isPending || !customerName.trim() || !contact.trim() || !serverId || !paymentMethod
+            submit.isPending ||
+            !customerName.trim() ||
+            !contact.trim() ||
+            !serverId ||
+            !paymentMethod
           }
         >
           {submit.isPending && <Spinner data-icon="inline-start" />}

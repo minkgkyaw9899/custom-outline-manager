@@ -7,7 +7,7 @@ import type { ApiErrorDetail } from "./types"
 export function fieldErrorsFrom(error: unknown): Record<string, string> {
   if (!isApiError(error) || !error.apiError?.details) return {}
   return Object.fromEntries(
-    error.apiError.details.map((d) => [d.field, d.message]),
+    error.apiError.details.map((d) => [d.field, d.message])
   )
 }
 
@@ -19,7 +19,7 @@ export function fieldErrorsFrom(error: unknown): Record<string, string> {
 // the form's statically-known field union.
 export function applyServerFieldErrors<TField extends string>(
   form: { setFieldMeta: (field: TField, updater: (prev: any) => any) => void },
-  details: ApiErrorDetail[],
+  details: ApiErrorDetail[]
 ) {
   for (const detail of details) {
     form.setFieldMeta(detail.field as TField, (prev) => ({

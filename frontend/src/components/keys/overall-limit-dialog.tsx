@@ -11,7 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import {
   InputGroup,
   InputGroupAddon,
@@ -57,7 +62,7 @@ export function OverallLimitDialog({
       setLimitGb(
         defaultLimitBytes === null
           ? String(MIN_PLAN_GB)
-          : String(Math.round((defaultLimitBytes / BYTES_PER_GB) * 10) / 10),
+          : String(Math.round((defaultLimitBytes / BYTES_PER_GB) * 10) / 10)
       )
       setApplyToUnlimited(true)
       setErrors({})
@@ -93,7 +98,9 @@ export function OverallLimitDialog({
           }}
         >
           <DialogHeader>
-            <DialogTitle className="font-heading">Overall data limit</DialogTitle>
+            <DialogTitle className="font-heading">
+              Overall data limit
+            </DialogTitle>
             <DialogDescription>
               The quota new keys on this server start on.
             </DialogDescription>
@@ -162,7 +169,11 @@ export function OverallLimitDialog({
             <div className="flex items-center gap-2">
               <DialogClose
                 render={
-                  <Button type="button" variant="outline" disabled={save.isPending}>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={save.isPending}
+                  >
                     Cancel
                   </Button>
                 }

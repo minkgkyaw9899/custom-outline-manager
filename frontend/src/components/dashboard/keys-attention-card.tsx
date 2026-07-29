@@ -40,7 +40,7 @@ export function KeysAttentionCard({
   const attention = keys
     .map((key) => ({ key, reason: urgencyOf(key) }))
     .filter(
-      (x): x is { key: Key; reason: AttentionReason } => x.reason !== null,
+      (x): x is { key: Key; reason: AttentionReason } => x.reason !== null
     )
     .sort((a, b) => {
       const rankDiff = URGENCY_RANK[a.reason] - URGENCY_RANK[b.reason]
@@ -81,7 +81,7 @@ export function KeysAttentionCard({
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-3">
-                <span className="font-mono text-sm tabular-nums text-muted-foreground">
+                <span className="font-mono text-sm text-muted-foreground tabular-nums">
                   {formatBytesCompact(key.usedBytes)}
                 </span>
                 <Badge

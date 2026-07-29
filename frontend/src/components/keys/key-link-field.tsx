@@ -3,16 +3,32 @@ import { QRCodeSVG } from "qrcode.react"
 
 import { CopyButton } from "@/components/common/copy-button"
 import { Button } from "@/components/ui/button"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 
 /** A link's connection QR code, scannable by the Outline client's "scan" import. */
-function LinkQrButton({ value, label }: Readonly<{ value: string; label: string }>) {
+function LinkQrButton({
+  value,
+  label,
+}: Readonly<{ value: string; label: string }>) {
   return (
     <Popover>
       <PopoverTrigger
         render={
-          <Button type="button" variant="outline" size="icon-sm" className="shrink-0" />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon-sm"
+            className="shrink-0"
+          />
         }
       >
         <QrCodeIcon className="size-3.5" />

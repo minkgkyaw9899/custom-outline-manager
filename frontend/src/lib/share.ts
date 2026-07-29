@@ -35,7 +35,11 @@ export function getStoredShareToken(slug: string): StoredShareToken | null {
   }
 }
 
-export function storeShareToken(slug: string, token: string, expiresAt: string) {
+export function storeShareToken(
+  slug: string,
+  token: string,
+  expiresAt: string
+) {
   localStorage.setItem(storageKey(slug), JSON.stringify({ token, expiresAt }))
 }
 

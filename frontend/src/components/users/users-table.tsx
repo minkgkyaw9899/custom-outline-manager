@@ -11,7 +11,13 @@ import {
   useReactTable,
 } from "@tanstack/react-table"
 import type { SortingState } from "@tanstack/react-table"
-import { CheckIcon, CopyIcon, PlusIcon, Trash2Icon, UsersIcon } from "lucide-react"
+import {
+  CheckIcon,
+  CopyIcon,
+  PlusIcon,
+  Trash2Icon,
+  UsersIcon,
+} from "lucide-react"
 
 import { ConfirmDialog } from "@/components/common/confirm-dialog"
 import { SortableHead } from "@/components/common/data-table-header"
@@ -50,7 +56,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { toast } from "@/components/ui/toast"
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
 import { apiClient } from "@/lib/api"
 import {
   formatBytesCompact,
@@ -84,7 +94,9 @@ function CopyStatusLinkButton({ userId }: Readonly<{ userId: string }>) {
       onClick={async () => {
         setState("loading")
         try {
-          const share = await queryClient.fetchQuery(userShareQueryOptions(userId))
+          const share = await queryClient.fetchQuery(
+            userShareQueryOptions(userId)
+          )
           await navigator.clipboard.writeText(userShareUrl(share.slug))
           setState("copied")
           setTimeout(() => setState("idle"), 1500)
@@ -138,12 +150,16 @@ function UsageCell({ user }: Readonly<{ user: UserWithKeys }>) {
         <div
           className={cn(
             "h-full rounded-full",
-            ratio >= 1 ? "bg-destructive" : ratio >= 0.75 ? "bg-chart-3" : "bg-chart-1",
+            ratio >= 1
+              ? "bg-destructive"
+              : ratio >= 0.75
+                ? "bg-chart-3"
+                : "bg-chart-1"
           )}
           style={{ width: `${Math.min(100, Math.max(0, ratio * 100))}%` }}
         />
       </div>
-      <span className="font-mono text-xs tabular-nums text-muted-foreground">
+      <span className="font-mono text-xs text-muted-foreground tabular-nums">
         {formatUsagePair(key.usedBytes, key.customLimitBytes)}
       </span>
     </div>
@@ -167,7 +183,7 @@ function ExpiryCell({ user }: Readonly<{ user: UserWithKeys }>) {
         className={cn(
           "text-[11px]",
           expired && "border-destructive/30 text-destructive",
-          soon && "border-chart-3/40 text-chart-3",
+          soon && "border-chart-3/40 text-chart-3"
         )}
       >
         {formatDaysLeft(key.daysLeft)}
@@ -200,7 +216,8 @@ export function UsersTable({
   }, [servers])
 
   const removeUser = useMutation({
-    mutationFn: (user: UserWithKeys) => apiClient.delete<null>(`users/${user.id}`),
+    mutationFn: (user: UserWithKeys) =>
+      apiClient.delete<null>(`users/${user.id}`),
     onSuccess: () => {
       setDeleteUser(null)
       queryClient.invalidateQueries({ queryKey: ["users"] })
@@ -257,10 +274,14 @@ export function UsersTable({
         header: "Key type",
         cell: ({ row }) => {
           const key = row.original.primaryKey
-          if (!key) return <span className="text-sm text-muted-foreground">—</span>
+          if (!key)
+            return <span className="text-sm text-muted-foreground">—</span>
           return (
             <KeyPriceTypeBadge
-              type={keyPriceType(key.priceMmk, defaultPriceByServer.get(key.serverId))}
+              type={keyPriceType(
+                key.priceMmk,
+                defaultPriceByServer.get(key.serverId)
+              )}
             />
           )
         },
@@ -274,7 +295,7 @@ export function UsersTable({
           id: "usage",
           header: "Usage",
           cell: ({ row }) => <UsageCell user={row.original} />,
-        },
+        }
       ),
       columnHelper.accessor((row) => row.primaryKey?.daysLeft ?? Infinity, {
         id: "expiry",
@@ -285,7 +306,11 @@ export function UsersTable({
         id: "actions",
         header: () => <span className="block text-right">Actions</span>,
         cell: ({ row }) => (
-          // The row opens the user, so controls inside it stop the click first.
+          // The row opens the user, so controls inside it stop the click
+          // first. Not an interactive element itself — every real control
+          // inside it is already independently keyboard-accessible, this div
+          // only guards their click from bubbling up.
+          // eslint-disable-next-line jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions
           <div
             className="flex items-center justify-end gap-1.5"
             onClick={(e) => e.stopPropagation()}
@@ -298,7 +323,9 @@ export function UsersTable({
                   </span>
                 }
               />
-              <TooltipContent side="top">Copy their status page link</TooltipContent>
+              <TooltipContent side="top">
+                Copy their status page link
+              </TooltipContent>
             </Tooltip>
             <Button
               type="button"
@@ -315,7 +342,7 @@ export function UsersTable({
         ),
       }),
     ],
-    [defaultPriceByServer],
+    [defaultPriceByServer]
   )
 
   const table = useReactTable({
@@ -429,7 +456,10 @@ export function UsersTable({
                     >
                       {row.getVisibleCells().map((cell) => (
                         <TableCell key={cell.id}>
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          {flexRender(
+                            cell.column.columnDef.cell,
+                            cell.getContext()
+                          )}
                         </TableCell>
                       ))}
                     </TableRow>

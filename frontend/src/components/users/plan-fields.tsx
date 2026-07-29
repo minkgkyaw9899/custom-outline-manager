@@ -90,5 +90,7 @@ export function PlanFields({
 
 /** True when either allowance is under the plan floor the backend enforces. */
 export function isBelowPlanFloor(limitGb: string, days: string): boolean {
-  return (Number(limitGb) || 0) < MIN_PLAN_GB || (Number(days) || 0) < MIN_PLAN_DAYS
+  return (
+    (Number(limitGb) || 0) < MIN_PLAN_GB || (Number(days) || 0) < MIN_PLAN_DAYS
+  )
 }

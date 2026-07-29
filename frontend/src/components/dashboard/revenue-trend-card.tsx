@@ -1,8 +1,22 @@
 import { useMemo, useState } from "react"
-import { Bar, BarChart, CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 import { ChartLegendDot } from "@/components/dashboard/chart-legend-dot"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import {
   ChartContainer,
   ChartTooltip,
@@ -61,12 +75,18 @@ function periodLabel(key: string, granularity: Granularity): string {
   if (granularity === "year") return key
   if (granularity === "month") {
     const [year, month] = key.split("-")
-    return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString(undefined, {
-      month: "short",
-      year: "numeric",
-    })
+    return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString(
+      undefined,
+      {
+        month: "short",
+        year: "numeric",
+      }
+    )
   }
-  return new Date(key).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+  return new Date(key).toLocaleDateString(undefined, {
+    month: "short",
+    day: "numeric",
+  })
 }
 
 /** Revenue is a level, not a delta — a coarser period takes its latest reading, never a sum of readings. */
@@ -81,13 +101,23 @@ export function RevenueTrendCard({
   servers,
   title = "Revenue trend",
   description = "Revenue, cost and profit over time — one reading per cron tick, so a real trend builds up day by day.",
-}: Readonly<{ servers: ServerWithUsage[]; title?: string; description?: string }>) {
+}: Readonly<{
+  servers: ServerWithUsage[]
+  title?: string
+  description?: string
+}>) {
   const mmkPerUsd = useMmkPerUsd()
   const [granularity, setGranularity] = useState<Granularity>("day")
   const [chartType, setChartType] = useState<ChartType>("line")
 
-  const merged = useMemo(() => mergeByDate(servers, mmkPerUsd), [servers, mmkPerUsd])
-  const resampled = useMemo(() => resample(merged, granularity), [merged, granularity])
+  const merged = useMemo(
+    () => mergeByDate(servers, mmkPerUsd),
+    [servers, mmkPerUsd]
+  )
+  const resampled = useMemo(
+    () => resample(merged, granularity),
+    [merged, granularity]
+  )
 
   const data = resampled.map((p) => ({
     label: periodLabel(p.date, granularity),
@@ -105,7 +135,13 @@ export function RevenueTrendCard({
   const axes = (
     <>
       <CartesianGrid vertical={false} strokeDasharray="3 3" />
-      <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={10} minTickGap={28} />
+      <XAxis
+        dataKey="label"
+        tickLine={false}
+        axisLine={false}
+        tickMargin={10}
+        minTickGap={28}
+      />
       <YAxis
         tickLine={false}
         axisLine={false}
@@ -114,7 +150,12 @@ export function RevenueTrendCard({
         tickFormatter={(v: number) => (v === 0 ? "0" : mmk(v))}
       />
       <ChartTooltip
-        content={<ChartTooltipContent formatter={(value) => mmk(Number(value))} labelKey="label" />}
+        content={
+          <ChartTooltipContent
+            formatter={(value) => mmk(Number(value))}
+            labelKey="label"
+          />
+        }
       />
     </>
   )
@@ -138,13 +179,22 @@ export function RevenueTrendCard({
               if (v.length) setGranularity(v[0] as Granularity)
             }}
           >
-            <ToggleGroupItem value="day" className="text-sm normal-case tracking-normal">
+            <ToggleGroupItem
+              value="day"
+              className="text-sm tracking-normal normal-case"
+            >
               Day
             </ToggleGroupItem>
-            <ToggleGroupItem value="month" className="text-sm normal-case tracking-normal">
+            <ToggleGroupItem
+              value="month"
+              className="text-sm tracking-normal normal-case"
+            >
               Month
             </ToggleGroupItem>
-            <ToggleGroupItem value="year" className="text-sm normal-case tracking-normal">
+            <ToggleGroupItem
+              value="year"
+              className="text-sm tracking-normal normal-case"
+            >
               Year
             </ToggleGroupItem>
           </ToggleGroup>
@@ -171,7 +221,8 @@ export function RevenueTrendCard({
       <CardContent>
         {data.length === 0 ? (
           <p className="flex h-72 items-center justify-center text-sm text-muted-foreground">
-            No revenue history yet — it builds up one reading per cron tick from here on.
+            No revenue history yet — it builds up one reading per cron tick from
+            here on.
           </p>
         ) : (
           <ChartContainer
@@ -181,16 +232,53 @@ export function RevenueTrendCard({
             {chartType === "line" ? (
               <LineChart data={data} margin={{ left: 4, right: 12, top: 12 }}>
                 {axes}
-                <Line dataKey="revenue" type="monotone" stroke="var(--color-revenue)" strokeWidth={2} dot={false} />
-                <Line dataKey="cost" type="monotone" stroke="var(--color-cost)" strokeWidth={2} dot={false} />
-                <Line dataKey="profit" type="monotone" stroke="var(--color-profit)" strokeWidth={2} dot={false} />
+                <Line
+                  dataKey="revenue"
+                  type="monotone"
+                  stroke="var(--color-revenue)"
+                  strokeWidth={2}
+                  dot={false}
+                />
+                <Line
+                  dataKey="cost"
+                  type="monotone"
+                  stroke="var(--color-cost)"
+                  strokeWidth={2}
+                  dot={false}
+                />
+                <Line
+                  dataKey="profit"
+                  type="monotone"
+                  stroke="var(--color-profit)"
+                  strokeWidth={2}
+                  dot={false}
+                />
               </LineChart>
             ) : (
-              <BarChart data={data} margin={{ left: 4, right: 12, top: 12 }} barGap={2}>
+              <BarChart
+                data={data}
+                margin={{ left: 4, right: 12, top: 12 }}
+                barGap={2}
+              >
                 {axes}
-                <Bar dataKey="revenue" fill="var(--color-revenue)" radius={[3, 3, 0, 0]} maxBarSize={16} />
-                <Bar dataKey="cost" fill="var(--color-cost)" radius={[3, 3, 0, 0]} maxBarSize={16} />
-                <Bar dataKey="profit" fill="var(--color-profit)" radius={[3, 3, 0, 0]} maxBarSize={16} />
+                <Bar
+                  dataKey="revenue"
+                  fill="var(--color-revenue)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={16}
+                />
+                <Bar
+                  dataKey="cost"
+                  fill="var(--color-cost)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={16}
+                />
+                <Bar
+                  dataKey="profit"
+                  fill="var(--color-profit)"
+                  radius={[3, 3, 0, 0]}
+                  maxBarSize={16}
+                />
               </BarChart>
             )}
           </ChartContainer>

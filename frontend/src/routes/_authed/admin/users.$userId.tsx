@@ -89,7 +89,9 @@ function UsageBar({ keyItem }: Readonly<{ keyItem: Key }>) {
     )
   }
   const ratio =
-    keyItem.customLimitBytes === 0 ? 1 : keyItem.usedBytes / keyItem.customLimitBytes
+    keyItem.customLimitBytes === 0
+      ? 1
+      : keyItem.usedBytes / keyItem.customLimitBytes
   return (
     <div className="flex flex-col gap-2">
       <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -222,7 +224,11 @@ function UserDetailPage() {
   const queryClient = useQueryClient()
   const isActive = useIsUserActive()
 
-  const { data: user, isLoading, isError } = useQuery(userDetailQueryOptions(userId))
+  const {
+    data: user,
+    isLoading,
+    isError,
+  } = useQuery(userDetailQueryOptions(userId))
   const key = user?.primaryKey ?? null
 
   // The per-key live figures (tunnel time, peak devices, connected now) only
@@ -244,7 +250,8 @@ function UserDetailPage() {
   })
 
   const resetUsage = useMutation({
-    mutationFn: () => apiClient.post<UserWithKeys>(`users/${userId}/reset-usage`),
+    mutationFn: () =>
+      apiClient.post<UserWithKeys>(`users/${userId}/reset-usage`),
     onSuccess: () => {
       setConfirmResetUsageOpen(false)
       queryClient.invalidateQueries({ queryKey: ["users"] })
@@ -422,7 +429,11 @@ function UserDetailPage() {
                   <RotateCcwIcon data-icon="inline-start" />
                   Reset usage
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => setEditKeyOpen(true)}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditKeyOpen(true)}
+                >
                   Extend or set
                 </Button>
               </div>
@@ -442,14 +453,18 @@ function UserDetailPage() {
                     <span className="font-mono tabular-nums">
                       {key.customLimitBytes === null
                         ? "No limit"
-                        : formatBytesCompact(key.customLimitBytes, { decimals: 1 })}
+                        : formatBytesCompact(key.customLimitBytes, {
+                            decimals: 1,
+                          })}
                     </span>
                   </DetailRow>
                   <DetailRow label="Remaining">
                     <span className="font-mono tabular-nums">
                       {key.remainingBytes === null
                         ? "—"
-                        : formatBytesCompact(key.remainingBytes, { decimals: 1 })}
+                        : formatBytesCompact(key.remainingBytes, {
+                            decimals: 1,
+                          })}
                     </span>
                   </DetailRow>
                   <DetailRow label="Expires">
@@ -463,13 +478,21 @@ function UserDetailPage() {
                   <DetailRow label="Key type">
                     <div className="flex items-center gap-2">
                       <KeyPriceTypeBadge
-                        type={keyPriceType(key.priceMmk, serverDetail?.server.defaultPriceMmk)}
+                        type={keyPriceType(
+                          key.priceMmk,
+                          serverDetail?.server.defaultPriceMmk
+                        )}
                       />
-                      {keyPriceType(key.priceMmk, serverDetail?.server.defaultPriceMmk) ===
-                        "paid" && (
-                        <span className="font-mono text-xs tabular-nums text-muted-foreground">
+                      {keyPriceType(
+                        key.priceMmk,
+                        serverDetail?.server.defaultPriceMmk
+                      ) === "paid" && (
+                        <span className="font-mono text-xs text-muted-foreground tabular-nums">
                           {formatMmk(
-                            effectivePriceMmk(key.priceMmk, serverDetail?.server.defaultPriceMmk) ?? 0,
+                            effectivePriceMmk(
+                              key.priceMmk,
+                              serverDetail?.server.defaultPriceMmk
+                            ) ?? 0
                           )}{" "}
                           / month
                         </span>
@@ -497,7 +520,10 @@ function UserDetailPage() {
               emptyNote="Not configured for this deployment — set PUBLIC_BASE_URL on the backend to hand out dynamic links."
             />
             {key && (
-              <KeyLinkField label="Static key" value={keyAccessUrlWithName(key)} />
+              <KeyLinkField
+                label="Static key"
+                value={keyAccessUrlWithName(key)}
+              />
             )}
             <dl className="flex flex-col">
               <DetailRow label="Server">
@@ -532,7 +558,9 @@ function UserDetailPage() {
                 )}
               </DetailRow>
               <DetailRow label="Keys held">{user.keyCount}</DetailRow>
-              <DetailRow label="Last updated">{formatDate(user.updatedAt)}</DetailRow>
+              <DetailRow label="Last updated">
+                {formatDate(user.updatedAt)}
+              </DetailRow>
             </dl>
           </CardContent>
         </Card>

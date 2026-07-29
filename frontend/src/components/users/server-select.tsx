@@ -41,7 +41,7 @@ function serverLabel(server: ServerWithUsage, claimableCount: number): string {
  */
 export function isServerUnavailable(
   server: ServerWithUsage,
-  claimableCount: number,
+  claimableCount: number
 ): boolean {
   return isServerFull(server) && claimableCount === 0
 }
@@ -78,7 +78,9 @@ export function ServerSelect({
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Select value={value} onValueChange={(v) => onValueChange(v ?? "")}>
         <SelectTrigger id={id} aria-invalid={!!error || undefined}>
-          <SelectValue placeholder={isLoading ? "Loading servers…" : "Choose a server"}>
+          <SelectValue
+            placeholder={isLoading ? "Loading servers…" : "Choose a server"}
+          >
             {(selected: string) =>
               servers?.find((s) => s.id === selected)?.name ?? "Choose a server"
             }

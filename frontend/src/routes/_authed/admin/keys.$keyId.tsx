@@ -153,7 +153,11 @@ function RenewalHistory({
   keyId,
   renewals,
   isLoading,
-}: Readonly<{ keyId: string; renewals: RenewalLog[] | undefined; isLoading: boolean }>) {
+}: Readonly<{
+  keyId: string
+  renewals: RenewalLog[] | undefined
+  isLoading: boolean
+}>) {
   const queryClient = useQueryClient()
   const togglePaid = useMutation({
     mutationFn: (renewal: RenewalLog) =>
@@ -571,7 +575,11 @@ function KeyDetailPage() {
 
       <KeyLimitHistoryChart renewals={renewals ?? []} />
 
-      <RenewalHistory keyId={keyId} renewals={renewals} isLoading={renewalsLoading} />
+      <RenewalHistory
+        keyId={keyId}
+        renewals={renewals}
+        isLoading={renewalsLoading}
+      />
 
       <EditKeyDialog
         keyItem={keyItem}

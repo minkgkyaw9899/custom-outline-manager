@@ -1,13 +1,12 @@
 import { useMemo } from "react"
 import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts"
 
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
 import { formatBytesCompact, formatDateOnly } from "@/lib/format"
 import type { RenewalLog } from "@/lib/types"
@@ -24,12 +23,15 @@ export function KeyLimitHistoryChart({
     () =>
       [...renewals]
         .filter((r) => r.newLimitBytes !== null)
-        .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+        .sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+        )
         .map((r) => ({
           label: formatDateOnly(r.createdAt),
           limit: r.newLimitBytes as number,
         })),
-    [renewals],
+    [renewals]
   )
 
   return (
@@ -60,12 +62,16 @@ export function KeyLimitHistoryChart({
                 tickLine={false}
                 axisLine={false}
                 width={54}
-                tickFormatter={(v: number) => (v === 0 ? "0" : formatBytesCompact(v))}
+                tickFormatter={(v: number) =>
+                  v === 0 ? "0" : formatBytesCompact(v)
+                }
               />
               <ChartTooltip
                 content={
                   <ChartTooltipContent
-                    formatter={(value) => formatBytesCompact(Number(value), { decimals: 1 })}
+                    formatter={(value) =>
+                      formatBytesCompact(Number(value), { decimals: 1 })
+                    }
                     labelKey="label"
                   />
                 }

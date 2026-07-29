@@ -64,7 +64,7 @@ export function ChangeKeyDialog({
       if (!user) throw new Error("No user selected")
       return apiClient.post<UserWithKeys>(
         `users/${user.id}/keys/replace`,
-        keySourcePayload(keySource),
+        keySourcePayload(keySource)
       )
     },
     onSuccess: () => {
@@ -126,14 +126,20 @@ export function ChangeKeyDialog({
           <DialogFooter>
             <DialogClose
               render={
-                <Button type="button" variant="outline" disabled={replaceKey.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={replaceKey.isPending}
+                >
                   Cancel
                 </Button>
               }
             />
             <Button
               type="submit"
-              disabled={replaceKey.isPending || isKeySourceIncomplete(keySource)}
+              disabled={
+                replaceKey.isPending || isKeySourceIncomplete(keySource)
+              }
             >
               {replaceKey.isPending && <Spinner data-icon="inline-start" />}
               Change key

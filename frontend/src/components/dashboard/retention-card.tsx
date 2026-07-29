@@ -1,6 +1,12 @@
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts"
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import {
   ChartContainer,
   ChartTooltip,
@@ -30,16 +36,19 @@ export function RetentionCard({
     }),
     count: p.count,
   }))
-  const newHoldersTotal = metrics.newHoldersSeries.reduce((sum, p) => sum + p.count, 0)
+  const newHoldersTotal = metrics.newHoldersSeries.reduce(
+    (sum, p) => sum + p.count,
+    0
+  )
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="font-heading text-lg">Retention</CardTitle>
         <CardDescription>
-          Trailing {metrics.windowDays} days. Renewal-lapse rate is of keys
-          that came up for renewal in the window; holder churn is of holders
-          who had a live key sometime in the window.
+          Trailing {metrics.windowDays} days. Renewal-lapse rate is of keys that
+          came up for renewal in the window; holder churn is of holders who had
+          a live key sometime in the window.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -73,10 +82,29 @@ export function RetentionCard({
           >
             <BarChart data={data} margin={{ left: 4, right: 12, top: 12 }}>
               <CartesianGrid vertical={false} strokeDasharray="3 3" />
-              <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={10} minTickGap={28} />
-              <YAxis tickLine={false} axisLine={false} tickMargin={8} width={28} allowDecimals={false} />
-              <ChartTooltip content={<ChartTooltipContent labelKey="label" />} />
-              <Bar dataKey="count" fill="var(--color-count)" radius={[3, 3, 0, 0]} maxBarSize={24} />
+              <XAxis
+                dataKey="label"
+                tickLine={false}
+                axisLine={false}
+                tickMargin={10}
+                minTickGap={28}
+              />
+              <YAxis
+                tickLine={false}
+                axisLine={false}
+                tickMargin={8}
+                width={28}
+                allowDecimals={false}
+              />
+              <ChartTooltip
+                content={<ChartTooltipContent labelKey="label" />}
+              />
+              <Bar
+                dataKey="count"
+                fill="var(--color-count)"
+                radius={[3, 3, 0, 0]}
+                maxBarSize={24}
+              />
             </BarChart>
           </ChartContainer>
         )}

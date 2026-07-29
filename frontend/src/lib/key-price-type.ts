@@ -14,14 +14,14 @@ export type KeyPriceType = "free" | "paid" | "unpriced"
  */
 export function effectivePriceMmk(
   keyPriceMmk: number | null,
-  serverDefaultPriceMmk: number | null | undefined,
+  serverDefaultPriceMmk: number | null | undefined
 ): number | null {
   return keyPriceMmk ?? serverDefaultPriceMmk ?? null
 }
 
 export function keyPriceType(
   keyPriceMmk: number | null,
-  serverDefaultPriceMmk: number | null | undefined,
+  serverDefaultPriceMmk: number | null | undefined
 ): KeyPriceType {
   const effective = effectivePriceMmk(keyPriceMmk, serverDefaultPriceMmk)
   if (effective === null) return "unpriced"

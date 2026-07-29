@@ -10,7 +10,12 @@ const config = defineConfig({
     // Lets the dev server be reached through an ngrok tunnel (used to test
     // the ssconf:// dynamic key flow against a real public host) without
     // hard-coding one specific random subdomain.
-    allowedHosts: [".ngrok-free.dev", ".ngrok-free.app", ".ngrok.io", ".ngrok.app"],
+    allowedHosts: [
+      ".ngrok-free.dev",
+      ".ngrok-free.app",
+      ".ngrok.io",
+      ".ngrok.app",
+    ],
   },
   preview: {
     // The build's prerender step (spa.enabled forces it on) spins up this

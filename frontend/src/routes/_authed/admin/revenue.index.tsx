@@ -46,13 +46,13 @@ function RevenuePage() {
   const costTracked = all.filter((s) => s.costUsdPerMonth !== null)
   const totalCostUsd = costTracked.reduce(
     (sum, s) => sum + (s.costUsdPerMonth ?? 0),
-    0,
+    0
   )
   const totalRevenueMmk = all.reduce((sum, s) => sum + s.monthlyRevenueMmk, 0)
   const { costMmk: totalCostMmk, profitMmk: totalProfitMmk } = costProfitMmk(
     totalCostUsd,
     totalRevenueMmk,
-    mmkPerUsd,
+    mmkPerUsd
   )
   const totalActiveKeys = all.reduce((sum, s) => sum + s.activeKeys, 0)
   const totalUnpriced = all.reduce((sum, s) => sum + s.unpricedActiveKeys, 0)
@@ -92,7 +92,7 @@ function RevenuePage() {
             const { costMmk, profitMmk } = costProfitMmk(
               server.costUsdPerMonth,
               server.monthlyRevenueMmk,
-              mmkPerUsd,
+              mmkPerUsd
             )
             return (
               <TableRow key={server.id}>
@@ -131,13 +131,13 @@ function RevenuePage() {
                 <TableCell className="text-right font-mono tabular-nums">
                   {mmk(server.monthlyRevenueMmk)}
                 </TableCell>
-                <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                <TableCell className="text-right font-mono text-muted-foreground tabular-nums">
                   {server.costUsdPerMonth === null ? "—" : mmk(costMmk)}
                 </TableCell>
                 <TableCell
                   className={cn(
                     "text-right font-mono tabular-nums",
-                    profitMmk < 0 && "text-destructive",
+                    profitMmk < 0 && "text-destructive"
                   )}
                 >
                   {mmk(profitMmk)}
@@ -158,7 +158,7 @@ function RevenuePage() {
             <TableCell
               className={cn(
                 "text-right font-mono tabular-nums",
-                totalProfitMmk < 0 && "text-destructive",
+                totalProfitMmk < 0 && "text-destructive"
               )}
             >
               {mmk(totalProfitMmk)}
@@ -177,8 +177,8 @@ function RevenuePage() {
         <p className="mt-1 text-sm text-muted-foreground">
           Revenue is what each server's active keys are priced at (set per
           server, overridable per key — see a server's "Price per key" or a
-          key's own "Price"). Cost is hosting expense entered separately in
-          USD. Profit is revenue minus cost, both converted to MMK.
+          key's own "Price"). Cost is hosting expense entered separately in USD.
+          Profit is revenue minus cost, both converted to MMK.
         </p>
       </div>
 
@@ -191,8 +191,8 @@ function RevenuePage() {
           </AlertTitle>
           <AlertDescription>
             Counted as 0 MMK below — revenue and profit are understated until
-            these are priced. Set a default price on their server, or price
-            them individually from the keys table.
+            these are priced. Set a default price on their server, or price them
+            individually from the keys table.
           </AlertDescription>
         </Alert>
       )}
@@ -219,7 +219,9 @@ function RevenuePage() {
             label="Monthly profit"
             value={mmk(totalProfitMmk)}
             note={
-              totalProfitMmk >= 0 ? "Revenue exceeds cost" : "Cost exceeds revenue"
+              totalProfitMmk >= 0
+                ? "Revenue exceeds cost"
+                : "Cost exceeds revenue"
             }
           />
           <StatCard
@@ -248,8 +250,8 @@ function RevenuePage() {
           <CardDescription>
             Revenue sums each active key's price (its own, or the server's
             default). Cost is the hosting expense entered on the server.
-            Converted to MMK at {mmkPerUsd.toLocaleString("en-US")} MMK per
-            $1 (editable in Settings).
+            Converted to MMK at {mmkPerUsd.toLocaleString("en-US")} MMK per $1
+            (editable in Settings).
           </CardDescription>
         </CardHeader>
         <CardContent>{tableContent}</CardContent>

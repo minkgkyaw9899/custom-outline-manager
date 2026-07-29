@@ -99,11 +99,13 @@ function SettingsPage() {
       >
         <Card>
           <CardHeader>
-            <CardTitle className="font-heading text-lg">Exchange rate</CardTitle>
+            <CardTitle className="font-heading text-lg">
+              Exchange rate
+            </CardTitle>
             <CardDescription>
-              Converts a server's USD hosting cost into MMK for the Revenue
-              and Overview pages' profit math. Update this when the real
-              exchange rate moves — nothing here drifts automatically.
+              Converts a server's USD hosting cost into MMK for the Revenue and
+              Overview pages' profit math. Update this when the real exchange
+              rate moves — nothing here drifts automatically.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -137,9 +139,9 @@ function SettingsPage() {
               Payment instructions
             </CardTitle>
             <CardDescription>
-              Shown to customers on the public order page. Payment is manual —
-              a customer transfers directly to this number and an admin
-              confirms it; there is no payment-gateway integration.
+              Shown to customers on the public order page. Payment is manual — a
+              customer transfers directly to this number and an admin confirms
+              it; there is no payment-gateway integration.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
@@ -164,11 +166,17 @@ function SettingsPage() {
               </FieldLabel>
               <div className="flex flex-wrap gap-2">
                 {wallets.map((wallet) => (
-                  <Badge key={wallet} variant="secondary" className="h-7 gap-1.5 px-2.5">
+                  <Badge
+                    key={wallet}
+                    variant="secondary"
+                    className="h-7 gap-1.5 px-2.5"
+                  >
                     {wallet}
                     <button
                       type="button"
-                      onClick={() => setWallets(wallets.filter((w) => w !== wallet))}
+                      onClick={() =>
+                        setWallets(wallets.filter((w) => w !== wallet))
+                      }
                       aria-label={`Remove ${wallet}`}
                       className="rounded-full text-muted-foreground hover:text-foreground"
                     >

@@ -12,7 +12,11 @@ describe("key connection status", () => {
 
   it("labels an idle key rather than saying nothing", () => {
     render(
-      <KeyConnectionStatus name="Zaw Lin Shein" outlineKeyId="2" isOnline={false} />,
+      <KeyConnectionStatus
+        name="Zaw Lin Shein"
+        outlineKeyId="2"
+        isOnline={false}
+      />
     )
     expect(screen.getByText("Not connected")).toBeTruthy()
     expect(screen.queryByText("Connected now")).toBeNull()

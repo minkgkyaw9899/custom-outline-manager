@@ -47,7 +47,9 @@ export function UserShareDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-heading">Share {displayName}</DialogTitle>
+            <DialogTitle className="font-heading">
+              Share {displayName}
+            </DialogTitle>
           </DialogHeader>
 
           {isLoading ? (
@@ -70,7 +72,7 @@ export function UserShareDialog({
                   <span
                     className={cn(
                       "size-1.5 shrink-0 rounded-full",
-                      share.passcodeSet ? "bg-primary" : "bg-muted-foreground",
+                      share.passcodeSet ? "bg-primary" : "bg-muted-foreground"
                     )}
                   />
                   {share.passcodeSet ? "Active" : "Waiting for setup"}

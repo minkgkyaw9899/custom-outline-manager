@@ -5,7 +5,10 @@ import { toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-export function CopyButton({ value, className }: Readonly<{ value: string; className?: string }>) {
+export function CopyButton({
+  value,
+  className,
+}: Readonly<{ value: string; className?: string }>) {
   const [copied, setCopied] = useState(false)
 
   return (
@@ -24,7 +27,11 @@ export function CopyButton({ value, className }: Readonly<{ value: string; class
         }
       }}
     >
-      {copied ? <CheckIcon className="size-3.5" /> : <CopyIcon className="size-3.5" />}
+      {copied ? (
+        <CheckIcon className="size-3.5" />
+      ) : (
+        <CopyIcon className="size-3.5" />
+      )}
       <span className="sr-only">Copy</span>
     </Button>
   )

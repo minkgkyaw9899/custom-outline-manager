@@ -2,7 +2,11 @@ import { useMemo } from "react"
 import { Cell, Pie, PieChart } from "recharts"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
 import { ChartLegendDot } from "@/components/dashboard/chart-legend-dot"
 import { formatBytesCompact } from "@/lib/format"
@@ -30,7 +34,12 @@ export function KeyUsageDonut({
     const remaining = Math.max(customLimitBytes - usedBytes, 0)
     return [
       { key: "used", label: "Used", bytes: used, fill: "var(--color-used)" },
-      { key: "remaining", label: "Remaining", bytes: remaining, fill: "var(--color-remaining)" },
+      {
+        key: "remaining",
+        label: "Remaining",
+        bytes: remaining,
+        fill: "var(--color-remaining)",
+      },
     ]
   }, [usedBytes, customLimitBytes])
 
@@ -52,7 +61,10 @@ export function KeyUsageDonut({
         ) : (
           <>
             <div className="relative">
-              <ChartContainer config={chartConfig} className="mx-auto aspect-square h-48">
+              <ChartContainer
+                config={chartConfig}
+                className="mx-auto aspect-square h-48"
+              >
                 <PieChart>
                   <ChartTooltip
                     content={
@@ -63,13 +75,17 @@ export function KeyUsageDonut({
                             <span
                               aria-hidden
                               className="size-2.5 shrink-0 rounded-[2px]"
-                              style={{ backgroundColor: String(item.payload?.fill) }}
+                              style={{
+                                backgroundColor: String(item.payload?.fill),
+                              }}
                             />
                             <span className="text-muted-foreground">
                               {item.payload?.label}
                             </span>
                             <span className="ml-auto font-mono tabular-nums">
-                              {formatBytesCompact(Number(value), { decimals: 1 })}
+                              {formatBytesCompact(Number(value), {
+                                decimals: 1,
+                              })}
                             </span>
                           </span>
                         )}
@@ -92,7 +108,9 @@ export function KeyUsageDonut({
                 </PieChart>
               </ChartContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                <span className="font-heading text-2xl font-bold tabular-nums">{pct}%</span>
+                <span className="font-heading text-2xl font-bold tabular-nums">
+                  {pct}%
+                </span>
                 <span className="text-xs text-muted-foreground">used</span>
               </div>
             </div>

@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils"
  * (resolveKeyName in its www/app.ts).
  */
 export function keyDisplayName(
-  key: Readonly<{ name: string; outlineKeyId: string }>,
+  key: Readonly<{ name: string; outlineKeyId: string }>
 ): string {
   return key.name.trim() || `Key ${key.outlineKeyId}`
 }
@@ -32,7 +32,7 @@ export function keyDisplayName(
  * the bare URL — otherwise the name is lost the moment it's pasted elsewhere.
  */
 export function keyAccessUrlWithName(
-  key: Readonly<{ name: string; outlineKeyId: string; accessUrl: string }>,
+  key: Readonly<{ name: string; outlineKeyId: string; accessUrl: string }>
 ): string {
   const [base] = key.accessUrl.split("#")
   return `${base}#${encodeURIComponent(keyDisplayName(key))}`
@@ -51,7 +51,7 @@ export function keyShareUrl(
     outlineKeyId: string
     accessUrl: string
     dynamicAccessUrl: string
-  }>,
+  }>
 ): string {
   return key.dynamicAccessUrl || keyAccessUrlWithName(key)
 }
@@ -108,14 +108,14 @@ export function OnlineKeysBadge({
     <span
       className={cn(
         "inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground",
-        className,
+        className
       )}
     >
       <span
         aria-hidden
         className={cn(
           "size-1.5 shrink-0 rounded-full",
-          onlineKeys > 0 ? "bg-chart-1" : "bg-muted-foreground",
+          onlineKeys > 0 ? "bg-chart-1" : "bg-muted-foreground"
         )}
       />
       {onlineKeys} connected now

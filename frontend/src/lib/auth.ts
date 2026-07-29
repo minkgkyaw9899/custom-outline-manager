@@ -1,4 +1,9 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import {
+  queryOptions,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
 import { apiClient } from "./api"
 import type { AdminUser, RequestOtpResponse, VerifyOtpResponse } from "./types"
 
@@ -25,7 +30,7 @@ export function useRequestOtp() {
       apiClient.post<RequestOtpResponse>(
         "auth/request-otp",
         { email },
-        { silentToast: true },
+        { silentToast: true }
       ),
   })
 }

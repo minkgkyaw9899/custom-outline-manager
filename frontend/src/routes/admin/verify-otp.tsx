@@ -93,7 +93,7 @@ function VerifyOtpPage() {
         type="button"
         variant="ghost"
         size="sm"
-        className="-ml-3 mb-5"
+        className="mb-5 -ml-3"
         onClick={() => navigate({ to: "/admin/login" })}
       >
         <ArrowLeftIcon data-icon="inline-start" />

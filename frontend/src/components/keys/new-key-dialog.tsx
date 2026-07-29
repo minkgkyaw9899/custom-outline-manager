@@ -13,7 +13,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import {
   InputGroup,
@@ -83,9 +88,9 @@ export function NewKeyDialog({
           <DialogHeader>
             <DialogTitle className="font-heading">New access key</DialogTitle>
             <DialogDescription>
-              The key is created on the Outline server straight away, on a plan of at
-              least {MIN_PLAN_GB} GB for {MIN_PLAN_DAYS} days. When the expiry passes
-              the key is switched off until it is extended.
+              The key is created on the Outline server straight away, on a plan
+              of at least {MIN_PLAN_GB} GB for {MIN_PLAN_DAYS} days. When the
+              expiry passes the key is switched off until it is extended.
             </DialogDescription>
           </DialogHeader>
 
@@ -137,7 +142,8 @@ export function NewKeyDialog({
               </InputGroup>
               {(errors.add_gb || gb < MIN_PLAN_GB) && (
                 <FieldDescription>
-                  {errors.add_gb ?? `A key starts at ${MIN_PLAN_GB} GB or more.`}
+                  {errors.add_gb ??
+                    `A key starts at ${MIN_PLAN_GB} GB or more.`}
                 </FieldDescription>
               )}
             </Field>
@@ -161,7 +167,8 @@ export function NewKeyDialog({
               </InputGroup>
               {(errors.add_days || addDays < MIN_PLAN_DAYS) && (
                 <FieldDescription>
-                  {errors.add_days ?? `A key runs for ${MIN_PLAN_DAYS} days or more.`}
+                  {errors.add_days ??
+                    `A key runs for ${MIN_PLAN_DAYS} days or more.`}
                 </FieldDescription>
               )}
             </Field>
@@ -170,7 +177,11 @@ export function NewKeyDialog({
           <DialogFooter>
             <DialogClose
               render={
-                <Button type="button" variant="outline" disabled={createKey.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={createKey.isPending}
+                >
                   Cancel
                 </Button>
               }

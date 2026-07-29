@@ -28,7 +28,11 @@ function LoginPage() {
   // Already signed in? Nothing to log in for — go straight to the key.
   useEffect(() => {
     if (getStoredShareToken(slug)) {
-      navigate({ to: "/users/keys-status/$slug", params: { slug }, replace: true })
+      navigate({
+        to: "/users/keys-status/$slug",
+        params: { slug },
+        replace: true,
+      })
     }
   }, [slug, navigate])
 

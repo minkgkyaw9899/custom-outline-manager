@@ -37,7 +37,7 @@ export function AsShareList({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {!hideCaption && (
-        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
           Top ASes
         </span>
       )}

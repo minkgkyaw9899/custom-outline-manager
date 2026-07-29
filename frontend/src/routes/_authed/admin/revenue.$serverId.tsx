@@ -40,14 +40,21 @@ export const Route = createFileRoute("/_authed/admin/revenue/$serverId")({
 
 const monthLabel = (key: string) => {
   const [year, month] = key.split("-")
-  return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString(undefined, {
-    month: "long",
-    year: "numeric",
-  })
+  return new Date(Number(year), Number(month) - 1, 1).toLocaleDateString(
+    undefined,
+    {
+      month: "long",
+      year: "numeric",
+    }
+  )
 }
 
-function payingKeysNote(server: { unpricedActiveKeys: number; freeActiveKeys: number }): string {
-  if (server.unpricedActiveKeys > 0) return `${server.unpricedActiveKeys} unpriced`
+function payingKeysNote(server: {
+  unpricedActiveKeys: number
+  freeActiveKeys: number
+}): string {
+  if (server.unpricedActiveKeys > 0)
+    return `${server.unpricedActiveKeys} unpriced`
   if (server.freeActiveKeys > 0) return `${server.freeActiveKeys} free`
   return "All priced"
 }
@@ -69,7 +76,7 @@ function ServerRevenueDetailPage() {
   const server = servers?.find((s) => s.id === serverId)
   const breakdown = useMemo(
     () => monthlyBreakdown(server?.revenueDailySeries ?? []),
-    [server],
+    [server]
   )
 
   if (isLoading) {
@@ -103,7 +110,8 @@ function ServerRevenueDetailPage() {
             </EmptyMedia>
             <EmptyTitle>Server not found</EmptyTitle>
             <EmptyDescription>
-              It may have been removed. Go back to Revenue and pick another server.
+              It may have been removed. Go back to Revenue and pick another
+              server.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -114,7 +122,7 @@ function ServerRevenueDetailPage() {
   const { costMmk, profitMmk } = costProfitMmk(
     server.costUsdPerMonth,
     server.monthlyRevenueMmk,
-    mmkPerUsd,
+    mmkPerUsd
   )
   const payingKeys = server.activeKeys - server.freeActiveKeys
 
@@ -134,7 +142,8 @@ function ServerRevenueDetailPage() {
         </div>
         <p className="text-sm text-muted-foreground">
           {server.hostname}
-          {server.costUsdPerMonth !== null && ` · $${server.costUsdPerMonth}/mo`}
+          {server.costUsdPerMonth !== null &&
+            ` · $${server.costUsdPerMonth}/mo`}
         </p>
       </div>
 
@@ -147,12 +156,18 @@ function ServerRevenueDetailPage() {
         <StatCard
           label="Monthly hosting cost"
           value={mmk(costMmk)}
-          note={server.costUsdPerMonth === null ? "Not recorded" : usd(server.costUsdPerMonth)}
+          note={
+            server.costUsdPerMonth === null
+              ? "Not recorded"
+              : usd(server.costUsdPerMonth)
+          }
         />
         <StatCard
           label="Monthly profit"
           value={mmk(profitMmk)}
-          note={profitMmk >= 0 ? "Revenue exceeds cost" : "Cost exceeds revenue"}
+          note={
+            profitMmk >= 0 ? "Revenue exceeds cost" : "Cost exceeds revenue"
+          }
         />
         <StatCard
           label="Paying keys"
@@ -169,15 +184,19 @@ function ServerRevenueDetailPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-heading text-lg">Monthly breakdown</CardTitle>
+          <CardTitle className="font-heading text-lg">
+            Monthly breakdown
+          </CardTitle>
           <CardDescription>
-            This server's revenue, cost and profit at the end of each month, newest first.
+            This server's revenue, cost and profit at the end of each month,
+            newest first.
           </CardDescription>
         </CardHeader>
         <CardContent>
           {breakdown.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              No revenue history yet — it builds up one reading per cron tick from here on.
+              No revenue history yet — it builds up one reading per cron tick
+              from here on.
             </p>
           ) : (
             <Table>
@@ -192,11 +211,8 @@ function ServerRevenueDetailPage() {
               </TableHeader>
               <TableBody>
                 {breakdown.map((p) => {
-                  const { costMmk: rowCostMmk, profitMmk: rowProfitMmk } = costProfitMmk(
-                    p.costUsdPerMonth,
-                    p.revenueMmk,
-                    mmkPerUsd,
-                  )
+                  const { costMmk: rowCostMmk, profitMmk: rowProfitMmk } =
+                    costProfitMmk(p.costUsdPerMonth, p.revenueMmk, mmkPerUsd)
                   return (
                     <TableRow key={p.date}>
                       <TableCell>{monthLabel(p.date)}</TableCell>
@@ -211,13 +227,13 @@ function ServerRevenueDetailPage() {
                       <TableCell className="text-right font-mono tabular-nums">
                         {mmk(p.revenueMmk)}
                       </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                      <TableCell className="text-right font-mono text-muted-foreground tabular-nums">
                         {p.costUsdPerMonth === null ? "—" : mmk(rowCostMmk)}
                       </TableCell>
                       <TableCell
                         className={cn(
                           "text-right font-mono tabular-nums",
-                          rowProfitMmk < 0 && "text-destructive",
+                          rowProfitMmk < 0 && "text-destructive"
                         )}
                       >
                         {mmk(rowProfitMmk)}

@@ -5,10 +5,9 @@ import {
   getCoreRowModel,
   getPaginationRowModel,
   getSortedRowModel,
-  useReactTable
-  
+  useReactTable,
 } from "@tanstack/react-table"
-import type {SortingState} from "@tanstack/react-table";
+import type { SortingState } from "@tanstack/react-table"
 
 import { SortableHead } from "@/components/common/data-table-header"
 import {
@@ -80,7 +79,7 @@ export function AsTable({
         ),
       }),
     ],
-    [],
+    []
   )
 
   const table = useReactTable({
@@ -130,7 +129,10 @@ export function AsTable({
                   <TableRow key={row.id}>
                     {row.getVisibleCells().map((cell) => (
                       <TableCell key={cell.id}>
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
                       </TableCell>
                     ))}
                   </TableRow>

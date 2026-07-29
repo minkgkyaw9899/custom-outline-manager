@@ -42,7 +42,9 @@ import type { UserWithKeys } from "@/lib/types"
  * backend: a key that can't be created rolls the user back too, rather than
  * leaving a half-registered person behind.
  */
-export function NewUserDialog({ children }: Readonly<{ children: React.ReactNode }>) {
+export function NewUserDialog({
+  children,
+}: Readonly<{ children: React.ReactNode }>) {
   const [open, setOpen] = useState(false)
   const [name, setName] = useState("")
   const [note, setNote] = useState("")
@@ -70,7 +72,9 @@ export function NewUserDialog({ children }: Readonly<{ children: React.ReactNode
       return apiClient.post<UserWithKeys>("users", {
         name: name.trim(),
         note: note.trim(),
-        ...(withKey ? { ...source, ...(newKeyName ? { keyName: newKeyName } : {}) } : {}),
+        ...(withKey
+          ? { ...source, ...(newKeyName ? { keyName: newKeyName } : {}) }
+          : {}),
       })
     },
     onSuccess: () => {
@@ -134,7 +138,9 @@ export function NewUserDialog({ children }: Readonly<{ children: React.ReactNode
                 aria-invalid={!!errors.note || undefined}
                 onChange={(e) => setNote(e.target.value)}
               />
-              {errors.note && <FieldDescription>{errors.note}</FieldDescription>}
+              {errors.note && (
+                <FieldDescription>{errors.note}</FieldDescription>
+              )}
             </Field>
 
             <FieldSet>
@@ -152,7 +158,9 @@ export function NewUserDialog({ children }: Readonly<{ children: React.ReactNode
                   value={keySource}
                   onChange={setKeySource}
                   errors={errors}
-                  keyNamePlaceholder={name.trim() || "Defaults to the user's name"}
+                  keyNamePlaceholder={
+                    name.trim() || "Defaults to the user's name"
+                  }
                   overridePlanOnClaim
                 />
               ) : (
@@ -167,7 +175,11 @@ export function NewUserDialog({ children }: Readonly<{ children: React.ReactNode
           <DialogFooter>
             <DialogClose
               render={
-                <Button type="button" variant="outline" disabled={createUser.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={createUser.isPending}
+                >
                   Cancel
                 </Button>
               }

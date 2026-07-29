@@ -1,5 +1,14 @@
 import { useMemo } from "react"
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, XAxis, YAxis } from "recharts"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
+} from "recharts"
 
 import {
   Card,
@@ -8,7 +17,11 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
 import { ChartLegendDot } from "@/components/dashboard/chart-legend-dot"
 import { formatBytesCompact } from "@/lib/format"
@@ -48,7 +61,7 @@ export function AsUsageCharts({
           sharePct: as.sharePct,
           fill: AS_COLORS[i % AS_COLORS.length],
         })),
-    [ases],
+    [ases]
   )
 
   if (ases.length === 0) {
@@ -58,20 +71,28 @@ export function AsUsageCharts({
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-heading text-lg">AS traffic breakdown</CardTitle>
+        <CardTitle className="font-heading text-lg">
+          AS traffic breakdown
+        </CardTitle>
         <CardDescription>
           Bandwidth by autonomous system, last {windowLabel}
         </CardDescription>
       </CardHeader>
       <CardContent className="grid gap-4 lg:grid-cols-2">
         <ChartContainer config={chartConfig} className="h-64 w-full">
-          <BarChart data={top} layout="vertical" margin={{ left: 8, right: 16 }}>
+          <BarChart
+            data={top}
+            layout="vertical"
+            margin={{ left: 8, right: 16 }}
+          >
             <CartesianGrid horizontal={false} strokeDasharray="3 3" />
             <XAxis
               type="number"
               tickLine={false}
               axisLine={false}
-              tickFormatter={(v: number) => (v === 0 ? "0" : formatBytesCompact(v))}
+              tickFormatter={(v: number) =>
+                v === 0 ? "0" : formatBytesCompact(v)
+              }
             />
             <YAxis
               type="category"
@@ -111,7 +132,10 @@ export function AsUsageCharts({
         </ChartContainer>
 
         <div className="flex flex-col items-center gap-3">
-          <ChartContainer config={chartConfig} className="mx-auto aspect-square h-56">
+          <ChartContainer
+            config={chartConfig}
+            className="mx-auto aspect-square h-56"
+          >
             <PieChart>
               <ChartTooltip
                 content={
@@ -122,7 +146,9 @@ export function AsUsageCharts({
                         <span
                           aria-hidden
                           className="size-2.5 shrink-0 rounded-[2px]"
-                          style={{ backgroundColor: String(item.payload?.fill) }}
+                          style={{
+                            backgroundColor: String(item.payload?.fill),
+                          }}
                         />
                         <span className="text-muted-foreground">
                           {item.payload?.asOrg}
@@ -152,7 +178,11 @@ export function AsUsageCharts({
           </ChartContainer>
           <div className="flex flex-wrap justify-center gap-x-4 gap-y-1.5">
             {top.map((entry) => (
-              <ChartLegendDot key={entry.asOrg} color={entry.fill} label={entry.asOrg} />
+              <ChartLegendDot
+                key={entry.asOrg}
+                color={entry.fill}
+                label={entry.asOrg}
+              />
             ))}
           </div>
         </div>

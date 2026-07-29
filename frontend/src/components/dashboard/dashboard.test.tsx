@@ -74,15 +74,15 @@ describe("dashboard overview cards", () => {
     const servers = [mockServer()]
     render(<BandwidthConsumptionCard servers={servers} />)
     expect(screen.getByText("Bandwidth consumption")).toBeTruthy()
-    expect(screen.getByText(/Per-server bandwidth · Frankfurt-01 · daily/)).toBeTruthy()
+    expect(
+      screen.getByText(/Per-server bandwidth · Frankfurt-01 · daily/)
+    ).toBeTruthy()
   })
 
   it("shows an empty state when a server has no sync history yet", () => {
     const servers = [mockServer({ dailySeries: [] })]
     render(<BandwidthConsumptionCard servers={servers} />)
-    expect(
-      screen.getByText(/No traffic history yet/),
-    ).toBeTruthy()
+    expect(screen.getByText(/No traffic history yet/)).toBeTruthy()
   })
 
   it("renders the compare card with both server series", () => {
@@ -93,14 +93,19 @@ describe("dashboard overview cards", () => {
     render(<CompareServersCard servers={servers} />)
     expect(screen.getByText("Compare server bandwidth")).toBeTruthy()
     expect(
-      screen.getByText(/Frankfurt-01 vs Singapore-02 · total bandwidth per day/),
+      screen.getByText(/Frankfurt-01 vs Singapore-02 · total bandwidth per day/)
     ).toBeTruthy()
   })
 
   it("lists keys needing attention, filtering out healthy keys", () => {
     const keys = [
       mockKey({ id: "key-1", name: "Ko Ko", status: "expired", daysLeft: -1 }),
-      mockKey({ id: "key-2", name: "Zaw", status: "limit_exceeded", daysLeft: null }),
+      mockKey({
+        id: "key-2",
+        name: "Zaw",
+        status: "limit_exceeded",
+        daysLeft: null,
+      }),
       mockKey({
         id: "key-3",
         name: "Nyein",
@@ -120,7 +125,13 @@ describe("dashboard overview cards", () => {
 
   it("renders fleet health with per-server status and key counts", () => {
     const servers = [
-      mockServer({ id: "server-1", name: "Frankfurt-01", health: "degraded", activeKeys: 8, keyCount: 10 }),
+      mockServer({
+        id: "server-1",
+        name: "Frankfurt-01",
+        health: "degraded",
+        activeKeys: 8,
+        keyCount: 10,
+      }),
     ]
     render(<FleetHealthCard servers={servers} />)
     expect(screen.getByText("Fleet health")).toBeTruthy()

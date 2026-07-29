@@ -25,7 +25,7 @@ export function formatBytes(bytes: number | null | undefined): string {
  */
 export function formatBytesCompact(
   bytes: number | null | undefined,
-  options?: { decimals?: number },
+  options?: { decimals?: number }
 ): string {
   if (bytes === null || bytes === undefined) return "—"
 
@@ -50,7 +50,7 @@ export function formatBytesCompact(
  */
 export function formatUsagePair(
   usedBytes: number,
-  limitBytes: number | null,
+  limitBytes: number | null
 ): string {
   if (limitBytes === null) return formatBytesCompact(usedBytes, { decimals: 1 })
 
@@ -73,7 +73,9 @@ export function formatUsagePair(
  * in bytes per second — not a total, so this must never be formatted with
  * formatBytes.
  */
-export function formatBandwidth(bytesPerSecond: number | null | undefined): string {
+export function formatBandwidth(
+  bytesPerSecond: number | null | undefined
+): string {
   if (bytesPerSecond === null || bytesPerSecond === undefined) return "—"
   if (bytesPerSecond >= 1e9) return `${(bytesPerSecond / 1e9).toFixed(1)} GB/s`
   if (bytesPerSecond >= 1e6) return `${(bytesPerSecond / 1e6).toFixed(1)} MB/s`
@@ -134,7 +136,7 @@ export function formatUsd(n: number): string {
 export function costProfitMmk(
   costUsdPerMonth: number | null,
   revenueMmk: number,
-  mmkPerUsd: number,
+  mmkPerUsd: number
 ): { costMmk: number; profitMmk: number } {
   const costMmk = (costUsdPerMonth ?? 0) * mmkPerUsd
   return { costMmk, profitMmk: revenueMmk - costMmk }

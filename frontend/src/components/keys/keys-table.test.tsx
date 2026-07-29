@@ -76,7 +76,7 @@ async function renderTable(keys: Key[]) {
   const result = render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
   // The router mounts its route asynchronously; without this every query below
   // would run against an empty document.
@@ -143,7 +143,9 @@ describe("keys table", () => {
   it("shows an empty state with a way out when the server has no keys", async () => {
     await renderTable([])
     expect(screen.getByText("No access keys yet")).toBeTruthy()
-    expect(screen.getAllByRole("button", { name: /New key/i }).length).toBeGreaterThan(0)
+    expect(
+      screen.getAllByRole("button", { name: /New key/i }).length
+    ).toBeGreaterThan(0)
   })
 
   // Every row is a way into the key's own screen — by click anywhere on it, and
@@ -176,7 +178,9 @@ describe("keys table", () => {
   // An unmetered key has no bar to draw: a full track would read as "no quota
   // left" rather than "no quota set".
   it("labels a key with no data limit instead of drawing a full bar", async () => {
-    await renderTable([makeKey(1, { customLimitBytes: null, remainingBytes: null })])
+    await renderTable([
+      makeKey(1, { customLimitBytes: null, remainingBytes: null }),
+    ])
     expect(screen.getByText("No limit")).toBeTruthy()
   })
 })
@@ -232,7 +236,7 @@ describe("edit key dialog", () => {
     expect(screen.getByText("A plan period is at least 200 GB.")).toBeTruthy()
     expect(
       screen.getByRole<HTMLButtonElement>("button", { name: "Save changes" })
-        .disabled,
+        .disabled
     ).toBe(true)
   })
 
@@ -249,14 +253,15 @@ describe("edit key dialog", () => {
     fireEvent.click(screen.getByLabelText("Edit Holder 1"))
     fireEvent.click(await screen.findByRole("button", { name: "Set exact" }))
 
-    const total = await screen.findByLabelText<HTMLInputElement>("Total data limit")
+    const total =
+      await screen.findByLabelText<HTMLInputElement>("Total data limit")
     expect(total.value).toBe("206.9")
 
     fireEvent.change(total, { target: { value: "200" } })
     expect(screen.getByText(/193.1 GB left/)).toBeTruthy()
     expect(
       screen.getByRole<HTMLButtonElement>("button", { name: "Save changes" })
-        .disabled,
+        .disabled
     ).toBe(false)
   })
 
@@ -290,7 +295,7 @@ describe("new key dialog", () => {
     expect(screen.getByText("A key runs for 30 days or more.")).toBeTruthy()
     expect(
       screen.getByRole<HTMLButtonElement>("button", { name: "Create key" })
-        .disabled,
+        .disabled
     ).toBe(true)
   })
 })

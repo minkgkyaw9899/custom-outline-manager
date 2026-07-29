@@ -31,11 +31,20 @@ const LABEL: Record<string, string> = {
   rejected: "Rejected",
 }
 
-export function StatusBadge({ status, className }: { status: string; className?: string }) {
+export function StatusBadge({
+  status,
+  className,
+}: {
+  status: string
+  className?: string
+}) {
   return (
     <Badge variant="outline" className={cn("gap-1.5", className)}>
       <span
-        className={cn("size-1.5 shrink-0 rounded-full", DOT_COLOR[status] ?? "bg-muted-foreground")}
+        className={cn(
+          "size-1.5 shrink-0 rounded-full",
+          DOT_COLOR[status] ?? "bg-muted-foreground"
+        )}
       />
       {LABEL[status] ?? status}
     </Badge>

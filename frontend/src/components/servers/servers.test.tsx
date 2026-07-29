@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { RouterProvider, createMemoryHistory, createRootRoute, createRoute, createRouter } from "@tanstack/react-router"
+import {
+  RouterProvider,
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router"
 
 import { AddServerDialog } from "./add-server-dialog"
 import { AsShareList } from "./as-share-list"
@@ -91,7 +97,7 @@ function renderCard(server: ServerWithUsage) {
   return render(
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
-    </QueryClientProvider>,
+    </QueryClientProvider>
   )
 }
 
@@ -105,9 +111,7 @@ describe("server card", () => {
     renderCard(makeServer())
     expect(await screen.findByText("LSD 1 Yamin")).toBeTruthy()
     expect(screen.getByText("Healthy")).toBeTruthy()
-    expect(
-      screen.getByText("vpn-test-1.example.com · $7/mo"),
-    ).toBeTruthy()
+    expect(screen.getByText("vpn-test-1.example.com · $7/mo")).toBeTruthy()
   })
 
   // Outline exposes no inbound/outbound split, so the two slots the design drew
@@ -148,9 +152,7 @@ describe("server card", () => {
 
   it("omits the cost segment when no cost is recorded", async () => {
     renderCard(makeServer({ costUsdPerMonth: null }))
-    expect(
-      await screen.findByText("vpn-test-1.example.com"),
-    ).toBeTruthy()
+    expect(await screen.findByText("vpn-test-1.example.com")).toBeTruthy()
   })
 
   it("shows key counts, peak devices, tunnel time and the AS count", async () => {
@@ -165,11 +167,15 @@ describe("server card", () => {
 
   it("asks for confirmation before removing a server, and says what survives", async () => {
     renderCard(makeServer())
-    fireEvent.click(await screen.findByRole("button", { name: "Remove LSD 1 Yamin" }))
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Remove LSD 1 Yamin" })
+    )
 
     expect(await screen.findByText("Remove LSD 1 Yamin?")).toBeTruthy()
     // Deleting our record must not imply tearing down the Outline server.
-    expect(screen.getByText(/The Outline server itself keeps running/)).toBeTruthy()
+    expect(
+      screen.getByText(/The Outline server itself keeps running/)
+    ).toBeTruthy()
     expect(screen.getByRole("button", { name: "Remove server" })).toBeTruthy()
   })
 })
@@ -184,7 +190,7 @@ describe("add server dialog", () => {
         <AddServerDialog>
           <Button>Add server</Button>
         </AddServerDialog>
-      </QueryClientProvider>,
+      </QueryClientProvider>
     )
     fireEvent.click(screen.getByRole("button", { name: "Add server" }))
   }
@@ -219,8 +225,16 @@ describe("add server dialog", () => {
 
 describe("edit server dialog", () => {
   function makeDetail(overrides: Partial<ServerDetail> = {}): ServerDetail {
-    const { hostname, health, keyCount, activeKeys, totalUsedBytes, metrics, dailySeries, ...server } =
-      makeServer()
+    const {
+      hostname,
+      health,
+      keyCount,
+      activeKeys,
+      totalUsedBytes,
+      metrics,
+      dailySeries,
+      ...server
+    } = makeServer()
     return {
       server,
       hostname,
@@ -250,7 +264,7 @@ describe("edit server dialog", () => {
           open
           onOpenChange={() => {}}
         />
-      </QueryClientProvider>,
+      </QueryClientProvider>
     )
     return screen.getByLabelText<HTMLInputElement>("Hostname for access keys")
   }
@@ -264,7 +278,7 @@ describe("edit server dialog", () => {
     const field = openDialog(makeDetail())
     expect(field.value).toBe("vpn-test-1.example.com")
     expect(
-      screen.getByText(/prefilled with this server's own domain/),
+      screen.getByText(/prefilled with this server's own domain/)
     ).toBeTruthy()
   })
 
@@ -282,7 +296,7 @@ describe("edit server dialog", () => {
     const field = openDialog(makeDetail({ accessKeyHostname: "49.12.88.4" }))
     expect(field.value).toBe("49.12.88.4")
     expect(screen.queryByText(/prefilled with this server's own domain/)).toBe(
-      null,
+      null
     )
     expect(saveButton().disabled).toBe(true)
   })
@@ -297,6 +311,8 @@ describe("AS share list", () => {
 
   it("explains an empty window rather than rendering nothing", () => {
     render(<AsShareList ases={[]} />)
-    expect(screen.getByText("No AS traffic reported in this window.")).toBeTruthy()
+    expect(
+      screen.getByText("No AS traffic reported in this window.")
+    ).toBeTruthy()
   })
 })

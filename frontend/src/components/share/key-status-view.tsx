@@ -41,9 +41,7 @@ function UsageBar({ data }: Readonly<{ data: ShareKeyView }>) {
     )
   }
   const ratio =
-    data.customLimitBytes === 0
-      ? 1
-      : data.usedBytes / data.customLimitBytes
+    data.customLimitBytes === 0 ? 1 : data.usedBytes / data.customLimitBytes
   return (
     <div className="flex flex-col gap-2">
       <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
@@ -69,7 +67,7 @@ function UsageBar({ data }: Readonly<{ data: ShareKeyView }>) {
  * created and last-updated — no port, cipher, server link or Outline key id.
  */
 export function KeyStatusView({ data }: Readonly<{ data: ShareKeyView }>) {
-  const metrics = data.metrics
+  const { metrics } = data
 
   // The link belongs to the holder, not to a key, so it stays valid through a
   // gap where they have none — between one key being removed and the next
@@ -200,7 +198,9 @@ export function KeyStatusView({ data }: Readonly<{ data: ShareKeyView }>) {
                   <ServerStatusBadge status={data.serverHealth} />
                 </DetailRow>
               )}
-              <DetailRow label="Created">{formatDate(data.createdAt)}</DetailRow>
+              <DetailRow label="Created">
+                {formatDate(data.createdAt)}
+              </DetailRow>
               <DetailRow label="Last updated">
                 {formatDate(data.updatedAt)}
               </DetailRow>

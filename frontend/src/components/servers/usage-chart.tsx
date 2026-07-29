@@ -1,6 +1,10 @@
 import { Area, AreaChart, XAxis } from "recharts"
 
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+} from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
 import { formatBytesCompact } from "@/lib/format"
 import type { DailyUsage, UsageGranularity } from "@/lib/types"
@@ -43,7 +47,9 @@ export function UsageChart({
     ...point,
     label:
       granularity === "hour"
-        ? new Date(point.date).toLocaleTimeString(undefined, { hour: "numeric" })
+        ? new Date(point.date).toLocaleTimeString(undefined, {
+            hour: "numeric",
+          })
         : new Date(point.date).toLocaleDateString(undefined, {
             month: "short",
             day: "numeric",
@@ -55,8 +61,16 @@ export function UsageChart({
       <AreaChart data={data} margin={{ left: 0, right: 0, top: 4, bottom: 0 }}>
         <defs>
           <linearGradient id="fillServerUsage" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor="var(--color-bytes)" stopOpacity={0.4} />
-            <stop offset="95%" stopColor="var(--color-bytes)" stopOpacity={0.05} />
+            <stop
+              offset="5%"
+              stopColor="var(--color-bytes)"
+              stopOpacity={0.4}
+            />
+            <stop
+              offset="95%"
+              stopColor="var(--color-bytes)"
+              stopOpacity={0.05}
+            />
           </linearGradient>
         </defs>
         <XAxis dataKey="label" hide />

@@ -39,7 +39,10 @@ export function ServerStatusBadge({
       variant="outline"
       className={cn("gap-1.5 text-xs uppercase", styles.badge, className)}
     >
-      <span aria-hidden className={cn("size-1.5 shrink-0 rounded-full", styles.dot)} />
+      <span
+        aria-hidden
+        className={cn("size-1.5 shrink-0 rounded-full", styles.dot)}
+      />
       {SERVER_STATUS_LABEL[status]}
     </Badge>
   )

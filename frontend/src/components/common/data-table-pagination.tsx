@@ -30,11 +30,12 @@ export function DataTablePagination<TData>({
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <p className="text-sm tabular-nums text-muted-foreground">
-        {firstRow}–{lastRow} of {total} {total === 1 ? unit : (unitPlural ?? `${unit}s`)}
+      <p className="text-sm text-muted-foreground tabular-nums">
+        {firstRow}–{lastRow} of {total}{" "}
+        {total === 1 ? unit : (unitPlural ?? `${unit}s`)}
       </p>
       <div className="flex items-center gap-3">
-        <span className="text-sm tabular-nums text-muted-foreground">
+        <span className="text-sm text-muted-foreground tabular-nums">
           Page {pageIndex + 1} of {Math.max(1, table.getPageCount())}
         </span>
         <div className="flex items-center gap-1.5">

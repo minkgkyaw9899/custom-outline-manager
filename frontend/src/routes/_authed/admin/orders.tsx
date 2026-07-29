@@ -53,7 +53,8 @@ function OrdersPage() {
   const [deleting, setDeleting] = useState<Order | null>(null)
   const [adminNote, setAdminNote] = useState("")
 
-  const invalidate = () => queryClient.invalidateQueries({ queryKey: ["orders"] })
+  const invalidate = () =>
+    queryClient.invalidateQueries({ queryKey: ["orders"] })
 
   const approve = useMutation({
     mutationFn: (order: Order) =>
@@ -117,7 +118,9 @@ function OrdersPage() {
             <TableRow key={order.id}>
               <TableCell>
                 <div className="font-medium">{order.customerName}</div>
-                <div className="text-xs text-muted-foreground">{order.contact}</div>
+                <div className="text-xs text-muted-foreground">
+                  {order.contact}
+                </div>
                 {order.customerNote && (
                   <div className="mt-1 text-xs text-muted-foreground">
                     {order.customerNote}
@@ -136,7 +139,11 @@ function OrdersPage() {
                 <div className="flex justify-end gap-2">
                   {statusFilter === "pending" ? (
                     <>
-                      <Button size="sm" variant="outline" onClick={() => setRejecting(order)}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setRejecting(order)}
+                      >
                         Reject
                       </Button>
                       <Button size="sm" onClick={() => setApproving(order)}>
@@ -172,8 +179,8 @@ function OrdersPage() {
           <p className="text-sm text-muted-foreground">Dashboard / Orders</p>
           <h1 className="font-heading text-2xl font-semibold">Orders</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Self-serve requests submitted from the public order page. Payment
-            is manual — verify it yourself before approving.
+            Self-serve requests submitted from the public order page. Payment is
+            manual — verify it yourself before approving.
           </p>
         </div>
         <ToggleGroup
@@ -182,13 +189,22 @@ function OrdersPage() {
             if (v.length) setStatusFilter(v[0] as OrderStatus)
           }}
         >
-          <ToggleGroupItem value="pending" className="text-sm normal-case tracking-normal">
+          <ToggleGroupItem
+            value="pending"
+            className="text-sm tracking-normal normal-case"
+          >
             Pending
           </ToggleGroupItem>
-          <ToggleGroupItem value="approved" className="text-sm normal-case tracking-normal">
+          <ToggleGroupItem
+            value="approved"
+            className="text-sm tracking-normal normal-case"
+          >
             Approved
           </ToggleGroupItem>
-          <ToggleGroupItem value="rejected" className="text-sm normal-case tracking-normal">
+          <ToggleGroupItem
+            value="rejected"
+            className="text-sm tracking-normal normal-case"
+          >
             Rejected
           </ToggleGroupItem>
         </ToggleGroup>
@@ -229,7 +245,9 @@ function OrdersPage() {
         onConfirm={() => rejecting && reject.mutate(rejecting)}
       >
         <Field>
-          <FieldLabel htmlFor="reject-note">Reason (optional, for your own records)</FieldLabel>
+          <FieldLabel htmlFor="reject-note">
+            Reason (optional, for your own records)
+          </FieldLabel>
           <Textarea
             id="reject-note"
             value={adminNote}

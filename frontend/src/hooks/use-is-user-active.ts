@@ -12,7 +12,9 @@ const DEFAULT_IDLE_AFTER_MS = 5 * 60_000
  * "visible" forever and would poll all night. Gating on real interaction stops
  * that, so an unattended dashboard costs the Outline servers nothing.
  */
-export function useIsUserActive(idleAfterMs: number = DEFAULT_IDLE_AFTER_MS): boolean {
+export function useIsUserActive(
+  idleAfterMs: number = DEFAULT_IDLE_AFTER_MS
+): boolean {
   const [active, setActive] = useState(true)
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 

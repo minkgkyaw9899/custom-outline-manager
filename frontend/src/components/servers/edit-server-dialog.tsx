@@ -83,20 +83,20 @@ export function EditServerDialog({
       setCostUsd(
         detail.server.costUsdPerMonth === null
           ? ""
-          : String(detail.server.costUsdPerMonth),
+          : String(detail.server.costUsdPerMonth)
       )
       setMaxKeys(
-        detail.server.maxKeys === null ? "" : String(detail.server.maxKeys),
+        detail.server.maxKeys === null ? "" : String(detail.server.maxKeys)
       )
       setDefaultPriceMmk(
         detail.server.defaultPriceMmk === null
           ? ""
-          : String(detail.server.defaultPriceMmk),
+          : String(detail.server.defaultPriceMmk)
       )
       setBandwidthLimitGb(
         detail.server.bandwidthLimitBytes === null
           ? ""
-          : String(detail.server.bandwidthLimitBytes / 1_000_000_000),
+          : String(detail.server.bandwidthLimitBytes / 1_000_000_000)
       )
       setHostname(detail.accessKeyHostname || detail.hostname)
       setErrors({})
@@ -126,8 +126,10 @@ export function EditServerDialog({
   const nameChanged = trimmedName !== (detail?.server.name ?? "")
   const costChanged = costUsd.trim() !== currentCost
   const maxKeysChanged = maxKeys.trim() !== currentMaxKeys
-  const defaultPriceMmkChanged = defaultPriceMmk.trim() !== currentDefaultPriceMmk
-  const bandwidthLimitGbChanged = bandwidthLimitGb.trim() !== currentBandwidthLimitGb
+  const defaultPriceMmkChanged =
+    defaultPriceMmk.trim() !== currentDefaultPriceMmk
+  const bandwidthLimitGbChanged =
+    bandwidthLimitGb.trim() !== currentBandwidthLimitGb
   // Compared against what Outline actually stamps today, never against the
   // API-URL fallback — that is what makes an auto-bound domain count as a
   // change and get pushed on Save.
@@ -135,10 +137,16 @@ export function EditServerDialog({
   // No key carries a host yet, so the field above is showing the auto-bound
   // API-URL domain rather than a value read back off the server.
   const hostnameUnbound =
-    detail !== undefined && detail.accessKeyHostname === "" && detail.hostname !== ""
+    detail !== undefined &&
+    detail.accessKeyHostname === "" &&
+    detail.hostname !== ""
   const nothingToDo =
-    !nameChanged && !costChanged && !maxKeysChanged &&
-    !defaultPriceMmkChanged && !bandwidthLimitGbChanged && !hostnameChanged
+    !nameChanged &&
+    !costChanged &&
+    !maxKeysChanged &&
+    !defaultPriceMmkChanged &&
+    !bandwidthLimitGbChanged &&
+    !hostnameChanged
 
   // "Absent" and "explicitly none" can't both be nil on the wire, so removing a
   // ceiling (or a default price) is its own flag rather than a null value.
@@ -158,13 +166,15 @@ export function EditServerDialog({
     mutationFn: async () => {
       if (isMock) {
         return mockUpdateServerConfig(
-          hostnameChanged ? trimmedHostname : undefined,
+          hostnameChanged ? trimmedHostname : undefined
         )
       }
       return apiClient.patch(`servers/${serverId}/config`, {
         ...(nameChanged ? { name: trimmedName } : {}),
         ...(costChanged ? { costUsdPerMonth: toNullableNumber(costUsd) } : {}),
-        ...(maxKeysChanged && !clearingMaxKeys ? { maxKeys: parsedMaxKeys } : {}),
+        ...(maxKeysChanged && !clearingMaxKeys
+          ? { maxKeys: parsedMaxKeys }
+          : {}),
         ...(clearingMaxKeys ? { clearMaxKeys: true } : {}),
         ...(defaultPriceMmkChanged && !clearingDefaultPriceMmk
           ? { defaultPriceMmk: parsedDefaultPriceMmk }
@@ -218,10 +228,7 @@ export function EditServerDialog({
                   aria-invalid={!!errors.name || undefined}
                   onChange={(e) => setName(e.target.value)}
                 />
-                <FieldDescription>
-                  {errors.name ??
-                    ""}
-                </FieldDescription>
+                <FieldDescription>{errors.name ?? ""}</FieldDescription>
               </Field>
 
               <Field data-invalid={!!errors.costUsdPerMonth || undefined}>
@@ -270,7 +277,9 @@ export function EditServerDialog({
                     inputMode="numeric"
                     placeholder="No limit"
                     value={maxKeys}
-                    aria-invalid={!!errors.maxKeys || belowKeyCount || undefined}
+                    aria-invalid={
+                      !!errors.maxKeys || belowKeyCount || undefined
+                    }
                     onChange={(e) => setMaxKeys(e.target.value)}
                   />
                   <InputGroupAddon align="inline-end">
@@ -365,7 +374,11 @@ export function EditServerDialog({
           <DialogFooter>
             <DialogClose
               render={
-                <Button type="button" variant="outline" disabled={save.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={save.isPending}
+                >
                   Cancel
                 </Button>
               }

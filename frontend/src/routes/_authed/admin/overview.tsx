@@ -33,7 +33,10 @@ function connectedServersNote(degraded: number, offline: number): string {
   return "All healthy"
 }
 
-function bandwidthNote(totalServers: number, serversWithMetrics: number): string {
+function bandwidthNote(
+  totalServers: number,
+  serversWithMetrics: number
+): string {
   if (totalServers === 0) return "No servers yet"
   if (serversWithMetrics === totalServers) {
     return `Across ${totalServers} server${totalServers === 1 ? "" : "s"}`
@@ -51,7 +54,9 @@ function DashboardPage() {
   })
   const { data: stats, isLoading: statsLoading } = useQuery(statsQueryOptions())
   const { data: keys, isLoading: keysLoading } = useQuery(keysQueryOptions())
-  const { data: retention, isLoading: retentionLoading } = useQuery(retentionQueryOptions())
+  const { data: retention, isLoading: retentionLoading } = useQuery(
+    retentionQueryOptions()
+  )
   const mmkPerUsd = useMmkPerUsd()
 
   const all = servers ?? []
@@ -69,14 +74,14 @@ function DashboardPage() {
 
   const totalBandwidthBytes = all.reduce(
     (sum, s) => sum + (s.metrics?.totalBytes ?? 0),
-    0,
+    0
   )
   const serversWithMetrics = all.filter((s) => s.metrics !== null).length
 
   const totalRevenueMmk = all.reduce((sum, s) => sum + s.monthlyRevenueMmk, 0)
   const totalCostMmk = all.reduce(
     (sum, s) => sum + (s.costUsdPerMonth ?? 0) * mmkPerUsd,
-    0,
+    0
   )
   const totalProfitMmk = totalRevenueMmk - totalCostMmk
   const totalUnpriced = all.reduce((sum, s) => sum + s.unpricedActiveKeys, 0)
@@ -127,7 +132,11 @@ function DashboardPage() {
           <StatCard
             label="Monthly profit"
             value={mmk(totalProfitMmk)}
-            note={totalProfitMmk >= 0 ? "Revenue exceeds cost" : "Cost exceeds revenue"}
+            note={
+              totalProfitMmk >= 0
+                ? "Revenue exceeds cost"
+                : "Cost exceeds revenue"
+            }
           />
         </div>
       )}

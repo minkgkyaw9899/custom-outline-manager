@@ -11,7 +11,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field"
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+} from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Spinner } from "@/components/ui/spinner"
 import { Switch } from "@/components/ui/switch"
@@ -124,12 +129,16 @@ export function EditUserDialog({
                 aria-invalid={!!errors.note || undefined}
                 onChange={(e) => setNote(e.target.value)}
               />
-              {errors.note && <FieldDescription>{errors.note}</FieldDescription>}
+              {errors.note && (
+                <FieldDescription>{errors.note}</FieldDescription>
+              )}
             </Field>
 
             <Field orientation="horizontal">
               <div className="flex flex-col gap-1">
-                <FieldLabel htmlFor="edit-user-status">Active holder</FieldLabel>
+                <FieldLabel htmlFor="edit-user-status">
+                  Active holder
+                </FieldLabel>
                 <FieldDescription>
                   A record-keeping flag. Switching it off does not disable their
                   key — set the key's limit or expiry for that.
@@ -146,7 +155,11 @@ export function EditUserDialog({
           <DialogFooter>
             <DialogClose
               render={
-                <Button type="button" variant="outline" disabled={save.isPending}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={save.isPending}
+                >
                   Cancel
                 </Button>
               }

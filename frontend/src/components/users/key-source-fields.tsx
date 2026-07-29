@@ -66,7 +66,7 @@ export function initialKeySource(): KeySourceState {
  */
 export function keySourcePayload(
   state: KeySourceState,
-  options: { includePlan?: boolean } = {},
+  options: { includePlan?: boolean } = {}
 ): Record<string, unknown> {
   if (state.mode === "existing") {
     if (!options.includePlan) return { keyId: state.keyId }
@@ -87,12 +87,14 @@ export function keySourcePayload(
 /** True while the choice can't be submitted yet. */
 export function isKeySourceIncomplete(
   state: KeySourceState,
-  options: { requirePlan?: boolean } = {},
+  options: { requirePlan?: boolean } = {}
 ): boolean {
   if (!state.serverId) return true
   if (state.mode === "existing") {
     if (!state.keyId) return true
-    return options.requirePlan ? isBelowPlanFloor(state.limitGb, state.days) : false
+    return options.requirePlan
+      ? isBelowPlanFloor(state.limitGb, state.days)
+      : false
   }
   return isBelowPlanFloor(state.limitGb, state.days)
 }
@@ -102,7 +104,9 @@ function freeKeyLabel(key: Key): string {
     key.customLimitBytes === null
       ? "no limit"
       : `${formatBytesCompact(key.customLimitBytes)} limit`
-  const expiry = key.endDate ? `expires ${formatDateOnly(key.endDate)}` : "no expiry"
+  const expiry = key.endDate
+    ? `expires ${formatDateOnly(key.endDate)}`
+    : "no expiry"
   return `${key.name || key.outlineKeyId} — ${quota} · ${expiry}`
 }
 
@@ -135,19 +139,21 @@ export function KeySourceFields({
   // Filtered client-side: the picker only offers keys on the server already
   // chosen above, and the whole unassigned list is small enough that a
   // per-server round trip would buy nothing.
-  const freeKeys = (unassigned ?? []).filter((k) => k.serverId === value.serverId)
+  const freeKeys = (unassigned ?? []).filter(
+    (k) => k.serverId === value.serverId
+  )
 
   // Keys that were provisioned but never used and never handed to anyone —
   // spare capacity a full server can still offer instead of a new key.
-  const claimableKeyCounts = (unassigned ?? []).reduce<Record<string, number>>(
-    (acc, k) => {
-      if (k.usedBytes === 0) acc[k.serverId] = (acc[k.serverId] ?? 0) + 1
-      return acc
-    },
-    {},
-  )
+  const claimableKeyCounts: Record<string, number> = {}
+  for (const k of unassigned ?? []) {
+    if (k.usedBytes === 0) {
+      claimableKeyCounts[k.serverId] = (claimableKeyCounts[k.serverId] ?? 0) + 1
+    }
+  }
 
-  const set = (patch: Partial<KeySourceState>) => onChange({ ...value, ...patch })
+  const set = (patch: Partial<KeySourceState>) =>
+    onChange({ ...value, ...patch })
 
   // The source isn't a choice the admin makes: reusing a free key already on
   // the server always wins over provisioning a new one. Only when more than
@@ -156,7 +162,8 @@ export function KeySourceFields({
   useEffect(() => {
     if (!value.serverId) return
     if (freeKeys.length === 0) {
-      if (value.mode !== "new" || value.keyId !== "") set({ mode: "new", keyId: "" })
+      if (value.mode !== "new" || value.keyId !== "")
+        set({ mode: "new", keyId: "" })
       return
     }
     if (freeKeys.length === 1) {
@@ -170,7 +177,12 @@ export function KeySourceFields({
       set({ mode: "existing", keyId: keyStillFree ? value.keyId : "" })
     }
     // Re-derive whenever the server changes or its pool of free keys does —
-    // not on every keystroke in the unrelated fields below.
+    // not on every keystroke in the unrelated fields below. value.mode/
+    // value.keyId are deliberately excluded: this effect is what sets them,
+    // so including them would re-run it on every change it makes itself.
+    // freeKeys/set are recreated every render, so including those instead of
+    // the derived freeKeyIds/omitting set would do the same thing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value.serverId, freeKeyIds])
 
   return (
@@ -210,7 +222,9 @@ export function KeySourceFields({
                     <SelectValue placeholder="Choose a free key">
                       {(selected: string) => {
                         const key = freeKeys.find((k) => k.id === selected)
-                        return key ? key.name || key.outlineKeyId : "Choose a free key"
+                        return key
+                          ? key.name || key.outlineKeyId
+                          : "Choose a free key"
                       }}
                     </SelectValue>
                   </SelectTrigger>

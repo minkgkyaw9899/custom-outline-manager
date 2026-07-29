@@ -18,7 +18,10 @@ export function AuthLayout({
       <aside className="relative flex flex-col justify-between gap-10 overflow-hidden bg-[linear-gradient(155deg,#030817_0%,#0a1a38_55%,#020611_100%)] p-6 lg:p-14">
         <div className="flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-lg bg-primary">
-            <ZapIcon className="size-4.5 text-primary-foreground" strokeWidth={2.4} />
+            <ZapIcon
+              className="size-4.5 text-primary-foreground"
+              strokeWidth={2.4}
+            />
           </div>
           <div className="font-heading text-lg font-bold tracking-tight text-[#eaf1ff]">
             Invisigate VPN

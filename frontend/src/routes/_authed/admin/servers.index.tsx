@@ -46,7 +46,9 @@ function ServersPage() {
     offline: all.filter((s) => s.health === "offline").length,
   }
 
-  const visible = (filter === "all" ? all : all.filter((s) => s.health === filter))
+  const visible = (
+    filter === "all" ? all : all.filter((s) => s.health === filter)
+  )
     .slice()
     .sort((a, b) => a.name.localeCompare(b.name))
   const lastSyncedAt = all
@@ -80,7 +82,7 @@ function ServersPage() {
             <ToggleGroupItem
               key={item.value}
               value={item.value}
-              className="rounded-full border px-4 text-sm normal-case tracking-normal aria-pressed:border-primary/30 aria-pressed:bg-primary/10 aria-pressed:text-primary"
+              className="rounded-full border px-4 text-sm tracking-normal normal-case aria-pressed:border-primary/30 aria-pressed:bg-primary/10 aria-pressed:text-primary"
             >
               {item.label} · {counts[item.value]}
             </ToggleGroupItem>

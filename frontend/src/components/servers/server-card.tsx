@@ -20,7 +20,9 @@ function Metric({ label, value }: Readonly<{ label: string; value: string }>) {
   return (
     <div className="flex flex-col gap-0.5">
       <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="font-heading text-xl font-bold tracking-tight">{value}</span>
+      <span className="font-heading text-xl font-bold tracking-tight">
+        {value}
+      </span>
     </div>
   )
 }
@@ -77,7 +79,8 @@ export function ServerCard({ server }: Readonly<{ server: ServerWithUsage }>) {
             className="block truncate text-sm text-muted-foreground hover:text-foreground"
           >
             {server.hostname}
-            {server.costUsdPerMonth !== null && ` · $${server.costUsdPerMonth}/mo`}
+            {server.costUsdPerMonth !== null &&
+              ` · $${server.costUsdPerMonth}/mo`}
           </Link>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -93,7 +96,12 @@ export function ServerCard({ server }: Readonly<{ server: ServerWithUsage }>) {
           <Button
             variant="outline"
             size="sm"
-            render={<Link to="/admin/servers/$serverId" params={{ serverId: server.id }} />}
+            render={
+              <Link
+                to="/admin/servers/$serverId"
+                params={{ serverId: server.id }}
+              />
+            }
             // Renders an <a>, not a <button>. Without this Base UI keeps native
             // button semantics on a non-button element and warns.
             nativeButton={false}
@@ -108,7 +116,9 @@ export function ServerCard({ server }: Readonly<{ server: ServerWithUsage }>) {
         {server.bandwidthDisabledAt && (
           <Alert variant="destructive">
             <TriangleAlertIcon />
-            <AlertTitle>Bandwidth limit reached — every key disabled</AlertTitle>
+            <AlertTitle>
+              Bandwidth limit reached — every key disabled
+            </AlertTitle>
             <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
               <span>
                 All keys on this server were automatically switched off to stop
@@ -121,7 +131,9 @@ export function ServerCard({ server }: Readonly<{ server: ServerWithUsage }>) {
                 onClick={() => reenableBandwidth.mutate()}
                 disabled={reenableBandwidth.isPending}
               >
-                {reenableBandwidth.isPending && <Spinner data-icon="inline-start" />}
+                {reenableBandwidth.isPending && (
+                  <Spinner data-icon="inline-start" />
+                )}
                 Re-enable
               </Button>
             </AlertDescription>
@@ -133,8 +145,13 @@ export function ServerCard({ server }: Readonly<{ server: ServerWithUsage }>) {
             <div className="flex items-center justify-between text-xs text-muted-foreground">
               <span>Bandwidth this month</span>
               <span className="font-mono tabular-nums">
-                {formatBytesCompact(server.bandwidthUsedBytesThisMonth, { decimals: 1 })} /{" "}
-                {formatBytesCompact(server.bandwidthLimitBytes, { decimals: 1 })}
+                {formatBytesCompact(server.bandwidthUsedBytesThisMonth, {
+                  decimals: 1,
+                })}{" "}
+                /{" "}
+                {formatBytesCompact(server.bandwidthLimitBytes, {
+                  decimals: 1,
+                })}
               </span>
             </div>
             <Progress
@@ -190,7 +207,7 @@ export function ServerCard({ server }: Readonly<{ server: ServerWithUsage }>) {
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            <span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
               ASes
             </span>
             <Badge variant="secondary">{metrics?.ases.length ?? 0}</Badge>

@@ -9,9 +9,12 @@ import { cn } from "@/lib/utils"
  */
 const STALE_AFTER_MS = 5 * 60_000
 
-export function SyncPill({ lastSyncedAt }: Readonly<{ lastSyncedAt?: string | null }>) {
+export function SyncPill({
+  lastSyncedAt,
+}: Readonly<{ lastSyncedAt?: string | null }>) {
   const stale =
-    !lastSyncedAt || Date.now() - new Date(lastSyncedAt).getTime() > STALE_AFTER_MS
+    !lastSyncedAt ||
+    Date.now() - new Date(lastSyncedAt).getTime() > STALE_AFTER_MS
 
   return (
     <Button
@@ -20,7 +23,7 @@ export function SyncPill({ lastSyncedAt }: Readonly<{ lastSyncedAt?: string | nu
         "rounded-full",
         stale
           ? "text-muted-foreground"
-          : "border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary",
+          : "border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 hover:text-primary"
       )}
     >
       <span
@@ -28,7 +31,7 @@ export function SyncPill({ lastSyncedAt }: Readonly<{ lastSyncedAt?: string | nu
         data-icon="inline-start"
         className={cn(
           "size-2 rounded-full",
-          stale ? "bg-muted-foreground" : "animate-pulse bg-primary",
+          stale ? "bg-muted-foreground" : "animate-pulse bg-primary"
         )}
       />
       Sync {formatRelativeTime(lastSyncedAt)}

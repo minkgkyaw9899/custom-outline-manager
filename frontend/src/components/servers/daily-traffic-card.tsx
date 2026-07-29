@@ -1,4 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { UsageChart } from "@/components/servers/usage-chart"
 import { formatBytesCompact } from "@/lib/format"
 import type { DailyUsage, UsageGranularity } from "@/lib/types"
@@ -45,7 +51,11 @@ export function DailyTrafficCard({
         )}
       </CardHeader>
       <CardContent>
-        <UsageChart series={series} granularity={granularity} className="h-56 w-full" />
+        <UsageChart
+          series={series}
+          granularity={granularity}
+          className="h-56 w-full"
+        />
       </CardContent>
     </Card>
   )

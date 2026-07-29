@@ -1,4 +1,9 @@
-import { InfoIcon, RefreshCwIcon, SparklesIcon, UserRoundCheckIcon } from "lucide-react"
+import {
+  InfoIcon,
+  RefreshCwIcon,
+  SparklesIcon,
+  UserRoundCheckIcon,
+} from "lucide-react"
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"

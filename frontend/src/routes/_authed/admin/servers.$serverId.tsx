@@ -18,7 +18,12 @@ import { EditServerDialog } from "@/components/servers/edit-server-dialog"
 import { SyncPill } from "@/components/common/sync-pill"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "@/components/ui/card"
 import { Progress } from "@/components/ui/progress"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
@@ -48,7 +53,8 @@ const WINDOWS: { value: MetricsWindow; label: string }[] = [
 
 /** Matches the bandwidth kill switch's own threshold: red once the cap is imminent, amber approaching it. */
 function bandwidthProgressClass(usedRatio: number): string | undefined {
-  if (usedRatio >= 0.9) return "**:data-[slot=progress-indicator]:bg-destructive"
+  if (usedRatio >= 0.9)
+    return "**:data-[slot=progress-indicator]:bg-destructive"
   if (usedRatio >= 0.75) return "**:data-[slot=progress-indicator]:bg-warning"
   return undefined
 }
@@ -98,7 +104,8 @@ function ServerDetailPage() {
   })
 
   const sync = useMutation({
-    mutationFn: () => apiClient.post<{ status: string }>(`servers/${serverId}/sync`),
+    mutationFn: () =>
+      apiClient.post<{ status: string }>(`servers/${serverId}/sync`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["servers"] })
       // A sync can change key links, usage or status — the user pages embed
@@ -141,7 +148,8 @@ function ServerDetailPage() {
     )
   }
 
-  const { server, hostname, health, metrics, keys, keyMetrics, dailySeries } = data
+  const { server, hostname, health, metrics, keys, keyMetrics, dailySeries } =
+    data
   const windowLabel = WINDOWS.find((w) => w.value === window)?.label ?? window
 
   return (
@@ -156,12 +164,15 @@ function ServerDetailPage() {
             Servers
           </Link>
           <div className="flex flex-wrap items-center gap-2.5">
-            <h1 className="font-heading text-2xl font-semibold">{server.name}</h1>
+            <h1 className="font-heading text-2xl font-semibold">
+              {server.name}
+            </h1>
             <ServerStatusBadge status={health} />
           </div>
           <p className="text-sm text-muted-foreground">
             {hostname}
-            {server.costUsdPerMonth !== null && ` · $${server.costUsdPerMonth}/mo`}
+            {server.costUsdPerMonth !== null &&
+              ` · $${server.costUsdPerMonth}/mo`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -218,7 +229,9 @@ function ServerDetailPage() {
               onClick={() => reenableBandwidth.mutate()}
               disabled={reenableBandwidth.isPending}
             >
-              {reenableBandwidth.isPending && <Spinner data-icon="inline-start" />}
+              {reenableBandwidth.isPending && (
+                <Spinner data-icon="inline-start" />
+              )}
               Re-enable
             </Button>
           </AlertDescription>
@@ -230,18 +243,25 @@ function ServerDetailPage() {
           <div className="flex items-center justify-between text-sm">
             <span className="text-muted-foreground">Bandwidth this month</span>
             <span className="font-mono tabular-nums">
-              {formatBytesCompact(data.bandwidthUsedBytesThisMonth, { decimals: 1 })} /{" "}
-              {formatBytesCompact(data.server.bandwidthLimitBytes, { decimals: 1 })}
+              {formatBytesCompact(data.bandwidthUsedBytesThisMonth, {
+                decimals: 1,
+              })}{" "}
+              /{" "}
+              {formatBytesCompact(data.server.bandwidthLimitBytes, {
+                decimals: 1,
+              })}
             </span>
           </div>
           <Progress
             value={Math.min(
               100,
-              (data.bandwidthUsedBytesThisMonth / data.server.bandwidthLimitBytes) * 100,
+              (data.bandwidthUsedBytesThisMonth /
+                data.server.bandwidthLimitBytes) *
+                100
             )}
             aria-label="Bandwidth used this month"
             className={bandwidthProgressClass(
-              data.bandwidthUsedBytesThisMonth / data.server.bandwidthLimitBytes,
+              data.bandwidthUsedBytesThisMonth / data.server.bandwidthLimitBytes
             )}
           />
         </div>
@@ -261,7 +281,7 @@ function ServerDetailPage() {
             <ToggleGroupItem
               key={w.value}
               value={w.value}
-              className="rounded-full border px-4 text-sm normal-case tracking-normal aria-pressed:border-primary/30 aria-pressed:bg-primary/10 aria-pressed:text-primary"
+              className="rounded-full border px-4 text-sm tracking-normal normal-case aria-pressed:border-primary/30 aria-pressed:bg-primary/10 aria-pressed:text-primary"
             >
               {w.label}
             </ToggleGroupItem>
@@ -273,8 +293,8 @@ function ServerDetailPage() {
         <Alert>
           <AlertTitle>Live metrics unavailable</AlertTitle>
           <AlertDescription>
-            The Outline server could not be reached for a live read. Key counts and
-            usage below come from the last successful sync.
+            The Outline server could not be reached for a live read. Key counts
+            and usage below come from the last successful sync.
           </AlertDescription>
         </Alert>
       ) : (
@@ -298,7 +318,9 @@ function ServerDetailPage() {
               label="Peak bandwidth usage"
               value={formatBandwidth(metrics.peakBandwidthBps)}
               note={
-                metrics.peakBandwidthAt ? formatDate(metrics.peakBandwidthAt) : undefined
+                metrics.peakBandwidthAt
+                  ? formatDate(metrics.peakBandwidthAt)
+                  : undefined
               }
             />
             <StatCard
@@ -307,7 +329,6 @@ function ServerDetailPage() {
               note={`Last ${windowLabel}`}
             />
           </div>
-
         </>
       )}
 
