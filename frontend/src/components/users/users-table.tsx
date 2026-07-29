@@ -67,6 +67,7 @@ import {
   formatDateOnly,
   formatDaysLeft,
   formatUsagePair,
+  usageBarColor,
 } from "@/lib/format"
 import { keyPriceType } from "@/lib/key-price-type"
 import { serversQueryOptions } from "@/lib/queries"
@@ -148,14 +149,7 @@ function UsageCell({ user }: Readonly<{ user: UserWithKeys }>) {
     <div className="flex min-w-36 flex-col gap-1.5">
       <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
         <div
-          className={cn(
-            "h-full rounded-full",
-            ratio >= 1
-              ? "bg-destructive"
-              : ratio >= 0.75
-                ? "bg-chart-3"
-                : "bg-chart-1"
-          )}
+          className={cn("h-full rounded-full", usageBarColor(ratio))}
           style={{ width: `${Math.min(100, Math.max(0, ratio * 100))}%` }}
         />
       </div>
