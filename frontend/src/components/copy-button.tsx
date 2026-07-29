@@ -5,7 +5,7 @@ import { toast } from "@/components/ui/toast"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
-export function CopyButton({ value, className }: { value: string; className?: string }) {
+export function CopyButton({ value, className }: Readonly<{ value: string; className?: string }>) {
   const [copied, setCopied] = useState(false)
 
   return (

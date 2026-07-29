@@ -46,6 +46,13 @@ const WINDOWS: { value: MetricsWindow; label: string }[] = [
   { value: "30d", label: "30 days" },
 ]
 
+/** Matches the bandwidth kill switch's own threshold: red once the cap is imminent, amber approaching it. */
+function bandwidthProgressClass(usedRatio: number): string | undefined {
+  if (usedRatio >= 0.9) return "**:data-[slot=progress-indicator]:bg-destructive"
+  if (usedRatio >= 0.75) return "**:data-[slot=progress-indicator]:bg-warning"
+  return undefined
+}
+
 function StatCard({
   label,
   value,
@@ -233,13 +240,9 @@ function ServerDetailPage() {
               (data.bandwidthUsedBytesThisMonth / data.server.bandwidthLimitBytes) * 100,
             )}
             aria-label="Bandwidth used this month"
-            className={
-              data.bandwidthUsedBytesThisMonth / data.server.bandwidthLimitBytes >= 0.9
-                ? "[&_[data-slot=progress-indicator]]:bg-destructive"
-                : data.bandwidthUsedBytesThisMonth / data.server.bandwidthLimitBytes >= 0.75
-                  ? "[&_[data-slot=progress-indicator]]:bg-warning"
-                  : undefined
-            }
+            className={bandwidthProgressClass(
+              data.bandwidthUsedBytesThisMonth / data.server.bandwidthLimitBytes,
+            )}
           />
         </div>
       )}
@@ -319,7 +322,7 @@ function ServerDetailPage() {
         keyMetrics={keyMetrics}
         onlineKeys={metrics?.onlineKeys}
         windowLabel={windowLabel}
-        defaultLimitBytes={data?.server.defaultLimitBytes ?? null}
+        defaultLimitBytes={data.server.defaultLimitBytes ?? null}
       />
 
       {metrics !== null && (

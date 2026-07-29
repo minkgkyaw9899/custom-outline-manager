@@ -21,7 +21,7 @@ export function ConfirmDialog({
   onConfirm,
   isPending,
   children,
-}: {
+}: Readonly<{
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
@@ -32,7 +32,7 @@ export function ConfirmDialog({
   isPending?: boolean
   /** Extra content between the description and the footer — e.g. a field for an optional note. */
   children?: React.ReactNode
-}) {
+}>) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>

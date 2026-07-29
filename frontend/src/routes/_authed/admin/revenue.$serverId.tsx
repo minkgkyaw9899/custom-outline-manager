@@ -46,6 +46,12 @@ const monthLabel = (key: string) => {
   })
 }
 
+function payingKeysNote(server: { unpricedActiveKeys: number; freeActiveKeys: number }): string {
+  if (server.unpricedActiveKeys > 0) return `${server.unpricedActiveKeys} unpriced`
+  if (server.freeActiveKeys > 0) return `${server.freeActiveKeys} free`
+  return "All priced"
+}
+
 /** One row per calendar month, taking that month's latest snapshot — revenue is a level, never summed. */
 function monthlyBreakdown(series: RevenuePoint[]): RevenuePoint[] {
   const byMonth = new Map<string, RevenuePoint>()
@@ -151,13 +157,7 @@ function ServerRevenueDetailPage() {
         <StatCard
           label="Paying keys"
           value={`${payingKeys} / ${server.activeKeys}`}
-          note={
-            server.unpricedActiveKeys > 0
-              ? `${server.unpricedActiveKeys} unpriced`
-              : server.freeActiveKeys > 0
-                ? `${server.freeActiveKeys} free`
-                : "All priced"
-          }
+          note={payingKeysNote(server)}
         />
       </div>
 

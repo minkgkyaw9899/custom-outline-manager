@@ -34,7 +34,7 @@ import { costProfitMmk, formatMmk as mmk, formatUsd as usd } from "@/lib/format"
 import { serversQueryOptions, useMmkPerUsd } from "@/lib/queries"
 import { cn } from "@/lib/utils"
 
-export const Route = createFileRoute("/_authed/admin/revenue")({
+export const Route = createFileRoute("/_authed/admin/revenue/")({
   component: RevenuePage,
 })
 
@@ -56,6 +56,118 @@ function RevenuePage() {
   )
   const totalActiveKeys = all.reduce((sum, s) => sum + s.activeKeys, 0)
   const totalUnpriced = all.reduce((sum, s) => sum + s.unpricedActiveKeys, 0)
+
+  let tableContent: React.ReactNode
+  if (isLoading) {
+    tableContent = <Skeleton className="h-48" />
+  } else if (all.length === 0) {
+    tableContent = (
+      <Empty className="rounded-lg border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <WalletIcon />
+          </EmptyMedia>
+          <EmptyTitle>No servers yet</EmptyTitle>
+          <EmptyDescription>
+            Add a server to start tracking its revenue and cost here.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
+  } else {
+    tableContent = (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Server</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Active keys</TableHead>
+            <TableHead className="text-right">Revenue</TableHead>
+            <TableHead className="text-right">Cost</TableHead>
+            <TableHead className="text-right">Profit</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {all.map((server) => {
+            const { costMmk, profitMmk } = costProfitMmk(
+              server.costUsdPerMonth,
+              server.monthlyRevenueMmk,
+              mmkPerUsd,
+            )
+            return (
+              <TableRow key={server.id}>
+                <TableCell>
+                  <Link
+                    to="/admin/revenue/$serverId"
+                    params={{ serverId: server.id }}
+                    className="font-medium hover:underline"
+                  >
+                    {server.name}
+                  </Link>
+                  {server.unpricedActiveKeys > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {server.unpricedActiveKeys} unpriced key
+                      {server.unpricedActiveKeys === 1 ? "" : "s"}
+                    </p>
+                  )}
+                  {server.freeActiveKeys > 0 && (
+                    <p className="text-xs text-muted-foreground">
+                      {server.freeActiveKeys} free key
+                      {server.freeActiveKeys === 1 ? "" : "s"}
+                    </p>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <ServerStatusBadge status={server.health} />
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
+                  {server.activeKeys}
+                  {server.freeActiveKeys > 0 && (
+                    <span className="block text-xs font-normal text-muted-foreground">
+                      {server.activeKeys - server.freeActiveKeys} paying
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
+                  {mmk(server.monthlyRevenueMmk)}
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                  {server.costUsdPerMonth === null ? "—" : mmk(costMmk)}
+                </TableCell>
+                <TableCell
+                  className={cn(
+                    "text-right font-mono tabular-nums",
+                    profitMmk < 0 && "text-destructive",
+                  )}
+                >
+                  {mmk(profitMmk)}
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+        <TableFooter>
+          <TableRow>
+            <TableCell colSpan={3}>Total</TableCell>
+            <TableCell className="text-right font-mono tabular-nums">
+              {mmk(totalRevenueMmk)}
+            </TableCell>
+            <TableCell className="text-right font-mono tabular-nums">
+              {mmk(totalCostMmk)}
+            </TableCell>
+            <TableCell
+              className={cn(
+                "text-right font-mono tabular-nums",
+                totalProfitMmk < 0 && "text-destructive",
+              )}
+            >
+              {mmk(totalProfitMmk)}
+            </TableCell>
+          </TableRow>
+        </TableFooter>
+      </Table>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -140,114 +252,7 @@ function RevenuePage() {
             $1 (editable in Settings).
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-48" />
-          ) : all.length === 0 ? (
-            <Empty className="rounded-lg border">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <WalletIcon />
-                </EmptyMedia>
-                <EmptyTitle>No servers yet</EmptyTitle>
-                <EmptyDescription>
-                  Add a server to start tracking its revenue and cost here.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Server</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Active keys</TableHead>
-                  <TableHead className="text-right">Revenue</TableHead>
-                  <TableHead className="text-right">Cost</TableHead>
-                  <TableHead className="text-right">Profit</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {all.map((server) => {
-                  const { costMmk, profitMmk } = costProfitMmk(
-                    server.costUsdPerMonth,
-                    server.monthlyRevenueMmk,
-                    mmkPerUsd,
-                  )
-                  return (
-                    <TableRow key={server.id}>
-                      <TableCell>
-                        <Link
-                          to="/admin/revenue/$serverId"
-                          params={{ serverId: server.id }}
-                          className="font-medium hover:underline"
-                        >
-                          {server.name}
-                        </Link>
-                        {server.unpricedActiveKeys > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            {server.unpricedActiveKeys} unpriced key
-                            {server.unpricedActiveKeys === 1 ? "" : "s"}
-                          </p>
-                        )}
-                        {server.freeActiveKeys > 0 && (
-                          <p className="text-xs text-muted-foreground">
-                            {server.freeActiveKeys} free key
-                            {server.freeActiveKeys === 1 ? "" : "s"}
-                          </p>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <ServerStatusBadge status={server.health} />
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">
-                        {server.activeKeys}
-                        {server.freeActiveKeys > 0 && (
-                          <span className="block text-xs font-normal text-muted-foreground">
-                            {server.activeKeys - server.freeActiveKeys} paying
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums">
-                        {mmk(server.monthlyRevenueMmk)}
-                      </TableCell>
-                      <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
-                        {server.costUsdPerMonth === null ? "—" : mmk(costMmk)}
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          "text-right font-mono tabular-nums",
-                          profitMmk < 0 && "text-destructive",
-                        )}
-                      >
-                        {mmk(profitMmk)}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-              <TableFooter>
-                <TableRow>
-                  <TableCell colSpan={3}>Total</TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {mmk(totalRevenueMmk)}
-                  </TableCell>
-                  <TableCell className="text-right font-mono tabular-nums">
-                    {mmk(totalCostMmk)}
-                  </TableCell>
-                  <TableCell
-                    className={cn(
-                      "text-right font-mono tabular-nums",
-                      totalProfitMmk < 0 && "text-destructive",
-                    )}
-                  >
-                    {mmk(totalProfitMmk)}
-                  </TableCell>
-                </TableRow>
-              </TableFooter>
-            </Table>
-          )}
-        </CardContent>
+        <CardContent>{tableContent}</CardContent>
       </Card>
     </div>
   )

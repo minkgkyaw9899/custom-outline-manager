@@ -25,6 +25,22 @@ export const Route = createFileRoute("/_authed/admin/overview")({
   component: DashboardPage,
 })
 
+function connectedServersNote(degraded: number, offline: number): string {
+  if (degraded > 0) {
+    return `${degraded} degraded${offline > 0 ? `, ${offline} offline` : ""}`
+  }
+  if (offline > 0) return `${offline} offline`
+  return "All healthy"
+}
+
+function bandwidthNote(totalServers: number, serversWithMetrics: number): string {
+  if (totalServers === 0) return "No servers yet"
+  if (serversWithMetrics === totalServers) {
+    return `Across ${totalServers} server${totalServers === 1 ? "" : "s"}`
+  }
+  return `${serversWithMetrics} of ${totalServers} servers reporting live metrics`
+}
+
 function DashboardPage() {
   // Same idle-aware polling as the Servers page: every refresh fans out to
   // every Outline server, so an abandoned tab shouldn't keep hitting them.
@@ -92,24 +108,12 @@ function DashboardPage() {
           <StatCard
             label="Connected servers"
             value={`${connected} / ${all.length}`}
-            note={
-              degraded > 0
-                ? `${degraded} degraded${offline > 0 ? `, ${offline} offline` : ""}`
-                : offline > 0
-                  ? `${offline} offline`
-                  : "All healthy"
-            }
+            note={connectedServersNote(degraded, offline)}
           />
           <StatCard
             label="Bandwidth (30d)"
             value={formatBytesCompact(totalBandwidthBytes)}
-            note={
-              all.length === 0
-                ? "No servers yet"
-                : serversWithMetrics === all.length
-                  ? `Across ${all.length} server${all.length === 1 ? "" : "s"}`
-                  : `${serversWithMetrics} of ${all.length} servers reporting live metrics`
-            }
+            note={bandwidthNote(all.length, serversWithMetrics)}
           />
           <StatCard
             label="Monthly revenue"

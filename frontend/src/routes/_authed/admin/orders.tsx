@@ -34,6 +34,15 @@ export const Route = createFileRoute("/_authed/admin/orders")({
   component: OrdersPage,
 })
 
+function deleteOrderDescription(order: Order | null): string {
+  if (!order) return ""
+  const consequence =
+    order.status === "approved"
+      ? "The user and key it created are not affected — delete those separately if needed."
+      : "This cannot be undone."
+  return `Removes the order record for ${order.customerName} from the history. ${consequence}`
+}
+
 function OrdersPage() {
   const [statusFilter, setStatusFilter] = useState<OrderStatus>("pending")
   const { data: orders, isLoading } = useQuery(ordersQueryOptions(statusFilter))
@@ -73,6 +82,89 @@ function OrdersPage() {
     },
   })
 
+  let tableContent: React.ReactNode
+  if (isLoading) {
+    tableContent = <Skeleton className="h-48" />
+  } else if (!orders || orders.length === 0) {
+    tableContent = (
+      <Empty className="rounded-lg border">
+        <EmptyHeader>
+          <EmptyMedia variant="icon">
+            <ShoppingCartIcon />
+          </EmptyMedia>
+          <EmptyTitle>No {statusFilter} orders</EmptyTitle>
+          <EmptyDescription>
+            Orders submitted from the public order page show up here.
+          </EmptyDescription>
+        </EmptyHeader>
+      </Empty>
+    )
+  } else {
+    tableContent = (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Customer</TableHead>
+            <TableHead>Server</TableHead>
+            <TableHead>Plan</TableHead>
+            <TableHead>Payment</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {orders.map((order) => (
+            <TableRow key={order.id}>
+              <TableCell>
+                <div className="font-medium">{order.customerName}</div>
+                <div className="text-xs text-muted-foreground">{order.contact}</div>
+                {order.customerNote && (
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    {order.customerNote}
+                  </div>
+                )}
+              </TableCell>
+              <TableCell>{order.serverName ?? "—"}</TableCell>
+              <TableCell className="font-mono tabular-nums">
+                {order.planGb} GB / {order.planDays}d
+              </TableCell>
+              <TableCell>{order.paymentMethod}</TableCell>
+              <TableCell>
+                <StatusBadge status={order.status} />
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
+                  {statusFilter === "pending" ? (
+                    <>
+                      <Button size="sm" variant="outline" onClick={() => setRejecting(order)}>
+                        Reject
+                      </Button>
+                      <Button size="sm" onClick={() => setApproving(order)}>
+                        Approve
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon-sm"
+                      aria-label={`Delete order from ${order.customerName}`}
+                      title="Delete order"
+                      className="text-muted-foreground hover:text-destructive"
+                      onClick={() => setDeleting(order)}
+                    >
+                      <Trash2Icon className="size-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    )
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -103,85 +195,7 @@ function OrdersPage() {
       </div>
 
       <Card>
-        <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-48" />
-          ) : !orders || orders.length === 0 ? (
-            <Empty className="rounded-lg border">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <ShoppingCartIcon />
-                </EmptyMedia>
-                <EmptyTitle>No {statusFilter} orders</EmptyTitle>
-                <EmptyDescription>
-                  Orders submitted from the public order page show up here.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Server</TableHead>
-                  <TableHead>Plan</TableHead>
-                  <TableHead>Payment</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {orders.map((order) => (
-                  <TableRow key={order.id}>
-                    <TableCell>
-                      <div className="font-medium">{order.customerName}</div>
-                      <div className="text-xs text-muted-foreground">{order.contact}</div>
-                      {order.customerNote && (
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {order.customerNote}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>{order.serverName ?? "—"}</TableCell>
-                    <TableCell className="font-mono tabular-nums">
-                      {order.planGb} GB / {order.planDays}d
-                    </TableCell>
-                    <TableCell>{order.paymentMethod}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={order.status} />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        {statusFilter === "pending" ? (
-                          <>
-                            <Button size="sm" variant="outline" onClick={() => setRejecting(order)}>
-                              Reject
-                            </Button>
-                            <Button size="sm" onClick={() => setApproving(order)}>
-                              Approve
-                            </Button>
-                          </>
-                        ) : (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon-sm"
-                            aria-label={`Delete order from ${order.customerName}`}
-                            title="Delete order"
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => setDeleting(order)}
-                          >
-                            <Trash2Icon className="size-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
+        <CardContent>{tableContent}</CardContent>
       </Card>
 
       <ConfirmDialog
@@ -228,11 +242,7 @@ function OrdersPage() {
         open={!!deleting}
         onOpenChange={(open) => !open && setDeleting(null)}
         title="Delete this order?"
-        description={
-          deleting
-            ? `Removes the order record for ${deleting.customerName} from the history. ${deleting.status === "approved" ? "The user and key it created are not affected — delete those separately if needed." : "This cannot be undone."}`
-            : ""
-        }
+        description={deleteOrderDescription(deleting)}
         confirmLabel="Delete"
         isPending={remove.isPending}
         onConfirm={() => deleting && remove.mutate(deleting)}

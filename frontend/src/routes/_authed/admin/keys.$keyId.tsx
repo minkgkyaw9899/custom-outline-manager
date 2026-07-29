@@ -68,7 +68,7 @@ import {
   LIVE_REFRESH_MS,
   serverDetailQueryOptions,
 } from "@/lib/queries"
-import type { Key, RenewalLog } from "@/lib/types"
+import type { Key, KeyMetrics, RenewalLog } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
 export const Route = createFileRoute("/_authed/admin/keys/$keyId")({
@@ -112,6 +112,43 @@ function UsageBar({ keyItem }: Readonly<{ keyItem: Key }>) {
   )
 }
 
+/** The four headline stat cards at the top of the key detail page. */
+function KeyStatsGrid({
+  keyItem,
+  metrics,
+}: Readonly<{ keyItem: Key; metrics: KeyMetrics | undefined }>) {
+  const remainingNote =
+    keyItem.remainingBytes === null
+      ? "No limit"
+      : `${formatBytesCompact(keyItem.remainingBytes, { decimals: 1 })} remaining`
+  const lastActiveNote = metrics?.isOnline ? "Connected now" : undefined
+
+  return (
+    <div className="grid grid-cols-2 gap-2 md:gap-4 xl:grid-cols-4">
+      <StatCard
+        label="Data usage"
+        value={formatUsagePair(keyItem.usedBytes, keyItem.customLimitBytes)}
+        note={remainingNote}
+      />
+      <StatCard
+        label="Tunnel time"
+        value={metrics ? formatHours(metrics.tunnelTimeHours) : "—"}
+        note="Last 30 days"
+      />
+      <StatCard
+        label="Peak devices"
+        value={metrics ? String(metrics.peakDeviceCount) : "—"}
+        note="Most seen at once"
+      />
+      <StatCard
+        label="Last active"
+        value={metrics ? formatRelativeTime(metrics.lastTrafficSeen) : "—"}
+        note={lastActiveNote}
+      />
+    </div>
+  )
+}
+
 function RenewalHistory({
   keyId,
   renewals,
@@ -131,6 +168,78 @@ function RenewalHistory({
     },
   })
 
+  let content: React.ReactNode
+  if (isLoading) {
+    content = <Skeleton className="h-24" />
+  } else if (!renewals || renewals.length === 0) {
+    content = (
+      <p className="text-sm text-muted-foreground">
+        This key has not been renewed since it was created.
+      </p>
+    )
+  } else {
+    content = (
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Applied</TableHead>
+            <TableHead className="text-right">Added data</TableHead>
+            <TableHead className="text-right">Added days</TableHead>
+            <TableHead className="text-right">New limit</TableHead>
+            <TableHead className="text-right">New expiry</TableHead>
+            <TableHead>Payment</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {renewals.map((renewal) => {
+            // Nothing was added: the limit and expiry were written
+            // directly ("Set exact"), so the two added columns would read
+            // as a renewal that granted nothing.
+            const manual = renewal.addedGb === 0 && renewal.addedDays === 0
+            return (
+              <TableRow key={renewal.id}>
+                <TableCell>
+                  {formatDate(renewal.createdAt)}
+                  {manual && (
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      set manually
+                    </span>
+                  )}
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
+                  {manual ? "—" : `${renewal.addedGb} GB`}
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
+                  {manual ? "—" : renewal.addedDays}
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
+                  {formatBytesCompact(renewal.newLimitBytes, {
+                    decimals: 1,
+                  })}
+                </TableCell>
+                <TableCell className="text-right font-mono tabular-nums">
+                  {formatDateOnly(renewal.newEndDate)}
+                </TableCell>
+                <TableCell>
+                  <button
+                    type="button"
+                    title={renewal.paymentNote ?? undefined}
+                    disabled={togglePaid.isPending}
+                    onClick={() => togglePaid.mutate(renewal)}
+                  >
+                    <Badge variant={renewal.paid ? "secondary" : "destructive"}>
+                      {renewal.paid ? "Paid" : "Unpaid"}
+                    </Badge>
+                  </button>
+                </TableCell>
+              </TableRow>
+            )
+          })}
+        </TableBody>
+      </Table>
+    )
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -140,74 +249,7 @@ function RenewalHistory({
           to correct it.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        {isLoading ? (
-          <Skeleton className="h-24" />
-        ) : !renewals || renewals.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            This key has not been renewed since it was created.
-          </p>
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Applied</TableHead>
-                <TableHead className="text-right">Added data</TableHead>
-                <TableHead className="text-right">Added days</TableHead>
-                <TableHead className="text-right">New limit</TableHead>
-                <TableHead className="text-right">New expiry</TableHead>
-                <TableHead>Payment</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {renewals.map((renewal) => {
-                // Nothing was added: the limit and expiry were written
-                // directly ("Set exact"), so the two added columns would read
-                // as a renewal that granted nothing.
-                const manual = renewal.addedGb === 0 && renewal.addedDays === 0
-                return (
-                  <TableRow key={renewal.id}>
-                    <TableCell>
-                      {formatDate(renewal.createdAt)}
-                      {manual && (
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          set manually
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {manual ? "—" : `${renewal.addedGb} GB`}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {manual ? "—" : renewal.addedDays}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {formatBytesCompact(renewal.newLimitBytes, {
-                        decimals: 1,
-                      })}
-                    </TableCell>
-                    <TableCell className="text-right font-mono tabular-nums">
-                      {formatDateOnly(renewal.newEndDate)}
-                    </TableCell>
-                    <TableCell>
-                      <button
-                        type="button"
-                        title={renewal.paymentNote ?? undefined}
-                        disabled={togglePaid.isPending}
-                        onClick={() => togglePaid.mutate(renewal)}
-                      >
-                        <Badge variant={renewal.paid ? "secondary" : "destructive"}>
-                          {renewal.paid ? "Paid" : "Unpaid"}
-                        </Badge>
-                      </button>
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
+      <CardContent>{content}</CardContent>
     </Card>
   )
 }
@@ -410,32 +452,7 @@ function KeyDetailPage() {
         </Alert>
       )}
 
-      <div className="grid grid-cols-2 gap-2 md:gap-4 xl:grid-cols-4">
-        <StatCard
-          label="Data usage"
-          value={formatUsagePair(keyItem.usedBytes, keyItem.customLimitBytes)}
-          note={
-            keyItem.remainingBytes === null
-              ? "No limit"
-              : `${formatBytesCompact(keyItem.remainingBytes, { decimals: 1 })} remaining`
-          }
-        />
-        <StatCard
-          label="Tunnel time"
-          value={metrics ? formatHours(metrics.tunnelTimeHours) : "—"}
-          note="Last 30 days"
-        />
-        <StatCard
-          label="Peak devices"
-          value={metrics ? String(metrics.peakDeviceCount) : "—"}
-          note="Most seen at once"
-        />
-        <StatCard
-          label="Last active"
-          value={metrics ? formatRelativeTime(metrics.lastTrafficSeen) : "—"}
-          note={metrics?.isOnline ? "Connected now" : undefined}
-        />
-      </div>
+      <KeyStatsGrid keyItem={keyItem} metrics={metrics} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
