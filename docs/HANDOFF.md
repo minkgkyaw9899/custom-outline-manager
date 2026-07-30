@@ -127,12 +127,27 @@ works, and no `recreated_from` audit trail exists yet (see §6).
 
 **Revenue is a live calculation, backed by a daily history since this
 session.** `ServerWithUsage.monthlyRevenueMmk` is always the *current* sum of
-active keys' effective price — never stale, but has no memory. As of
-migration 0011, `revenue_snapshots` records one row per server per cron tick
-(every `CRON_INTERVAL`, default 30 min), and day/month/year views are read by
-taking the **latest** snapshot within each period, never summed (revenue is a
-level, not a delta — see `repository.DailyRevenueAllServers`). History starts
-empty from whenever 0011 was deployed and has no backfill.
+active, **user-linked** keys' effective price — never stale, but has no
+memory. As of migration 0011, `revenue_snapshots` records one row per server
+per cron tick (every `CRON_INTERVAL`, default 30 min), and day/month/year
+views are read by taking the **latest** snapshot within each period, never
+summed (revenue is a level, not a delta — see
+`repository.DailyRevenueAllServers`). History starts empty from whenever 0011
+was deployed and has no backfill.
+
+**Revenue excludes unlinked keys (added this session).**
+`monthlyRevenueMmk`/`unpricedActiveKeys`/`freeActiveKeys` (`ListServers` in
+`repository/servers.go`, and the identical computation in
+`SnapshotRevenue`/`revenue.go`) all now additionally require
+`k.user_id IS NOT NULL`. A key just adopted from Outline (or otherwise never
+claimed by a holder) starts unlinked — it was inflating revenue for a renter
+who doesn't exist. `activeKeys`/`keyCount` deliberately stay unfiltered: those
+are operational counts (denominators in the UI, e.g. "N active keys", "X /
+activeKeys paying"), not revenue inputs. Renewal (see the auto-renew
+paragraph below) already reconciles a key's `status` synchronously, so
+extending a key correctly flows into the next revenue read without any
+separate "revenue event" — the missing `user_id` filter was the only actual
+gap.
 
 **Bandwidth kill switch (added this session, migration 0012).** A server can
 optionally carry `bandwidth_limit_bytes` (set at create/edit, e.g. 2TB). Every
@@ -245,6 +260,52 @@ confirm payment"`) every time — staying online automatically is not the same
 as being paid for, and the admin is expected to confirm/flip it from the
 renewal history table (see the payment-tracking paragraph above).
 
+**Renewal raises a key's price to match its server's current default (added
+this session, `enforcement.RenewKey`).** If a server's `default_price_mmk` is
+raised after a key was already sold at the old, lower price, that key's own
+`price_mmk` now catches up automatically the next time it's renewed — manual
+extend or auto-renew, both call the same `RenewKey`. The rule is deliberately
+narrow: only **raises**, never lowers (so a genuinely discounted key never
+gets silently reset to full price by an unrelated server-wide increase going
+the other way), and only touches a key whose `price_mmk` is already non-nil
+(a `NULL` price already tracks the server's current default live via
+`COALESCE` at read time — see the revenue paragraphs above — so there's
+nothing to catch up). Never triggered by a plain key change/reissue
+(`ChangeKeyDialog`) — a freshly provisioned key already gets its price from
+its server's default at creation time, which is correct on its own.
+
+**Static keys use a domain, dynamic keys use an IP — deliberately opposite
+(added this session).** These are two independent host settings that used to
+be able to drift out of sync with no way to fix it except retyping a raw
+hostname by hand:
+- A **static** `ss://` link's host is Outline's own "hostname for access
+  keys" setting (`outline.Client.SetHostnameForAccessKeys`) — baked into a
+  link a holder copies once and can't easily be told to re-fetch. This must
+  be a **domain**, not an IP: if the underlying server ever moves to a new
+  IP, repointing DNS keeps every already-distributed static key working with
+  zero reissue. `EditServerDialog`'s old free-text hostname field let an
+  admin type a raw IP in here by mistake (the actual bug that motivated this
+  work) — it's now a read-only status ("Bound to: X", "domain resolves to:
+  Y") plus a one-click **"Bind static keys to \<domain\>"** button that always
+  pushes the server's own API-URL domain, never manual text
+  (`handlers.updateServerConfig`, unchanged wire format — only the frontend
+  affordance changed).
+- A **dynamic** `ssconf://` key is re-resolved by the client on every
+  connect (`handlers.dynamicKey`, `/api/v1/dkey/:token`), so a domain here
+  buys nothing but an extra DNS round-trip before traffic can start. It now
+  returns a **live-resolved IP** instead of the domain
+  (`handlers.resolveIP`, `internal/handlers/dns.go` — skips the lookup
+  entirely if the host is already a literal IP), falling back to the domain
+  string if the lookup fails rather than breaking the connection over it.
+  Deliberately **no stored/cached IP column** — resolved fresh on every
+  request, so a DNS change (e.g. repointing a Cloudflare A record) takes
+  effect immediately with no admin action, at the cost of one extra DNS
+  lookup per dkey request (see §6 if this ever needs to become a cache).
+- `GET /servers/:id` also now returns `resolvedIp` (same `resolveIP` helper,
+  purely for display) so the edit-server dialog can show what a server's own
+  domain currently resolves to — a quick sanity check that Cloudflare (or
+  whatever registrar) is actually pointed where the admin thinks it is.
+
 **QR codes (added this session).** `KeyLinkField` (shared by the key detail,
 user detail, and public holder status pages — one change covers all three)
 grew a QR button next to the existing copy button, rendering the link via
@@ -301,6 +362,32 @@ in), `users.setup.$slug` / `users.login.$slug` / `users.keys-status.$slug`
 live OS-preference tracking), but until this session `ModeToggle` only ever
 cycled light/dark, silently discarding "system" the moment it was clicked.
 It's now a proper 3-option dropdown (`components/mode-toggle.tsx`).
+
+**Theme recolored to emerald/mist (added this session).** shadcn's base
+color went from `neutral` to a custom cool-gray "mist" (hue ~220, retaining
+every prior lightness step so contrast is unaffected — see
+`frontend/src/styles.css` `:root`/`.dark` blocks, and `components.json`'s
+`baseColor`), and `primary`/`sidebar-primary`/`chart-1`–`chart-5` went from
+the original blue ramp to Tailwind v4's real emerald oklch values (sourced
+from `node_modules/tailwindcss/theme.css`, not guessed). `AuthLayout`'s
+hero panel (shared by admin login, OTP verify, `order.tsx`, and the three
+`ShareAuthLayout` holder screens) had its own hardcoded navy/blue gradient +
+blue accent text, independent of the theme tokens — recolored to a matching
+dark-emerald gradient so it's no longer a leftover from the old blue
+branding. Also: the user detail page's "No key" badge is now `destructive`
+(was `outline`) so a holder with no key stands out as an alert state, not a
+neutral one.
+
+**Table pagination (added this session).** `DataTablePagination`
+(`components/common/data-table-pagination.tsx`, shared by the keys/users/
+admins/AS tables) gained a page-size dropdown (10/20/30/60/100, via
+`table.setPageSize` — no backend change, pagination has always been fully
+client-side over an already-fetched list). While touching this: fixed a
+real bug where saving or deleting a row while on page 2+ silently bounced
+every table back to page 1 — TanStack Table's `autoResetPageIndex` defaults
+to `true`, resetting on any new `data` array reference, which every
+query-invalidation refetch produces even when the row count on the current
+page didn't change. All four tables now set `autoResetPageIndex: false`.
 
 ## 6. Suggestions for next time
 
@@ -391,3 +478,11 @@ fire, and none were requested for the next session specifically:
    work for getting a real browser session logged in. Cleaned up (killed
    local processes, removed the scratch DB) before ending the session — no
    leftover local state.
+
+10. **The dynamic key endpoint does a live DNS lookup on every request, with
+    no cache.** Deliberate (see §4's static-vs-dynamic paragraph) since it
+    keeps a DNS change effective immediately with no admin action, but worth
+    revisiting if `/api/v1/dkey/:token` traffic ever gets heavy enough for
+    the extra lookup to matter, or if the resolver becomes a reliability
+    concern — `handlers.resolveIP` (`internal/handlers/dns.go`) is the one
+    place this would need a cache/TTL added.
