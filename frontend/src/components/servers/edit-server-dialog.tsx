@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { RefreshCwIcon } from "lucide-react"
 
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -71,7 +74,6 @@ export function EditServerDialog({
   const [maxKeys, setMaxKeys] = useState("")
   const [defaultPriceMmk, setDefaultPriceMmk] = useState("")
   const [bandwidthLimitGb, setBandwidthLimitGb] = useState("")
-  const [hostname, setHostname] = useState("")
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
 
   const queryClient = useQueryClient()
@@ -98,13 +100,11 @@ export function EditServerDialog({
           ? ""
           : String(detail.server.bandwidthLimitBytes / 1_000_000_000)
       )
-      setHostname(detail.accessKeyHostname || detail.hostname)
       setErrors({})
     }
   }, [open, detail])
 
   const trimmedName = name.trim()
-  const trimmedHostname = hostname.trim()
 
   const currentCost =
     detail?.server.costUsdPerMonth === null || detail === undefined
@@ -130,23 +130,19 @@ export function EditServerDialog({
     defaultPriceMmk.trim() !== currentDefaultPriceMmk
   const bandwidthLimitGbChanged =
     bandwidthLimitGb.trim() !== currentBandwidthLimitGb
-  // Compared against what Outline actually stamps today, never against the
-  // API-URL fallback — that is what makes an auto-bound domain count as a
-  // change and get pushed on Save.
-  const hostnameChanged = trimmedHostname !== (detail?.accessKeyHostname ?? "")
-  // No key carries a host yet, so the field above is showing the auto-bound
-  // API-URL domain rather than a value read back off the server.
-  const hostnameUnbound =
-    detail !== undefined &&
-    detail.accessKeyHostname === "" &&
-    detail.hostname !== ""
   const nothingToDo =
     !nameChanged &&
     !costChanged &&
     !maxKeysChanged &&
     !defaultPriceMmkChanged &&
-    !bandwidthLimitGbChanged &&
-    !hostnameChanged
+    !bandwidthLimitGbChanged
+
+  // The domain a fresh "bind" pushes is always the server's own API-URL
+  // domain — never something typed by hand, so there's nothing to mistype or
+  // point at someone else's server.
+  const domain = detail?.hostname ?? ""
+  const boundHost = detail?.accessKeyHostname ?? ""
+  const domainBound = boundHost !== "" && boundHost === domain
 
   // "Absent" and "explicitly none" can't both be nil on the wire, so removing a
   // ceiling (or a default price) is its own flag rather than a null value.
@@ -164,11 +160,7 @@ export function EditServerDialog({
 
   const save = useMutation({
     mutationFn: async () => {
-      if (isMock) {
-        return mockUpdateServerConfig(
-          hostnameChanged ? trimmedHostname : undefined
-        )
-      }
+      if (isMock) return mockUpdateServerConfig()
       return apiClient.patch(`servers/${serverId}/config`, {
         ...(nameChanged ? { name: trimmedName } : {}),
         ...(costChanged ? { costUsdPerMonth: toNullableNumber(costUsd) } : {}),
@@ -184,18 +176,32 @@ export function EditServerDialog({
           ? { bandwidthLimitGb: parsedBandwidthLimitGb }
           : {}),
         ...(clearingBandwidthLimitGb ? { clearBandwidthLimit: true } : {}),
-        ...(hostnameChanged ? { hostnameForAccessKeys: trimmedHostname } : {}),
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["servers"] })
+      onOpenChange(false)
+    },
+    onError: (error) => setErrors(fieldErrorsFrom(error)),
+  })
+
+  // Its own mutation, independent of the rest of the form: binding the
+  // domain is a one-click fix an admin should be able to fire without also
+  // having to touch (or accidentally submit) name/cost/limit edits.
+  const bindDomain = useMutation({
+    mutationFn: async () => {
+      if (isMock) return mockUpdateServerConfig(domain)
+      return apiClient.patch(`servers/${serverId}/config`, {
+        hostnameForAccessKeys: domain,
       })
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["servers"] })
       queryClient.invalidateQueries({ queryKey: ["keys"] })
-      // A hostname change rewrites every key's static link — the user pages
-      // embed that same key data and go stale otherwise.
+      // Every key's static link's host just changed — the user pages embed
+      // that same key data and go stale otherwise.
       queryClient.invalidateQueries({ queryKey: ["users"] })
-      onOpenChange(false)
     },
-    onError: (error) => setErrors(fieldErrorsFrom(error)),
   })
 
   const parsedCost = Number(costUsd)
@@ -349,24 +355,60 @@ export function EditServerDialog({
 
             <FieldSet>
               <FieldLegend>Static access link</FieldLegend>
-              <Field data-invalid={!!errors.hostnameForAccessKeys || undefined}>
-                <FieldLabel htmlFor="edit-server-hostname">
-                  Hostname for access keys
-                </FieldLabel>
-                <Input
-                  id="edit-server-hostname"
-                  autoComplete="off"
-                  placeholder="vpn.example.com or 49.12.88.4"
-                  value={hostname}
-                  aria-invalid={!!errors.hostnameForAccessKeys || undefined}
-                  onChange={(e) => setHostname(e.target.value)}
-                />
-                <FieldDescription>
-                  {errors.hostnameForAccessKeys ??
-                    (hostnameUnbound
-                      ? `No access key carries a host yet — prefilled with this server's own domain (${detail.hostname}). Save to bind it to every access key.`
-                      : "")}
-                </FieldDescription>
+              <Field>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground">Bound to</span>
+                  <Badge variant={domainBound ? "secondary" : "destructive"}>
+                    {boundHost || "Not set"}
+                  </Badge>
+                </div>
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="text-muted-foreground">
+                    {domain || "—"} resolves to
+                  </span>
+                  <span className="font-mono">
+                    {detail?.resolvedIp || "—"}
+                  </span>
+                </div>
+                {domainBound ? (
+                  <FieldDescription>
+                    Every static key on this server is bound to its own
+                    domain, so it keeps working if the underlying IP ever
+                    changes.
+                  </FieldDescription>
+                ) : (
+                  <Alert variant="destructive">
+                    <AlertTitle>Static keys aren't on this domain</AlertTitle>
+                    <AlertDescription>
+                      {boundHost
+                        ? `Static keys are bound to "${boundHost}", not this server's own domain (${domain}). If that host's IP ever changes, every distributed key breaks.`
+                        : `No access key carries a host yet — new keys won't have one until this is bound.`}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                {!domainBound && domain && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-fit"
+                    disabled={bindDomain.isPending}
+                    onClick={() => bindDomain.mutate()}
+                  >
+                    {bindDomain.isPending ? (
+                      <Spinner data-icon="inline-start" />
+                    ) : (
+                      <RefreshCwIcon data-icon="inline-start" />
+                    )}
+                    Bind static keys to {domain}
+                  </Button>
+                )}
+                {bindDomain.isError && (
+                  <FieldDescription className="text-destructive">
+                    Outline rejected that hostname — try again once the
+                    server is reachable.
+                  </FieldDescription>
+                )}
               </Field>
             </FieldSet>
           </FieldGroup>

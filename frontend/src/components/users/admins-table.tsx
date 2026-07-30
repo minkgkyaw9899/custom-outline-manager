@@ -269,6 +269,10 @@ export function AdminsTable() {
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize: DEFAULT_PAGE_SIZE } },
+    // See keys-table.tsx: without this, a refetch's new array reference
+    // would snap the table back to page 1 even when nothing that should
+    // affect paging changed.
+    autoResetPageIndex: false,
   })
 
   return (

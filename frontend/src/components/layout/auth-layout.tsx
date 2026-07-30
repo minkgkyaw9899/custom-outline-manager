@@ -15,7 +15,7 @@ export function AuthLayout({
 }>) {
   return (
     <div className="flex min-h-svh flex-col lg:grid lg:grid-cols-[1.05fr_0.95fr]">
-      <aside className="relative flex flex-col justify-between gap-10 overflow-hidden bg-[linear-gradient(155deg,#030817_0%,#0a1a38_55%,#020611_100%)] p-6 lg:p-14">
+      <aside className="relative flex flex-col justify-between gap-10 overflow-hidden bg-[linear-gradient(155deg,oklch(0.05_0.015_165)_0%,oklch(0.16_0.04_165)_55%,oklch(0.04_0.01_165)_100%)] p-6 lg:p-14">
         <div className="flex items-center gap-3">
           <div className="flex size-9 items-center justify-center rounded-lg bg-primary">
             <ZapIcon
@@ -23,25 +23,25 @@ export function AuthLayout({
               strokeWidth={2.4}
             />
           </div>
-          <div className="font-heading text-lg font-bold tracking-tight text-[#eaf1ff]">
+          <div className="font-heading text-lg font-bold tracking-tight text-emerald-50">
             Invisigate VPN
           </div>
         </div>
 
         <div className="max-w-md">
-          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/15 px-3 py-1.5 text-xs font-semibold text-blue-300 lg:mb-7">
-            <span className="size-1.5 rounded-full bg-blue-400" />
+          <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/15 px-3 py-1.5 text-xs font-semibold text-emerald-300 lg:mb-7">
+            <span className="size-1.5 rounded-full bg-emerald-400" />
             {badge}
           </div>
-          <h1 className="mb-4 font-heading text-3xl font-bold tracking-tight text-balance text-[#f2f6ff] lg:text-5xl">
+          <h1 className="mb-4 font-heading text-3xl font-bold tracking-tight text-balance text-emerald-50 lg:text-5xl">
             {heading}
           </h1>
-          <p className="text-sm leading-relaxed text-[#dfe9ff]/60 lg:text-base">
+          <p className="text-sm leading-relaxed text-emerald-50/60 lg:text-base">
             {description}
           </p>
         </div>
 
-        <div className="hidden text-xs font-medium text-[#dfe9ff]/40 lg:block">
+        <div className="hidden text-xs font-medium text-emerald-50/40 lg:block">
           Invisigate VPN · light-speed data transfer
         </div>
       </aside>

@@ -65,12 +65,23 @@ func (a *API) dynamicKey(c fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "not found"})
 	}
 
+	// Unlike a static ss:// key (deliberately bound to a domain so it survives
+	// an IP change without needing to be reissued — see updateServerConfig),
+	// this link is re-resolved by the client on every connect, so there is no
+	// benefit to a domain here and a real cost: an extra DNS round-trip before
+	// traffic can start. Hand back the IP directly; if the lookup fails, fall
+	// back to the domain rather than breaking the connection over it.
+	host := server.Hostname()
+	if ip, rerr := resolveIP(c.Context(), host); rerr == nil {
+		host = ip
+	}
+
 	// Never cache: a key's port/method are fixed for its lifetime, but the
 	// admin can delete or re-provision it, and stale intermediary caching
 	// would keep serving a dead key's old config.
 	c.Set("Cache-Control", "no-store")
 	return c.Status(fiber.StatusOK).JSON(dynamicKeyResponse{
-		Server:     server.Hostname(),
+		Server:     host,
 		ServerPort: *key.Port,
 		Password:   key.Password,
 		Method:     *key.Method,

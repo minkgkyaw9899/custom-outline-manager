@@ -348,7 +348,9 @@ func (e *Enforcer) ReconcileServerKeys(ctx context.Context, server models.Server
 // key, logs it, and pushes the result to Outline immediately. Shared by the
 // HTTP renew endpoint, the Telegram extend-button webhook, and the auto-renew
 // cron path so all three go through the exact same sequence: compute target,
-// persist, log, reconcile.
+// persist, log, reconcile. It also raises (never lowers) the key's own price
+// to match its server's current default, if the server's default has gone up
+// since the key's price was last set — a plain key change never does this.
 //
 // paid/paymentNote are bookkeeping only — they never affect what's granted,
 // just what the renewal history and any "needs confirming" surfacing show
@@ -363,6 +365,21 @@ func (e *Enforcer) RenewKey(ctx context.Context, keyID string, addGB float64, ad
 
 	if err := e.repo.SetKeyLimitAndEndDate(ctx, keyID, newLimitBytes, newEndDate); err != nil {
 		return nil, nil, fmt.Errorf("set key limit and end date: %w", err)
+	}
+
+	// A renewal (manual or auto) is the one moment a price increase on the
+	// server catches up to keys already sold at the old, lower price — never
+	// on a plain key change, and never a decrease. A nil PriceMmk is left
+	// alone: it already tracks the server's current default live via
+	// COALESCE (see ListServers/SnapshotRevenue), so there's nothing to
+	// catch up.
+	if key.PriceMmk != nil {
+		if server, err := e.repo.GetServer(ctx, key.ServerID); err == nil &&
+			server.DefaultPriceMmk != nil && *server.DefaultPriceMmk > *key.PriceMmk {
+			if err := e.repo.SetKeyPrice(ctx, keyID, server.DefaultPriceMmk); err != nil {
+				return nil, nil, fmt.Errorf("sync key price to server default: %w", err)
+			}
+		}
 	}
 
 	renewal, err := e.repo.InsertRenewalLog(ctx, keyID, addGB, addDays, newLimitBytes, newEndDate, paid, paymentNote)

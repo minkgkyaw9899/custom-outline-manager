@@ -7,9 +7,19 @@ import {
 import type { Table } from "@tanstack/react-table"
 
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 
 /** Every table on this dashboard shows ten rows before paging. */
 export const DEFAULT_PAGE_SIZE = 10
+
+const PAGE_SIZE_OPTIONS = [10, 20, 30, 60, 100]
 
 /**
  * Footer controls shared by the keys and AS tables: a row range on the left,
@@ -35,6 +45,28 @@ export function DataTablePagination<TData>({
         {total === 1 ? unit : (unitPlural ?? `${unit}s`)}
       </p>
       <div className="flex items-center gap-3">
+        <Select
+          value={String(pageSize)}
+          onValueChange={(value) => {
+            table.setPageSize(Number(value))
+            table.setPageIndex(0)
+          }}
+        >
+          <SelectTrigger size="sm" className="min-w-28" aria-label="Rows per page">
+            <SelectValue>
+              {(value: string) => `${value} / page`}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <SelectItem key={size} value={String(size)}>
+                  {size} / page
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
         <span className="text-sm text-muted-foreground tabular-nums">
           Page {pageIndex + 1} of {Math.max(1, table.getPageCount())}
         </span>

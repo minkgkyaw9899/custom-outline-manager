@@ -281,6 +281,8 @@ export interface ServerDetail {
    * "hostname for access keys"). Empty when the server has no keys yet.
    */
   accessKeyHostname: string
+  /** What `hostname` currently resolves to, for eyeballing DNS. Empty if the lookup failed. */
+  resolvedIp: string
   health: ServerHealth
   metrics: ServerMetrics | null
   keys: Key[]

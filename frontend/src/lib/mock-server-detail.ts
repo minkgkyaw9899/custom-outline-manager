@@ -277,6 +277,7 @@ export function mockServerDetail(): Promise<ServerDetail> {
     // apiUrl, which is what the edit dialog's auto-bind fallback reads.
     hostname: "49.12.88.4",
     accessKeyHostname: mockAccessKeyHostname(),
+    resolvedIp: "49.12.88.4",
     health: "healthy",
     metrics: {
       window: "30d",

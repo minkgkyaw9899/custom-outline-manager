@@ -316,7 +316,7 @@ function UserDetailPage() {
             {key ? (
               <StatusBadge status={key.status} />
             ) : (
-              <Badge variant="outline">No key</Badge>
+              <Badge variant="destructive">No key</Badge>
             )}
             {user.status === "inactive" && (
               <Badge variant="outline">Inactive holder</Badge>

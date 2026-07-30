@@ -244,6 +244,7 @@ describe("edit server dialog", () => {
       // "hostname for access keys" on it: reachable over its domain, but no
       // key carries a host yet.
       accessKeyHostname: "",
+      resolvedIp: "203.0.113.10",
       health,
       metrics,
       keys: [],
@@ -270,39 +271,46 @@ describe("edit server dialog", () => {
         />
       </QueryClientProvider>
     )
-    return screen.getByLabelText<HTMLInputElement>("Hostname for access keys")
   }
 
   const saveButton = () =>
     screen.getByRole<HTMLButtonElement>("button", { name: "Save changes" })
 
-  // Nothing has stamped a host into a key yet, so rather than open on a blank
-  // field the dialog binds the domain the server is already reachable on.
-  it("auto-binds the server's own domain when no key carries a host yet", () => {
-    const field = openDialog(makeDetail())
-    expect(field.value).toBe("vpn-test-1.example.com")
-    expect(
-      screen.getByText(/prefilled with this server's own domain/)
-    ).toBeTruthy()
-  })
+  const bindButton = () =>
+    screen.queryByRole<HTMLButtonElement>("button", { name: /Bind static/ })
 
-  // The auto-bound domain is a pending change, not a settled value — Save has
-  // to be live or the bind would never reach Outline.
-  it("leaves Save enabled so the auto-bound domain is actually pushed", () => {
+  // Nothing has stamped a host into a key yet — the dialog should surface
+  // that as a fix-it action naming the server's own domain, not a blank form.
+  it("offers to bind the server's own domain when no key carries a host yet", () => {
     openDialog(makeDetail())
-    expect(saveButton().disabled).toBe(false)
+    expect(
+      screen.getByText(/No access key carries a host yet/)
+    ).toBeTruthy()
+    expect(bindButton()?.textContent).toMatch(/vpn-test-1\.example\.com/)
   })
 
-  // Outline is the source of truth once it has stamped a host: an API URL that
-  // has since moved to a domain must not silently overwrite the IP in the
-  // links every existing client is already using.
-  it("prefers the host Outline actually stamps over the API URL", () => {
-    const field = openDialog(makeDetail({ accessKeyHostname: "49.12.88.4" }))
-    expect(field.value).toBe("49.12.88.4")
-    expect(screen.queryByText(/prefilled with this server's own domain/)).toBe(
-      null
-    )
-    expect(saveButton().disabled).toBe(true)
+  // Saving the rest of the form (name/cost/etc.) is independent of the
+  // domain bind — it must never be gated on a static-key fix nobody asked for
+  // in this save.
+  it("leaves Save enabled regardless of the static-key bind state", () => {
+    openDialog(makeDetail())
+    expect(saveButton().disabled).toBe(true) // nothing else changed yet
+  })
+
+  // Once Outline has actually stamped the server's own domain into its keys,
+  // there is nothing left to fix — no alert, no button.
+  it("shows no fix-it action once already bound to its own domain", () => {
+    openDialog(makeDetail({ accessKeyHostname: "vpn-test-1.example.com" }))
+    expect(screen.queryByText(/No access key carries a host yet/)).toBe(null)
+    expect(bindButton()).toBe(null)
+  })
+
+  // A host that doesn't match the server's own domain (e.g. a raw IP) is
+  // flagged as the actual bug this fixes — it must not be silently accepted.
+  it("flags a bound host that isn't the server's own domain", () => {
+    openDialog(makeDetail({ accessKeyHostname: "49.12.88.4" }))
+    expect(screen.getByText(/not this server's own domain/)).toBeTruthy()
+    expect(bindButton()?.textContent).toMatch(/vpn-test-1\.example\.com/)
   })
 })
 

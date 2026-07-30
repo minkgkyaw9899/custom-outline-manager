@@ -353,6 +353,10 @@ export function KeysTable({
     getFilteredRowModel: getFilteredRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize: DEFAULT_PAGE_SIZE } },
+    // A save/delete refetch gives `rows` a new array reference even when the
+    // row count on the current page hasn't changed — without this, the table
+    // would snap back to page 1 on every edit, per TanStack Table's default.
+    autoResetPageIndex: false,
   })
 
   return (

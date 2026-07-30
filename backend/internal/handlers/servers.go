@@ -333,9 +333,17 @@ func (a *API) getServer(c fiber.Ctx) error {
 
 	bandwidthUsedThisMonth, bandwidthTrackingSince, bandwidthTrackingComplete := a.bandwidthThisMonth(c.Context(), *server)
 
+	// Purely informational — lets the edit-server dialog show what the
+	// domain currently resolves to, so an admin can eyeball that their DNS
+	// (e.g. a Cloudflare A record) actually points where they think it does.
+	// Best-effort: an empty string on lookup failure just hides that line,
+	// it never blocks the page.
+	resolvedIP, _ := resolveIP(c.Context(), server.Hostname())
+
 	return apiresponse.Success(c, fiber.Map{
-		"server":   server,
-		"hostname": server.Hostname(),
+		"server":     server,
+		"hostname":   server.Hostname(),
+		"resolvedIp": resolvedIP,
 		// accessKeyHostname is the host actually baked into this server's
 		// static ss:// links right now (Outline's "hostname for access
 		// keys"), which is not necessarily the same as the API URL's own
