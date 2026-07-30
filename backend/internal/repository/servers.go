@@ -178,7 +178,12 @@ func (r *Repository) CountKeysByServer(ctx context.Context, serverID string) (in
 }
 
 // ListServers returns every server with rolled-up key counts and usage for the
-// dashboard's server list.
+// dashboard's server list. Revenue-related figures (monthly_revenue_mmk,
+// unpriced_active_keys, free_active_keys) additionally require user_id IS NOT
+// NULL: a key just adopted from Outline starts unlinked from any renter, and
+// an unlinked key isn't actually generating revenue from anyone regardless of
+// its price. active_keys/key_count stay unfiltered — those are operational
+// counts, not revenue inputs.
 func (r *Repository) ListServers(ctx context.Context) ([]models.ServerWithUsage, error) {
 	rows, err := r.pool.Query(ctx, `
 		SELECT s.id, s.name, s.api_url, s.cert_sha256, s.cost_usd_per_month, s.last_synced_at, s.last_sync_error, s.created_at, s.updated_at,
@@ -187,10 +192,10 @@ func (r *Repository) ListServers(ctx context.Context) ([]models.ServerWithUsage,
 		       COUNT(k.id) AS key_count,
 		       COUNT(k.id) FILTER (WHERE k.status = 'active') AS active_keys,
 		       COALESCE(SUM(k.used_bytes), 0) AS total_used_bytes,
-		       COALESCE(SUM(COALESCE(k.price_mmk, s.default_price_mmk, 0)) FILTER (WHERE k.status = 'active'), 0) AS monthly_revenue_mmk,
-		       COUNT(k.id) FILTER (WHERE k.status = 'active' AND k.price_mmk IS NULL AND s.default_price_mmk IS NULL) AS unpriced_active_keys,
+		       COALESCE(SUM(COALESCE(k.price_mmk, s.default_price_mmk, 0)) FILTER (WHERE k.status = 'active' AND k.user_id IS NOT NULL), 0) AS monthly_revenue_mmk,
+		       COUNT(k.id) FILTER (WHERE k.status = 'active' AND k.user_id IS NOT NULL AND k.price_mmk IS NULL AND s.default_price_mmk IS NULL) AS unpriced_active_keys,
 		       COUNT(k.id) FILTER (
-		         WHERE k.status = 'active' AND
+		         WHERE k.status = 'active' AND k.user_id IS NOT NULL AND
 		               (k.price_mmk = 0 OR (k.price_mmk IS NULL AND s.default_price_mmk = 0))
 		       ) AS free_active_keys
 		FROM servers s

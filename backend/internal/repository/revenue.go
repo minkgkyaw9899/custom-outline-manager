@@ -12,14 +12,17 @@ import (
 // and key-pricing figures — the same computation ListServers makes for the
 // live dashboard, just also persisted so a history can build up over time.
 // Called once per cron tick, covering every server in a single statement.
+// revenue_mmk and unpriced_active_keys require user_id IS NOT NULL for the
+// same reason as ListServers: a key not linked to a renter isn't generating
+// revenue from anyone, regardless of its price.
 func (r *Repository) SnapshotRevenue(ctx context.Context) error {
 	_, err := r.pool.Exec(ctx, `
 		INSERT INTO revenue_snapshots (server_id, revenue_mmk, cost_usd_per_month, active_keys, unpriced_active_keys)
 		SELECT s.id,
-		       COALESCE(SUM(COALESCE(k.price_mmk, s.default_price_mmk, 0)) FILTER (WHERE k.status = 'active'), 0),
+		       COALESCE(SUM(COALESCE(k.price_mmk, s.default_price_mmk, 0)) FILTER (WHERE k.status = 'active' AND k.user_id IS NOT NULL), 0),
 		       s.cost_usd_per_month,
 		       COUNT(k.id) FILTER (WHERE k.status = 'active'),
-		       COUNT(k.id) FILTER (WHERE k.status = 'active' AND k.price_mmk IS NULL AND s.default_price_mmk IS NULL)
+		       COUNT(k.id) FILTER (WHERE k.status = 'active' AND k.user_id IS NOT NULL AND k.price_mmk IS NULL AND s.default_price_mmk IS NULL)
 		FROM servers s
 		LEFT JOIN keys k ON k.server_id = s.id
 		WHERE s.deleted_at IS NULL
