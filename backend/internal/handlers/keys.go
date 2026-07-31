@@ -379,6 +379,15 @@ type updateKeyRequest struct {
 	// AutoRenew opts this key in or out of the cron's automatic top-up. Nil
 	// leaves the current setting alone.
 	AutoRenew *bool `json:"auto_renew"`
+	// Billable marks a plan change (limit_gb/end_date) as a real sale rather
+	// than the free correction it defaults to — e.g. an admin pricing a fresh
+	// plan onto a key by typing the exact figures instead of using Extend.
+	// Ignored when the plan isn't changing. Paid/Note follow the same
+	// bookkeeping convention as renew: Paid nil/true means collected, false
+	// means sold on credit; both are only meaningful when Billable is true.
+	Billable bool   `json:"billable"`
+	Paid     *bool  `json:"paid"`
+	Note     string `json:"note"`
 }
 
 // updateKey applies absolute edits to one key: its name, its total data limit,
@@ -459,11 +468,40 @@ func (a *API) updateKey(c fiber.Ctx) error {
 		if err := a.repo.SetKeyLimitAndEndDate(c.Context(), id, limitBytes, endDate); err != nil {
 			return apiresponse.Internal(c, "")
 		}
+
 		// Logged with a zero allowance: nothing was *added*, the figures were
 		// set outright, and the history table reads that as an adjustment.
-		// paid=true since no charge is implied here — an unpaid flag would
-		// falsely read as "still owed" on what's just a correction.
-		if _, err := a.repo.InsertRenewalLog(c.Context(), id, 0, 0, limitBytes, endDate, true, nil, nil); err != nil {
+		// Free by default (paid=true, no amount) — an unpaid flag would
+		// falsely read as "still owed" on what's just a correction. Billable
+		// opts into treating it like a real sale instead, e.g. an admin
+		// pricing a fresh plan onto a key by typing exact figures rather than
+		// using Extend.
+		logPaid := true
+		var logNote *string
+		var amountMmk *int64
+		if req.Billable {
+			logPaid = req.Paid == nil || *req.Paid
+			if trimmed := strings.TrimSpace(req.Note); trimmed != "" {
+				logNote = &trimmed
+			}
+			// Prefer whatever price this same request is setting (an admin
+			// pricing and billing a key in one edit means the new price),
+			// falling back to the key's existing price, then the server's
+			// current default — the same COALESCE live revenue uses.
+			resolvedPriceMmk := key.PriceMmk
+			if req.ClearPriceMmk {
+				resolvedPriceMmk = nil
+			} else if req.PriceMmk != nil {
+				resolvedPriceMmk = req.PriceMmk
+			}
+			amountMmk = resolvedPriceMmk
+			if amountMmk == nil {
+				if server, serr := a.repo.GetServer(c.Context(), key.ServerID); serr == nil {
+					amountMmk = server.DefaultPriceMmk
+				}
+			}
+		}
+		if _, err := a.repo.InsertRenewalLog(c.Context(), id, 0, 0, limitBytes, endDate, logPaid, logNote, amountMmk); err != nil {
 			return apiresponse.Internal(c, "")
 		}
 		if err := a.enforcer.ReconcileKeyByID(c.Context(), id); err != nil {

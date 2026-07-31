@@ -106,6 +106,9 @@ export function EditKeyDialog({
   // collected payment for it. Unchecking is for renewing on credit/goodwill.
   const [paid, setPaid] = useState(true)
   const [paymentNote, setPaymentNote] = useState("")
+  // "Set exact" defaults to a free correction (see PlanMode's doc comment);
+  // this opts one back into being a real sale, same as Extend always is.
+  const [billable, setBillable] = useState(false)
   const [limitGb, setLimitGb] = useState(String(MIN_PLAN_GB))
   const [priceMmk, setPriceMmk] = useState("")
   const [autoRenew, setAutoRenew] = useState(false)
@@ -143,6 +146,7 @@ export function EditKeyDialog({
       setAddDays(String(MIN_PLAN_DAYS))
       setPaid(true)
       setPaymentNote("")
+      setBillable(false)
       setLimitGb(
         keyItem.customLimitBytes === null
           ? String(MIN_PLAN_GB)
@@ -228,6 +232,8 @@ export function EditKeyDialog({
               // end of that day in UTC, which reads back here as the *next*
               // day and creeps forward every time the key is edited.
               end_date: new Date(`${day}T23:59:59`).toISOString(),
+              billable,
+              ...(billable ? { paid, note: paymentNote.trim() } : {}),
               ...otherFields,
             }))
         return
@@ -555,6 +561,58 @@ export function EditKeyDialog({
                       "The key works through the end of this day."}
                   </FieldDescription>
                 </Field>
+
+                <Field orientation="horizontal">
+                  <div className="flex flex-col gap-1">
+                    <FieldLabel htmlFor="edit-key-billable">
+                      Charge for this change
+                    </FieldLabel>
+                    <FieldDescription>
+                      Off logs this as a free correction, same as before. On
+                      logs it like a renewal — at this key's price — so it
+                      counts as revenue.
+                    </FieldDescription>
+                  </div>
+                  <Switch
+                    id="edit-key-billable"
+                    checked={billable}
+                    onCheckedChange={setBillable}
+                  />
+                </Field>
+
+                {billable && (
+                  <>
+                    <Field orientation="horizontal">
+                      <div className="flex flex-col gap-1">
+                        <FieldLabel htmlFor="edit-key-set-paid">
+                          Payment received
+                        </FieldLabel>
+                        <FieldDescription>
+                          Off leaves this logged unpaid in the history below —
+                          for selling on credit or before the transfer clears.
+                        </FieldDescription>
+                      </div>
+                      <Switch
+                        id="edit-key-set-paid"
+                        checked={paid}
+                        onCheckedChange={setPaid}
+                      />
+                    </Field>
+
+                    <Field>
+                      <FieldLabel htmlFor="edit-key-set-payment-note">
+                        Payment note (optional)
+                      </FieldLabel>
+                      <Textarea
+                        id="edit-key-set-payment-note"
+                        rows={2}
+                        placeholder="e.g. Bank transfer, KBZPay screenshot confirmed"
+                        value={paymentNote}
+                        onChange={(e) => setPaymentNote(e.target.value)}
+                      />
+                    </Field>
+                  </>
+                )}
               </>
             )}
           </FieldGroup>
