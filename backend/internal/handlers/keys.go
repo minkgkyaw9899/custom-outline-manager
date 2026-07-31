@@ -199,7 +199,7 @@ func (a *API) applyKeyPlan(ctx context.Context, keyID string, plan keyPlan) erro
 	// Logged with a zero allowance: nothing was *added*, the figures were set
 	// outright, and the renewal history table reads that as an adjustment.
 	// paid=true: claiming a spare free key isn't a billable event.
-	if _, err := a.repo.InsertRenewalLog(ctx, keyID, 0, 0, plan.limitBytes, plan.endDate, true, nil); err != nil {
+	if _, err := a.repo.InsertRenewalLog(ctx, keyID, 0, 0, plan.limitBytes, plan.endDate, true, nil, nil); err != nil {
 		return err
 	}
 	if err := a.enforcer.ReconcileKeyByID(ctx, keyID); err != nil {
@@ -463,7 +463,7 @@ func (a *API) updateKey(c fiber.Ctx) error {
 		// set outright, and the history table reads that as an adjustment.
 		// paid=true since no charge is implied here — an unpaid flag would
 		// falsely read as "still owed" on what's just a correction.
-		if _, err := a.repo.InsertRenewalLog(c.Context(), id, 0, 0, limitBytes, endDate, true, nil); err != nil {
+		if _, err := a.repo.InsertRenewalLog(c.Context(), id, 0, 0, limitBytes, endDate, true, nil, nil); err != nil {
 			return apiresponse.Internal(c, "")
 		}
 		if err := a.enforcer.ReconcileKeyByID(c.Context(), id); err != nil {
@@ -605,6 +605,22 @@ func (a *API) listRenewals(c fiber.Ctx) error {
 		return respondRepoErr(c, err)
 	}
 	logs, err := a.repo.ListRenewalLogs(c.Context(), id)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+	return apiresponse.Success(c, logs, "")
+}
+
+// listServerRenewals is the revenue detail page's per-renewal breakdown: every
+// top-up (manual extend or auto-renew) logged for any key on this server,
+// newest first, with the key and holder names joined in and what each one was
+// worth at the time.
+func (a *API) listServerRenewals(c fiber.Ctx) error {
+	id := c.Params("id")
+	if _, err := a.repo.GetServer(c.Context(), id); err != nil {
+		return respondRepoErr(c, err)
+	}
+	logs, err := a.repo.ListRenewalLogsByServer(c.Context(), id)
 	if err != nil {
 		return respondRepoErr(c, err)
 	}

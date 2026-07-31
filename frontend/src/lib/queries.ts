@@ -120,6 +120,13 @@ export const keyRenewalsQueryOptions = (keyId: string) =>
     queryFn: () => apiClient.get<RenewalLog[]>(`keys/${keyId}/renewals`),
   })
 
+/** Every renewal (manual extend or auto-renew) logged for any key on this server — feeds the revenue detail page's per-renewal breakdown. */
+export const serverRenewalsQueryOptions = (serverId: string) =>
+  queryOptions({
+    queryKey: ["servers", serverId, "renewals"] as const,
+    queryFn: () => apiClient.get<RenewalLog[]>(`servers/${serverId}/renewals`),
+  })
+
 export const keyDailyQueryOptions = (keyId: string) =>
   queryOptions({
     queryKey: ["keys", keyId, "daily"] as const,

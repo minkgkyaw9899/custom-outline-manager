@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { ArrowLeftIcon, WalletIcon } from "lucide-react"
 
 import { RevenueTrendCard } from "@/components/dashboard/revenue-trend-card"
+import { ServerRenewalHistoryTable } from "@/components/revenue/server-renewal-history-table"
 import { ServerStatusBadge } from "@/components/common/server-status-badge"
 import { StatCard } from "@/components/common/stat-card"
 import {
@@ -30,7 +31,11 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { costProfitMmk, formatMmk as mmk, formatUsd as usd } from "@/lib/format"
-import { serversQueryOptions, useMmkPerUsd } from "@/lib/queries"
+import {
+  serverRenewalsQueryOptions,
+  serversQueryOptions,
+  useMmkPerUsd,
+} from "@/lib/queries"
 import type { RevenuePoint } from "@/lib/types"
 import { cn } from "@/lib/utils"
 
@@ -71,6 +76,9 @@ function monthlyBreakdown(series: RevenuePoint[]): RevenuePoint[] {
 function ServerRevenueDetailPage() {
   const { serverId } = Route.useParams()
   const { data: servers, isLoading } = useQuery(serversQueryOptions())
+  const { data: renewals, isLoading: renewalsLoading } = useQuery(
+    serverRenewalsQueryOptions(serverId)
+  )
   const mmkPerUsd = useMmkPerUsd()
 
   const server = servers?.find((s) => s.id === serverId)
@@ -246,6 +254,11 @@ function ServerRevenueDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      <ServerRenewalHistoryTable
+        renewals={renewals}
+        isLoading={renewalsLoading}
+      />
     </div>
   )
 }

@@ -367,22 +367,33 @@ func (e *Enforcer) RenewKey(ctx context.Context, keyID string, addGB float64, ad
 		return nil, nil, fmt.Errorf("set key limit and end date: %w", err)
 	}
 
+	server, err := e.repo.GetServer(ctx, key.ServerID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("get server: %w", err)
+	}
+
 	// A renewal (manual or auto) is the one moment a price increase on the
 	// server catches up to keys already sold at the old, lower price — never
 	// on a plain key change, and never a decrease. A nil PriceMmk is left
 	// alone: it already tracks the server's current default live via
 	// COALESCE (see ListServers/SnapshotRevenue), so there's nothing to
 	// catch up.
-	if key.PriceMmk != nil {
-		if server, err := e.repo.GetServer(ctx, key.ServerID); err == nil &&
-			server.DefaultPriceMmk != nil && *server.DefaultPriceMmk > *key.PriceMmk {
-			if err := e.repo.SetKeyPrice(ctx, keyID, server.DefaultPriceMmk); err != nil {
-				return nil, nil, fmt.Errorf("sync key price to server default: %w", err)
-			}
+	effectivePriceMmk := key.PriceMmk
+	if key.PriceMmk != nil && server.DefaultPriceMmk != nil && *server.DefaultPriceMmk > *key.PriceMmk {
+		if err := e.repo.SetKeyPrice(ctx, keyID, server.DefaultPriceMmk); err != nil {
+			return nil, nil, fmt.Errorf("sync key price to server default: %w", err)
 		}
+		effectivePriceMmk = server.DefaultPriceMmk
+	}
+	// amountMmk snapshots what this renewal was actually worth: the key's own
+	// (possibly just-synced) price, or the server's current default when the
+	// key has never had one set — the same COALESCE live revenue uses.
+	amountMmk := effectivePriceMmk
+	if amountMmk == nil {
+		amountMmk = server.DefaultPriceMmk
 	}
 
-	renewal, err := e.repo.InsertRenewalLog(ctx, keyID, addGB, addDays, newLimitBytes, newEndDate, paid, paymentNote)
+	renewal, err := e.repo.InsertRenewalLog(ctx, keyID, addGB, addDays, newLimitBytes, newEndDate, paid, paymentNote, amountMmk)
 	if err != nil {
 		return nil, nil, fmt.Errorf("insert renewal log: %w", err)
 	}

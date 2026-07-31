@@ -309,6 +309,16 @@ export interface RenewalLog {
   /** Bookkeeping only — whether payment was actually collected for this renewal. */
   paid: boolean
   paymentNote: string | null
+  /**
+   * What this renewal was worth, snapshotted at the moment it was applied.
+   * Null for renewals logged before this field existed, and for non-billable
+   * "set exact" adjustments — only a real renew (manual extend or
+   * auto-renew) ever sets it.
+   */
+  amountMmk: number | null
+  /** Only present on the server-scoped listing (servers/:id/renewals). */
+  keyName?: string
+  userName?: string
 }
 
 export interface DashboardStats {

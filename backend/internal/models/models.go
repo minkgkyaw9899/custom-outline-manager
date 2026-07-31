@@ -383,6 +383,18 @@ type RenewalLog struct {
 	Paid bool `json:"paid"`
 	// Free text, e.g. "Bank transfer 7/28" or "Auto-renewed, needs confirming".
 	PaymentNote *string `json:"paymentNote"`
+	// AmountMmk is what this renewal was worth, snapshotted at the moment it
+	// was applied — the key's own price if set, else the server's default
+	// price at that time, the same COALESCE live revenue uses (see
+	// SnapshotRevenue/ListServers). Nil for rows that predate this column and
+	// for non-billable "set exact" adjustments — only RenewKey (manual extend
+	// and auto-renew) ever sets it.
+	AmountMmk *int64 `json:"amountMmk"`
+	// KeyName and UserName are joined in only by ListRenewalLogsByServer, for
+	// the server-scoped renewal history table; empty from the per-key
+	// listing, which already has that context from the page it renders on.
+	KeyName  string `json:"keyName,omitempty"`
+	UserName string `json:"userName,omitempty"`
 }
 
 // DeviceAlert is a key whose peak simultaneous device count over the last day

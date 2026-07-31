@@ -131,6 +131,7 @@ func (a *API) RegisterRoutes(r fiber.Router) {
 			protected.Post("/servers/:id/sync", a.syncServer)
 			protected.Post("/servers/:id/bandwidth/enable", a.reenableServerBandwidth)
 			protected.Get("/servers/:id/usage", a.getServerUsage)
+			protected.Get("/servers/:id/renewals", a.listServerRenewals)
 			protected.Post("/servers/:id/keys", a.createKey)
 
 			protected.Get("/keys", a.listKeys)
