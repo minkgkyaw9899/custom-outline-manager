@@ -155,7 +155,13 @@ func (a *API) createServer(c fiber.Ctx) error {
 	}
 	if err == nil {
 		if !existing.Deleted {
-			return apiresponse.Conflict(c, "This server has already been added")
+			// Named explicitly rather than a generic "already added": if the
+			// admin just deleted a server and expected this to revive it, a
+			// bare conflict message leaves them unable to tell "genuine
+			// duplicate" apart from "the delete didn't take, or a different
+			// server already holds this key" — this points them straight at
+			// the row to go check.
+			return apiresponse.Conflict(c, fmt.Sprintf("This management key is already in use by %q — delete or update that server first", existing.Name))
 		}
 		if existing.CertSHA256 != req.CertSHA256 {
 			return apiresponse.Validation(c, apiresponse.FieldError{

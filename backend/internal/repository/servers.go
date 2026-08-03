@@ -18,6 +18,7 @@ const serverColumns = `id, name, api_url, cert_sha256, cost_usd_per_month, last_
 // archived one (revive it — see ReviveServer).
 type ServerLookup struct {
 	ID         string
+	Name       string
 	CertSHA256 string
 	Deleted    bool
 }
@@ -38,11 +39,15 @@ func (r *Repository) CreateServer(ctx context.Context, name, apiURL, certSHA256 
 // GetServerByAPIURL looks up any server at this exact management-key URL,
 // active or archived (soft-deleted) — createServer needs to see archived
 // matches too, to offer a revive instead of erroring on the now-freed URL.
+// Name is included so a "this key is already in use" error can name the
+// offending server instead of leaving the admin to guess which one it is —
+// without it, an active row that (for whatever reason) never actually got
+// soft-deleted looks identical to a genuine duplicate from the caller's side.
 func (r *Repository) GetServerByAPIURL(ctx context.Context, apiURL string) (*ServerLookup, error) {
 	var l ServerLookup
 	err := r.pool.QueryRow(ctx, `
-		SELECT id, cert_sha256, deleted_at IS NOT NULL FROM servers WHERE api_url = $1
-	`, apiURL).Scan(&l.ID, &l.CertSHA256, &l.Deleted)
+		SELECT id, name, cert_sha256, deleted_at IS NOT NULL FROM servers WHERE api_url = $1
+	`, apiURL).Scan(&l.ID, &l.Name, &l.CertSHA256, &l.Deleted)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
