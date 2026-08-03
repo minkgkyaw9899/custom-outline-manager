@@ -29,6 +29,7 @@ import {
   InputGroupText,
 } from "@/components/ui/input-group"
 import { Spinner } from "@/components/ui/spinner"
+import { Textarea } from "@/components/ui/textarea"
 import { apiClient } from "@/lib/api"
 import { fieldErrorsFrom } from "@/lib/form-errors"
 import { isMockId, mockUpdateServerConfig } from "@/lib/mock-server-detail"
@@ -76,6 +77,15 @@ export function EditServerDialog({
   const [bandwidthLimitGb, setBandwidthLimitGb] = useState("")
   const [errors, setErrors] = useState<Record<string, string | undefined>>({})
 
+  // Its own field/state, deliberately separate from the rest of the form —
+  // pasting a new management key is a rare, high-stakes action (it repoints
+  // this server's whole connection) that shouldn't be bundled with routine
+  // name/cost/limit edits or accidentally submitted alongside them.
+  const [managementKey, setManagementKey] = useState("")
+  const [apiUrlErrors, setApiUrlErrors] = useState<
+    Record<string, string | undefined>
+  >({})
+
   const queryClient = useQueryClient()
   const isMock = isMockId(serverId)
 
@@ -101,6 +111,8 @@ export function EditServerDialog({
           : String(detail.server.bandwidthLimitBytes / 1_000_000_000)
       )
       setErrors({})
+      setManagementKey("")
+      setApiUrlErrors({})
     }
   }, [open, detail])
 
@@ -202,6 +214,27 @@ export function EditServerDialog({
       // that same key data and go stale otherwise.
       queryClient.invalidateQueries({ queryKey: ["users"] })
     },
+  })
+
+  // Repoints this server at a new Outline management key — e.g. after the
+  // underlying box got a new IP on AWS — without deleting and re-adding it,
+  // which would otherwise be the only way to change apiUrl/certSha256 and
+  // risks hitting "this server has already been added" if the old row is
+  // still active. Backend re-verifies reachability + cert pin before writing
+  // anything, same as adding a fresh server.
+  const updateAPIURL = useMutation({
+    mutationFn: async () => {
+      if (isMock) return mockUpdateServerConfig()
+      return apiClient.patch(`servers/${serverId}/api-url`, {
+        apiUrl: managementKey.trim(),
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["servers"] })
+      setManagementKey("")
+      setApiUrlErrors({})
+    },
+    onError: (error) => setApiUrlErrors(fieldErrorsFrom(error)),
   })
 
   const parsedCost = Number(costUsd)
@@ -350,6 +383,46 @@ export function EditServerDialog({
                   {errors.bandwidthLimitGb ??
                     "Total transfer (in + out) allowed each calendar month. Every key on this server is automatically disabled once usage gets within 2 GB of this — you re-enable them manually. Leave blank to stop tracking it."}
                 </FieldDescription>
+              </Field>
+            </FieldSet>
+
+            <FieldSet>
+              <FieldLegend>Outline management key</FieldLegend>
+              <Field data-invalid={!!apiUrlErrors.apiUrl || undefined}>
+                <FieldLabel htmlFor="edit-server-management-key">
+                  Update connection (e.g. after the box gets a new IP)
+                </FieldLabel>
+                <Textarea
+                  id="edit-server-management-key"
+                  className="font-mono text-xs"
+                  placeholder="Paste the new Outline install management key JSON, or just its apiUrl"
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={managementKey}
+                  aria-invalid={!!apiUrlErrors.apiUrl || undefined}
+                  onChange={(e) => setManagementKey(e.target.value)}
+                />
+                <FieldDescription>
+                  {apiUrlErrors.apiUrl ??
+                    "Only needed if this server was reinstalled or its IP changed and the old management key stopped connecting. Leave blank otherwise — this never runs unless you paste something here."}
+                </FieldDescription>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="w-fit"
+                  disabled={
+                    updateAPIURL.isPending || managementKey.trim() === ""
+                  }
+                  onClick={() => updateAPIURL.mutate()}
+                >
+                  {updateAPIURL.isPending ? (
+                    <Spinner data-icon="inline-start" />
+                  ) : (
+                    <RefreshCwIcon data-icon="inline-start" />
+                  )}
+                  Verify &amp; update management key
+                </Button>
               </Field>
             </FieldSet>
 

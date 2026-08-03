@@ -526,6 +526,77 @@ func (a *API) updateServerConfig(c fiber.Ctx) error {
 	return apiresponse.Success(c, updated, "Server settings updated")
 }
 
+// updateServerAPIURLRequest is the "update management key" control — for
+// repointing an existing server at a new apiUrl/certSha256 (e.g. the
+// underlying box got a new IP) without deleting and re-adding it, which loses
+// nothing but also means GetServerByAPIURL's revive-on-exact-match never gets
+// a chance to run, since the new URL won't match the old archived row.
+type updateServerAPIURLRequest struct {
+	APIURL     string `json:"apiUrl" validate:"required"`
+	CertSHA256 string `json:"certSha256"`
+}
+
+// updateServerAPIURL repoints an active server at a new management key. Same
+// reachability/cert-pin validation as createServer, plus a check that the new
+// URL doesn't collide with a *different* server (active or archived) — that
+// would otherwise silently orphan one of the two rows' history.
+func (a *API) updateServerAPIURL(c fiber.Ctx) error {
+	id := c.Params("id")
+	server, err := a.repo.GetServer(c.Context(), id)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+
+	var req updateServerAPIURLRequest
+	if !bindJSON(c, &req) {
+		return nil
+	}
+	apiURL, certSHA256 := parseManagementKey(req.APIURL, req.CertSHA256)
+	if apiURL == "" {
+		return apiresponse.Validation(c, apiresponse.FieldError{
+			Field:   "apiUrl",
+			Message: "Paste the full management key JSON from your Outline install output, including certSha256",
+		})
+	}
+
+	client, err := outline.New(apiURL, certSHA256, a.timeout)
+	if err != nil {
+		return apiresponse.Validation(c, apiresponse.FieldError{
+			Field:   "apiUrl",
+			Message: "Paste the full management key JSON from your Outline install output, including certSha256",
+		})
+	}
+	if _, err := client.GetServerInfo(c.Context()); err != nil {
+		return apiresponse.Validation(c, apiresponse.FieldError{
+			Field:   "apiUrl",
+			Message: "Invalid Outline API Management Key or cert connection failed",
+		})
+	}
+
+	if apiURL != server.APIURL {
+		existing, err := a.repo.GetServerByAPIURL(c.Context(), apiURL)
+		if err != nil && !errors.Is(err, repository.ErrNotFound) {
+			return apiresponse.Internal(c, "")
+		}
+		if err == nil && existing.ID != id {
+			return apiresponse.Conflict(c, "Another server already uses this management key")
+		}
+	}
+
+	updated, err := a.repo.UpdateServerAPIURL(c.Context(), id, apiURL, certSHA256)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+
+	// The cached client for this server id is pinned to the old apiUrl/cert —
+	// drop it so the next call reconnects with the new ones instead of
+	// reusing (or failing against) the stale credentials.
+	a.cache.Invalidate(id)
+	a.syncServerInBackground(*updated)
+
+	return apiresponse.Success(c, updated, "Management key updated — resyncing now")
+}
+
 // reenableServerBandwidth is the manual admin action after a bandwidth kill
 // switch trip: clears it and pushes every key's own real computed limit back
 // to Outline (undoing the forced 0-byte override), without touching any

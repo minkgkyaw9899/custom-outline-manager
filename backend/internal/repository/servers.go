@@ -77,6 +77,27 @@ func (r *Repository) ReviveServer(ctx context.Context, id, name, apiURL, certSHA
 	return scanServer(row)
 }
 
+// UpdateServerAPIURL repoints an existing, still-active server at a new
+// management key (apiUrl + certSha256) — e.g. after the underlying box got a
+// new IP — without the delete+re-add round trip GetServerByAPIURL's
+// revive-on-exact-match logic requires. last_sync_error is cleared since
+// whatever failure the old, now-invalid apiUrl was producing no longer
+// applies to the new one.
+func (r *Repository) UpdateServerAPIURL(ctx context.Context, id, apiURL, certSHA256 string) (*models.Server, error) {
+	if !isUUID(id) {
+		return nil, ErrNotFound
+	}
+	row := r.pool.QueryRow(ctx, `
+		UPDATE servers SET
+			api_url = $2,
+			cert_sha256 = $3,
+			last_sync_error = NULL,
+			updated_at = now()
+		WHERE id = $1 AND deleted_at IS NULL
+		RETURNING `+serverColumns, id, apiURL, certSHA256)
+	return scanServer(row)
+}
+
 func (r *Repository) UpdateServerDetails(ctx context.Context, id string, name *string, costUSDPerMonth *float64, maxKeys *int, defaultPriceMmk *int64, bandwidthLimitBytes *int64) (*models.Server, error) {
 	if !isUUID(id) {
 		return nil, ErrNotFound
