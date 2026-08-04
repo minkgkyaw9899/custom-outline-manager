@@ -577,6 +577,7 @@ function KeyDetailPage() {
 
       <EditKeyDialog
         keyItem={keyItem}
+        defaultLimitBytes={serverDetail?.server.defaultLimitBytes ?? null}
         open={editOpen}
         onOpenChange={setEditOpen}
       />

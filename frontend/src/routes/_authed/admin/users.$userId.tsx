@@ -580,6 +580,7 @@ function UserDetailPage() {
 
       <EditKeyDialog
         keyItem={key}
+        defaultLimitBytes={serverDetail?.server.defaultLimitBytes ?? null}
         open={editKeyOpen}
         onOpenChange={setEditKeyOpen}
       />

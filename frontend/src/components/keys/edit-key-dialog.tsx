@@ -3,7 +3,6 @@ import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { CalendarIcon } from "lucide-react"
 
 import { keyDisplayName } from "@/components/keys/key-connection-status"
-import { PlanPresetPicker } from "@/components/keys/plan-preset-picker"
 import { Button } from "@/components/ui/button"
 import { Calendar } from "@/components/ui/calendar"
 import {
@@ -89,18 +88,34 @@ function toDateParam(date: Date): string {
   return local.toISOString().slice(0, 10)
 }
 
+/**
+ * "Add data" opens on the server's own overall limit, since that's the plan
+ * size an admin renewing on this server almost always means. Round to a
+ * tenth: a byte-exact default is rarely a whole number and full precision
+ * would be unreadable in the field. Falls back to the plan floor for a
+ * server that hasn't set one.
+ */
+function defaultAddGb(defaultLimitBytes: number | null): string {
+  return defaultLimitBytes === null
+    ? String(MIN_PLAN_GB)
+    : String(Math.round((defaultLimitBytes / BYTES_PER_GB) * 10) / 10)
+}
+
 export function EditKeyDialog({
   keyItem,
+  defaultLimitBytes,
   open,
   onOpenChange,
 }: Readonly<{
   keyItem: Key | null
+  /** The key's server's overall quota, driving "Add data"'s default. */
+  defaultLimitBytes: number | null
   open: boolean
   onOpenChange: (open: boolean) => void
 }>) {
   const [name, setName] = useState("")
   const [mode, setMode] = useState<PlanMode>("keep")
-  const [addGb, setAddGb] = useState(String(MIN_PLAN_GB))
+  const [addGb, setAddGb] = useState(() => defaultAddGb(defaultLimitBytes))
   const [addDays, setAddDays] = useState(String(MIN_PLAN_DAYS))
   // Defaults to checked: an admin renewing a key has ordinarily already
   // collected payment for it. Unchecking is for renewing on credit/goodwill.
@@ -142,7 +157,7 @@ export function EditKeyDialog({
           ? "extend"
           : "keep"
       )
-      setAddGb(String(MIN_PLAN_GB))
+      setAddGb(defaultAddGb(defaultLimitBytes))
       setAddDays(String(MIN_PLAN_DAYS))
       setPaid(true)
       setPaymentNote("")
@@ -162,7 +177,7 @@ export function EditKeyDialog({
       setPickerOpen(false)
       setErrors({})
     }
-  }, [open, keyItem])
+  }, [open, keyItem, defaultLimitBytes])
 
   const gb = Number(addGb) || 0
   const days = Number(addDays) || 0
@@ -390,16 +405,6 @@ export function EditKeyDialog({
 
             {mode === "extend" && (
               <>
-                <Field>
-                  <FieldLabel>Quick pick</FieldLabel>
-                  <PlanPresetPicker
-                    onPick={(presetGb, presetDays) => {
-                      setAddGb(String(presetGb))
-                      setAddDays(String(presetDays))
-                    }}
-                  />
-                </Field>
-
                 <Field data-invalid={!!errors.add_gb || undefined}>
                   <FieldLabel htmlFor="edit-key-gb">Add data</FieldLabel>
                   <InputGroup>

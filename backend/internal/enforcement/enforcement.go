@@ -251,6 +251,9 @@ func (e *Enforcer) AutoRenewKeys(ctx context.Context) []models.Key {
 
 	now := time.Now()
 	note := autoRenewNote
+	// Cached per server so a batch of keys on the same server only looks its
+	// default limit up once.
+	serverDefaultGB := map[string]float64{}
 	var renewed []models.Key
 	for _, key := range keys {
 		key = key.Enrich(now)
@@ -259,7 +262,20 @@ func (e *Enforcer) AutoRenewKeys(ctx context.Context) []models.Key {
 		if !runningLow && !nearExpiry {
 			continue
 		}
-		updated, _, err := e.RenewKey(ctx, key.ID, models.MinPlanGB, models.MinPlanDays, false, &note)
+		// An auto-renewal grants the server's own overall limit, same as a
+		// fresh key would start on; only a server with no default set falls
+		// back to the plan floor.
+		addGB, ok := serverDefaultGB[key.ServerID]
+		if !ok {
+			addGB = models.MinPlanGB
+			if server, err := e.repo.GetServer(ctx, key.ServerID); err != nil {
+				log.Printf("auto renew: get server %s: %v", key.ServerID, err)
+			} else if server.DefaultLimitBytes != nil {
+				addGB = float64(*server.DefaultLimitBytes) / models.BytesPerGB
+			}
+			serverDefaultGB[key.ServerID] = addGB
+		}
+		updated, _, err := e.RenewKey(ctx, key.ID, addGB, models.MinPlanDays, false, &note)
 		if err != nil && !errors.Is(err, ErrPushFailed) {
 			log.Printf("auto renew: renew key %s: %v", key.ID, err)
 			continue

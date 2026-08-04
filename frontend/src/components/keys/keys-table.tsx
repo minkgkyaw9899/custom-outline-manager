@@ -514,6 +514,7 @@ export function KeysTable({
 
       <EditKeyDialog
         keyItem={editKey}
+        defaultLimitBytes={defaultLimitBytes}
         open={editKey !== null}
         onOpenChange={(isOpen) => !isOpen && setEditKey(null)}
       />
