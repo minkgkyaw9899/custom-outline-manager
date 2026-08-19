@@ -94,7 +94,7 @@ func main() {
 // still send alerts either way, it just won't receive button-press callbacks.
 func registerTelegramWebhook(ctx context.Context, cfg *config.Config, tg *telegram.Client) {
 	if cfg.TelegramWebhookURL == "" || cfg.TelegramWebhookSecret == "" {
-		log.Println("telegram: TELEGRAM_WEBHOOK_URL or TELEGRAM_WEBHOOK_SECRET not set; skipping webhook registration (alerts will still send, but extend buttons won't work)")
+		log.Println("telegram: TELEGRAM_WEBHOOK_URL or TELEGRAM_WEBHOOK_SECRET not set; skipping webhook registration (alerts will still send, but slash commands won't work)")
 		return
 	}
 	if err := tg.SetWebhook(ctx, cfg.TelegramWebhookURL, cfg.TelegramWebhookSecret); err != nil {

@@ -175,19 +175,15 @@ conditions, checked every cron tick by `internal/alerts.Checker.Run` (in
 `cron.RunOnce`, after bandwidth checks): a key's remaining quota under 3GB, or
 under 2 days to expiry (constants in `internal/alerts/alerts.go`), debounced
 12h via `low_usage_alert_sent_at` so a key stuck under threshold isn't
-re-alerted every tick. Each alert is one Telegram message with an inline
-"Extend +200GB / +30 days" button whose `callback_data` encodes the key id
-(`alerts.CallbackDataFor`/`KeyIDFromCallbackData`). A tap hits
-`POST /api/v1/telegram/webhook` (public route, not behind `RequireAuth` —
-Telegram has no session cookie), gated by two independent checks: the
-`X-Telegram-Bot-Api-Secret-Token` header must match `TELEGRAM_WEBHOOK_SECRET`,
-and the tapper's Telegram user id must match `TELEGRAM_ADMIN_USER_ID` — anyone
-else's tap is acknowledged but silently ignored. A valid tap calls
-`enforcement.Enforcer.RenewKey` (the **same** function the dashboard's own
-"renew" endpoint calls — extracted this session so both paths share identical
-renewal logic), then edits the original message to show the outcome
-(used/total GB, new expiry date, or a clear failure state). Two gotchas worth
-knowing if this needs touching again:
+re-alerted every tick. Each alert is one plain-text Telegram message —
+informational only; there is no inline button and no way to act on an alert
+from Telegram itself (the extend/renew inline button and its
+`POST /api/v1/telegram/webhook` callback-query handling were removed; renewing
+a key is done from the dashboard). The webhook route still exists for
+read-only slash commands (`/servers`, `/find`), gated by the
+`X-Telegram-Bot-Api-Secret-Token` header matching `TELEGRAM_WEBHOOK_SECRET`
+and the sender's Telegram user id matching `TELEGRAM_ADMIN_USER_ID`. Two
+gotchas worth knowing if this needs touching again:
 - `TELEGRAM_WEBHOOK_URL` is deliberately a **separate** setting from
   `PUBLIC_BASE_URL` — the latter points at a nginx host
   (`dynamic-access-*`) that only proxies `/api/v1/dkey/*` for privacy
@@ -210,11 +206,11 @@ knowing if this needs touching again:
 rows — see the migration's own comment for why) and `payment_note` (text).
 The dashboard's renew dialog (`EditKeyDialog`, "extend" mode) has a "Payment
 received" switch defaulting **on** — an admin renewing a key has ordinarily
-already collected payment — plus an optional note. The Telegram extend-button
-webhook always logs `paid=true, note="Extended via Telegram"`; the two
-zero-allowance "adjustment" paths (`applyKeyPlan`'s free-key claim, and the
-manual "set exact" PATCH) always log `paid=true` since neither is a billable
-event. Corrected after the fact via `PATCH /keys/:id/renewals/:renewalId/payment`
+already collected payment — plus an optional note. The two zero-allowance
+"adjustment" paths (`applyKeyPlan`'s free-key claim, and the manual "set
+exact" PATCH) always log `paid=true` since neither is a billable event.
+(There is no Telegram-initiated renewal path anymore — the extend inline
+button was removed; see the Telegram alerting section above.) Corrected after the fact via `PATCH /keys/:id/renewals/:renewalId/payment`
 — the key detail page's renewal history table has a clickable Paid/Unpaid
 badge per row wired to it (`RenewalHistory` in
 `_authed.admin.keys.$keyId.tsx`). This is bookkeeping only: nothing about
@@ -236,13 +232,14 @@ posts one plain-text message per flagged key (no inline button, unlike the
 low-usage alert — this isn't something a tap should resolve automatically).
 
 **Telegram bot gained read-only commands (added this session).** The webhook
-(`handlers.telegramWebhook`) now also parses `message` updates (previously
-only `callback_query`), gated by the same `TelegramAdminUserID` check.
+(`handlers.telegramWebhook`) parses `message` updates only — there is no
+`callback_query` handling (the extend inline button was removed) — gated by
+the same `TelegramAdminUserID` check.
 `/servers` replies with each server's DB-recorded sync status (no live
 Outline calls, so it's instant); `/find <name>` substring-matches a key or
 holder name across `ListAllKeys` and replies with quota/expiry/status for up
-to 15 matches (`telegramFindResultLimit`); `/help` lists both. All DB-only —
-nothing here can change a key's state, unlike the extend button.
+to 15 matches (`telegramFindResultLimit`); `/help` lists both. All DB-only and
+read-only — nothing here can change a key's state.
 
 **Opt-in auto-renew (added this session, migration 0016).** `keys.auto_renew`
 (default `false` — every existing key is unaffected until explicitly opted

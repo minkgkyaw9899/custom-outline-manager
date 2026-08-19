@@ -84,7 +84,7 @@ func (a *API) notifyNewOrder(ctx context.Context, order models.Order) {
 		"🛒 <b>New order</b>\n%s (%s)\n%s · %.0f GB / %d days\nPayment: %s\nReview it in the admin Orders page.",
 		order.CustomerName, order.Contact, serverName, order.PlanGB, order.PlanDays, order.PaymentMethod,
 	)
-	if _, err := a.tg.SendMessage(ctx, a.cfg.TelegramChatID, text, nil); err != nil {
+	if _, err := a.tg.SendMessage(ctx, a.cfg.TelegramChatID, text); err != nil {
 		log.Printf("notify new order %s: %v", order.ID, err)
 	}
 }
