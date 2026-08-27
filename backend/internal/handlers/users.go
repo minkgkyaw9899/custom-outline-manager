@@ -11,6 +11,16 @@ import (
 	"outline-manager/internal/models"
 )
 
+// logUserActivity records an audit trail entry for something an admin did to
+// a user or their key. Best-effort: a logging failure shouldn't fail the
+// request that already succeeded.
+func (a *API) logUserActivity(c fiber.Ctx, userID string, keyID *string, actionType, detail string) {
+	email, _ := c.Locals(ctxKeyEmail).(string)
+	if _, err := a.repo.InsertActivityLog(c.Context(), userID, keyID, actionType, detail, nil, &email); err != nil {
+		log.Printf("activity log: user %s: %v", userID, err)
+	}
+}
+
 // createUserRequest registers a key holder and, optionally, gives them a key in
 // the same call. There are three shapes:
 //
@@ -218,6 +228,7 @@ func (a *API) createUser(c fiber.Ctx) error {
 	if err != nil {
 		return respondRepoErr(c, err)
 	}
+	a.logUserActivity(c, user.ID, nil, "user_created", "User created")
 
 	if claimKeyID != "" {
 		// New users get the key renamed to their own name — it was sitting
@@ -315,6 +326,7 @@ func (a *API) updateUser(c fiber.Ctx) error {
 	if _, err := a.repo.UpdateUser(c.Context(), id, req.Name, req.Note, status); err != nil {
 		return respondRepoErr(c, err)
 	}
+	a.logUserActivity(c, id, nil, "user_edited", "User details updated")
 	return a.getUser(c)
 }
 
@@ -404,6 +416,7 @@ func (a *API) setUserPrimaryKey(c fiber.Ctx) error {
 	if err := a.repo.SetUserPrimaryKey(c.Context(), id, &key.ID); err != nil {
 		return respondRepoErr(c, err)
 	}
+	a.logUserActivity(c, id, &key.ID, "primary_key_set", "Primary key changed to \""+key.Name+"\"")
 	return a.getUser(c)
 }
 
@@ -468,6 +481,7 @@ func (a *API) replaceUserKey(c fiber.Ctx) error {
 			return apiresponse.Validation(c, *ferr)
 		}
 		releaseOld(key.ID)
+		a.logUserActivity(c, id, &key.ID, "key_changed", "Key changed to \""+key.Name+"\"")
 		return a.getUser(c)
 	}
 
@@ -494,6 +508,7 @@ func (a *API) replaceUserKey(c fiber.Ctx) error {
 		return respondRepoErr(c, err)
 	}
 	releaseOld(key.ID)
+	a.logUserActivity(c, id, &key.ID, "key_changed", "Key changed to \""+key.Name+"\"")
 	return a.getUser(c)
 }
 
@@ -547,6 +562,7 @@ func (a *API) resetUserKeyUsage(c fiber.Ctx) error {
 	if err := a.repo.SetUserPrimaryKey(c.Context(), id, &created.ID); err != nil {
 		return respondRepoErr(c, err)
 	}
+	a.logUserActivity(c, id, &created.ID, "usage_reset", "Usage reset")
 	return a.getUser(c)
 }
 
@@ -585,6 +601,7 @@ func (a *API) linkUserKey(c fiber.Ctx) error {
 	if err := a.repo.AdoptPrimaryKeyIfUnset(c.Context(), user.ID, key.ID); err != nil {
 		return respondRepoErr(c, err)
 	}
+	a.logUserActivity(c, id, &key.ID, "key_linked", "Key linked")
 	return apiresponse.Success(c, fiber.Map{"keyId": key.ID, "userId": user.ID}, "Key linked to "+user.Name)
 }
 
@@ -606,5 +623,20 @@ func (a *API) unlinkUserKey(c fiber.Ctx) error {
 	if err := a.repo.SetKeyUser(c.Context(), key.ID, nil); err != nil {
 		return respondRepoErr(c, err)
 	}
+	a.logUserActivity(c, id, &key.ID, "key_unlinked", "Key unlinked")
 	return apiresponse.NoContentOK(c, "Key unlinked — it keeps working, with no holder on record")
+}
+
+// listUserActivity returns a user's audit trail for the activity log on
+// their detail page.
+func (a *API) listUserActivity(c fiber.Ctx) error {
+	id := c.Params("id")
+	if _, err := a.repo.GetUser(c.Context(), id); err != nil {
+		return respondRepoErr(c, err)
+	}
+	logs, err := a.repo.ListActivityLog(c.Context(), id)
+	if err != nil {
+		return respondRepoErr(c, err)
+	}
+	return apiresponse.Success(c, logs, "")
 }

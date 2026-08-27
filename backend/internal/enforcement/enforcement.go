@@ -7,6 +7,7 @@ package enforcement
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -275,7 +276,7 @@ func (e *Enforcer) AutoRenewKeys(ctx context.Context) []models.Key {
 			}
 			serverDefaultGB[key.ServerID] = addGB
 		}
-		updated, _, err := e.RenewKey(ctx, key.ID, addGB, models.MinPlanDays, false, &note)
+		updated, _, err := e.RenewKey(ctx, key.ID, addGB, models.MinPlanDays, false, &note, nil)
 		if err != nil && !errors.Is(err, ErrPushFailed) {
 			log.Printf("auto renew: renew key %s: %v", key.ID, err)
 			continue
@@ -371,7 +372,9 @@ func (e *Enforcer) ReconcileServerKeys(ctx context.Context, server models.Server
 // paid/paymentNote are bookkeeping only — they never affect what's granted,
 // just what the renewal history and any "needs confirming" surfacing show
 // afterward.
-func (e *Enforcer) RenewKey(ctx context.Context, keyID string, addGB float64, addDays int, paid bool, paymentNote *string) (*models.Key, *models.RenewalLog, error) {
+// actorEmail is the admin who triggered the renewal, or nil when it's the
+// auto-renew cron acting on its own.
+func (e *Enforcer) RenewKey(ctx context.Context, keyID string, addGB float64, addDays int, paid bool, paymentNote *string, actorEmail *string) (*models.Key, *models.RenewalLog, error) {
 	key, err := e.repo.GetKey(ctx, keyID)
 	if err != nil {
 		return nil, nil, err
@@ -412,6 +415,24 @@ func (e *Enforcer) RenewKey(ctx context.Context, keyID string, addGB float64, ad
 	renewal, err := e.repo.InsertRenewalLog(ctx, keyID, addGB, addDays, newLimitBytes, newEndDate, paid, paymentNote, amountMmk)
 	if err != nil {
 		return nil, nil, fmt.Errorf("insert renewal log: %w", err)
+	}
+	if key.UserID != nil {
+		actionType := "manual_renew"
+		detail := fmt.Sprintf("+%.0f GB / %d days", addGB, addDays)
+		if actorEmail == nil {
+			actionType = "auto_renew"
+		}
+		if addGB == 0 && addDays == 0 {
+			detail = "Data limit / expiry set manually"
+		}
+		metadata, _ := json.Marshal(map[string]any{
+			"addedGb":       addGB,
+			"addedDays":     addDays,
+			"newLimitBytes": newLimitBytes,
+		})
+		if _, logErr := e.repo.InsertActivityLog(ctx, *key.UserID, &keyID, actionType, detail, metadata, actorEmail); logErr != nil {
+			log.Printf("activity log: renew key %s: %v", keyID, logErr)
+		}
 	}
 
 	// The local save above already succeeded by this point, so a push

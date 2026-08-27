@@ -1,6 +1,7 @@
 import { queryOptions, useQuery } from "@tanstack/react-query"
 import { apiClient } from "./api"
 import type {
+  ActivityLogEntry,
   AdminUser,
   AppSettings,
   DashboardStats,
@@ -35,6 +36,13 @@ export const userDetailQueryOptions = (userId: string) =>
   queryOptions({
     queryKey: ["users", userId] as const,
     queryFn: () => apiClient.get<UserWithKeys>(`users/${userId}`),
+  })
+
+export const userActivityQueryOptions = (userId: string) =>
+  queryOptions({
+    queryKey: ["users", userId, "activity"] as const,
+    queryFn: () =>
+      apiClient.get<ActivityLogEntry[]>(`users/${userId}/activity`),
   })
 
 /**

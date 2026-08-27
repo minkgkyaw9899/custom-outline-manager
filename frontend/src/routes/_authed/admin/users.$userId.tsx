@@ -26,6 +26,7 @@ import { StatCard } from "@/components/common/stat-card"
 import { StatusBadge } from "@/components/common/status-badge"
 import { ChangeKeyDialog } from "@/components/users/change-key-dialog"
 import { EditUserDialog } from "@/components/users/edit-user-dialog"
+import { UserActivityLogTable } from "@/components/users/user-activity-log-table"
 import { UserShareDialog } from "@/components/users/user-share-dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -65,6 +66,7 @@ import {
   keyRenewalsQueryOptions,
   LIVE_REFRESH_MS,
   serverDetailQueryOptions,
+  userActivityQueryOptions,
   userDetailQueryOptions,
 } from "@/lib/queries"
 import type { Key, UserWithKeys } from "@/lib/types"
@@ -242,6 +244,10 @@ function UserDetailPage() {
     ...keyRenewalsQueryOptions(key?.id ?? ""),
     enabled: !!key,
   })
+
+  const { data: activity, isLoading: activityLoading } = useQuery(
+    userActivityQueryOptions(userId)
+  )
 
   const resetUsage = useMutation({
     mutationFn: () =>
@@ -575,6 +581,8 @@ function UserDetailPage() {
       )}
 
       <OtherKeysCard user={user} />
+
+      <UserActivityLogTable entries={activity} isLoading={activityLoading} />
 
       <EditUserDialog user={user} open={editOpen} onOpenChange={setEditOpen} />
 

@@ -3,6 +3,7 @@
 package models
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"net/url"
@@ -395,6 +396,27 @@ type RenewalLog struct {
 	// listing, which already has that context from the page it renders on.
 	KeyName  string `json:"keyName,omitempty"`
 	UserName string `json:"userName,omitempty"`
+}
+
+// ActivityLog is an audit trail entry for anything an admin (or the
+// auto-renew cron) did to a user or their keys — shown on the user detail
+// page so "who changed this and when" doesn't require a database query.
+type ActivityLog struct {
+	ID     string  `json:"id"`
+	UserID string  `json:"userId"`
+	KeyID  *string `json:"keyId"`
+	// ActionType is a stable machine key (e.g. "manual_renew", "key_linked") —
+	// the frontend maps it to a readable label; Detail below is the
+	// human-readable summary of what actually happened.
+	ActionType string `json:"actionType"`
+	Detail     string `json:"detail"`
+	// Metadata is extra structured context (added GB, old/new limits, etc.)
+	// for anything that wants more than the Detail string later.
+	Metadata json.RawMessage `json:"metadata"`
+	// ActorEmail is nil for actions taken by the auto-renew cron, which has no
+	// admin behind it.
+	ActorEmail *string   `json:"actorEmail"`
+	CreatedAt  time.Time `json:"createdAt"`
 }
 
 // DeviceAlert is a key whose peak simultaneous device count over the last day

@@ -321,6 +321,17 @@ export interface RenewalLog {
   userName?: string
 }
 
+export interface ActivityLogEntry {
+  id: string
+  userId: string
+  keyId: string | null
+  actionType: string
+  detail: string
+  metadata: Record<string, unknown>
+  actorEmail: string | null
+  createdAt: string
+}
+
 export interface DashboardStats {
   totalServers: number
   totalKeys: number

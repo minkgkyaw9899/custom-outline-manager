@@ -110,6 +110,7 @@ func (a *API) RegisterRoutes(r fiber.Router) {
 			protected.Get("/users", a.listUsers)
 			protected.Post("/users", a.createUser)
 			protected.Get("/users/:id", a.getUser)
+			protected.Get("/users/:id/activity", a.listUserActivity)
 			protected.Patch("/users/:id", a.updateUser)
 			protected.Delete("/users/:id", a.deleteUser)
 			protected.Post("/users/:id/keys", a.createUserKey)

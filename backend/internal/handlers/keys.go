@@ -504,6 +504,12 @@ func (a *API) updateKey(c fiber.Ctx) error {
 		if _, err := a.repo.InsertRenewalLog(c.Context(), id, 0, 0, limitBytes, endDate, logPaid, logNote, amountMmk); err != nil {
 			return apiresponse.Internal(c, "")
 		}
+		if key.UserID != nil {
+			email, _ := c.Locals(ctxKeyEmail).(string)
+			if _, err := a.repo.InsertActivityLog(c.Context(), *key.UserID, &id, "plan_edit", "Data limit / expiry set manually", nil, &email); err != nil {
+				log.Printf("activity log: update key %s: %v", id, err)
+			}
+		}
 		if err := a.enforcer.ReconcileKeyByID(c.Context(), id); err != nil {
 			return apiresponse.BadGateway(c, "The change was saved but could not be pushed to the Outline server yet")
 		}
@@ -524,6 +530,16 @@ func (a *API) updateKey(c fiber.Ctx) error {
 	if req.AutoRenew != nil {
 		if err := a.repo.SetKeyAutoRenew(c.Context(), id, *req.AutoRenew); err != nil {
 			return apiresponse.Internal(c, "")
+		}
+		if key.UserID != nil {
+			email, _ := c.Locals(ctxKeyEmail).(string)
+			detail := "Auto-renew disabled"
+			if *req.AutoRenew {
+				detail = "Auto-renew enabled"
+			}
+			if _, err := a.repo.InsertActivityLog(c.Context(), *key.UserID, &id, "auto_renew_toggle", detail, nil, &email); err != nil {
+				log.Printf("activity log: update key %s: %v", id, err)
+			}
 		}
 	}
 
@@ -586,7 +602,8 @@ func (a *API) renewKey(c fiber.Ctx) error {
 		note = &trimmed
 	}
 
-	updated, renewal, err := a.enforcer.RenewKey(c.Context(), id, req.AddGB, req.AddDays, paid, note)
+	email, _ := c.Locals(ctxKeyEmail).(string)
+	updated, renewal, err := a.enforcer.RenewKey(c.Context(), id, req.AddGB, req.AddDays, paid, note, &email)
 	if errors.Is(err, enforcement.ErrPushFailed) {
 		return apiresponse.BadGateway(c, "Renewal was saved but could not be pushed to the Outline server yet")
 	}
