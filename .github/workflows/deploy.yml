@@ -123,12 +123,16 @@ jobs:
           } | ssh -p "${{ vars.LIGHTSAIL_SSH_PORT || 22 }}" "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" \
               "cat > '${{ vars.DEPLOY_DIR || '/opt/outline-manager' }}/.env'"
 
+      # nginx.conf is a bind mount, so an edited copy synced above isn't
+      # picked up by the already-running nginx container until it reloads.
+      # A config that fails to parse leaves the old one serving.
       - name: Pull images and restart
         run: |
           ssh -p "${{ vars.LIGHTSAIL_SSH_PORT || 22 }}" "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}" "
             cd '${{ vars.DEPLOY_DIR || '/opt/outline-manager' }}' &&
             docker compose pull &&
-            docker compose up -d --remove-orphans
+            docker compose up -d --remove-orphans &&
+            docker compose exec -T nginx nginx -s reload
           "
 
   tag-release:
