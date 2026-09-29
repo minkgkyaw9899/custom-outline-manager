@@ -21,8 +21,30 @@ import {
 import { FieldGroup } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
 import { apiClient } from "@/lib/api"
+import { BYTES_PER_GB } from "@/lib/format"
 import { fieldErrorsFrom } from "@/lib/form-errors"
-import type { UserWithKeys } from "@/lib/types"
+import type { Key, UserWithKeys } from "@/lib/types"
+
+/**
+ * The plan fields pre-filled with what is left on the key being moved off, so
+ * the holder keeps what they paid for. The plan floor doesn't apply here (see
+ * resolveMovePlan on the backend). Anything unknown or used up falls back to
+ * the usual plan-period default.
+ */
+function carriedOverPlan(current: Key | null | undefined) {
+  const initial = initialKeySource()
+  const remainingGb =
+    current?.remainingBytes != null && current.remainingBytes > 0
+      ? Math.floor((current.remainingBytes / BYTES_PER_GB) * 10) / 10
+      : 0
+  const daysLeft =
+    current?.daysLeft != null && current.daysLeft > 0 ? current.daysLeft : 0
+  return {
+    ...initial,
+    limitGb: remainingGb > 0 ? String(remainingGb) : initial.limitGb,
+    days: daysLeft > 0 ? String(daysLeft) : initial.days,
+  }
+}
 
 /**
  * Moves a holder onto a fresh key, on any server.
@@ -54,7 +76,7 @@ export function ChangeKeyDialog({
       // Deliberately not pre-selecting their current server: the point of this
       // dialog is choosing where they go next, and a pre-filled answer invites
       // submitting without reading it.
-      setKeySource(initialKeySource())
+      setKeySource(carriedOverPlan(user.primaryKey))
       setErrors({})
     }
   }, [open, user])
@@ -120,6 +142,7 @@ export function ChangeKeyDialog({
               onChange={setKeySource}
               errors={errors}
               keyNamePlaceholder={user?.name ?? "Defaults to the user's name"}
+              enforcePlanFloor={false}
             />
           </FieldGroup>
 
@@ -138,7 +161,8 @@ export function ChangeKeyDialog({
             <Button
               type="submit"
               disabled={
-                replaceKey.isPending || isKeySourceIncomplete(keySource)
+                replaceKey.isPending ||
+                isKeySourceIncomplete(keySource, { enforcePlanFloor: false })
               }
             >
               {replaceKey.isPending && <Spinner data-icon="inline-start" />}

@@ -87,16 +87,17 @@ export function keySourcePayload(
 /** True while the choice can't be submitted yet. */
 export function isKeySourceIncomplete(
   state: KeySourceState,
-  options: { requirePlan?: boolean } = {}
+  options: { requirePlan?: boolean; enforcePlanFloor?: boolean } = {}
 ): boolean {
+  const { enforcePlanFloor = true } = options
   if (!state.serverId) return true
   if (state.mode === "existing") {
     if (!state.keyId) return true
     return options.requirePlan
-      ? isBelowPlanFloor(state.limitGb, state.days)
+      ? isBelowPlanFloor(state.limitGb, state.days, enforcePlanFloor)
       : false
   }
-  return isBelowPlanFloor(state.limitGb, state.days)
+  return isBelowPlanFloor(state.limitGb, state.days, enforcePlanFloor)
 }
 
 function freeKeyLabel(key: Key): string {
@@ -118,6 +119,7 @@ export function KeySourceFields({
   keyNamePlaceholder,
   serverLabel = "Server",
   overridePlanOnClaim = false,
+  enforcePlanFloor = true,
 }: Readonly<{
   value: KeySourceState
   onChange: (next: KeySourceState) => void
@@ -133,6 +135,11 @@ export function KeySourceFields({
    * onto a different free key keeps that key's allowance as-is.
    */
   overridePlanOnClaim?: boolean
+  /**
+   * Hold the plan fields to the 200 GB / 30 day floor. Off when moving an
+   * existing holder, who carries over whatever their old key had left.
+   */
+  enforcePlanFloor?: boolean
 }>) {
   const { data: unassigned } = useQuery(unassignedKeysQueryOptions())
 
@@ -256,6 +263,7 @@ export function KeySourceFields({
               onLimitGbChange={(limitGb) => set({ limitGb })}
               onDaysChange={(days) => set({ days })}
               errors={errors}
+              enforcePlanFloor={enforcePlanFloor}
             />
           )}
         </>
@@ -286,6 +294,7 @@ export function KeySourceFields({
             onLimitGbChange={(limitGb) => set({ limitGb })}
             onDaysChange={(days) => set({ days })}
             errors={errors}
+            enforcePlanFloor={enforcePlanFloor}
           />
         </>
       )}

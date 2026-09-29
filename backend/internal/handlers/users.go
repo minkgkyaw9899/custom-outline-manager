@@ -490,7 +490,7 @@ func (a *API) replaceUserKey(c fiber.Ctx) error {
 		return apiresponse.Validation(c, apiresponse.FieldError{Field: "serverId", Message: "That server does not exist"})
 	}
 
-	plan, ferr := resolveKeyPlan(*server, req.AddGB, req.AddDays)
+	plan, ferr := resolveMovePlan(*server, req.AddGB, req.AddDays)
 	if ferr != nil {
 		return apiresponse.Validation(c, *ferr)
 	}

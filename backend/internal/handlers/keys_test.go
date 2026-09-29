@@ -1,6 +1,11 @@
 package handlers
 
-import "testing"
+import (
+	"testing"
+	"time"
+
+	"outline-manager/internal/models"
+)
 
 // Every key is sold as at least one 200 GB / 30 day plan period, so an empty
 // allowance means one period rather than "no quota, no expiry".
@@ -75,6 +80,39 @@ func TestParseEndDate(t *testing.T) {
 	t.Run("anything else is rejected", func(t *testing.T) {
 		if _, err := parseEndDate("24/08/2026"); err == nil {
 			t.Fatal("want an error for an unparseable date")
+		}
+	})
+}
+
+// Moving a holder carries over what was left on their old key, which is
+// usually less than a full plan period, so the floor doesn't apply.
+func TestResolveMovePlan(t *testing.T) {
+	t.Run("below the floor is kept as-is", func(t *testing.T) {
+		plan, err := resolveMovePlan(models.Server{}, 86.2, 2)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err.Message)
+		}
+		if plan.limitBytes == nil || *plan.limitBytes != int64(86.2*models.BytesPerGB) {
+			t.Fatalf("got limit %v, want 86.2 GB", plan.limitBytes)
+		}
+		if plan.endDate == nil || time.Until(*plan.endDate) > 49*time.Hour || time.Until(*plan.endDate) < 47*time.Hour {
+			t.Fatalf("got end date %v, want about 2 days from now", plan.endDate)
+		}
+	})
+
+	t.Run("zero falls back to one plan period", func(t *testing.T) {
+		plan, err := resolveMovePlan(models.Server{}, 0, 0)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err.Message)
+		}
+		if plan.limitBytes == nil || *plan.limitBytes != int64(models.MinPlanGB*models.BytesPerGB) {
+			t.Fatalf("got limit %v, want the plan floor", plan.limitBytes)
+		}
+	})
+
+	t.Run("negative is rejected", func(t *testing.T) {
+		if _, err := resolveMovePlan(models.Server{}, -1, 2); err == nil {
+			t.Fatal("want a validation error for a negative allowance")
 		}
 	})
 }

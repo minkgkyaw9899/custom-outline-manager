@@ -131,6 +131,31 @@ func resolveKeyPlan(server models.Server, addGB float64, addDays int) (keyPlan, 
 	return plan, nil
 }
 
+// resolveMovePlan is resolveKeyPlan for a holder being moved onto a fresh key
+// rather than sold one: what they carry over is whatever was left on the key
+// they're leaving, which is usually below a full plan period. So any positive
+// allowance is taken as-is; only an absent (zero) one falls back to
+// resolveKeyPlan's defaults.
+func resolveMovePlan(server models.Server, addGB float64, addDays int) (keyPlan, *apiresponse.FieldError) {
+	if addGB < 0 || addDays < 0 {
+		return keyPlan{}, &apiresponse.FieldError{Field: "add_gb", Message: "add_gb and add_days must not be negative"}
+	}
+	defaults, ferr := resolveKeyPlan(server, 0, 0)
+	if ferr != nil {
+		return keyPlan{}, ferr
+	}
+	plan := defaults
+	if addGB > 0 {
+		v := int64(addGB * models.BytesPerGB)
+		plan.limitBytes = &v
+	}
+	if addDays > 0 {
+		t := time.Now().AddDate(0, 0, addDays)
+		plan.endDate = &t
+	}
+	return plan, nil
+}
+
 // provisionKey creates one key on an Outline server, records it locally
 // against userID (nil for an unassigned key), and pushes its initial limit.
 // Shared by POST /servers/:id/keys and the user-creation flow so both honour
