@@ -1,4 +1,4 @@
-# Production stack for a single Lightsail instance: postgres + api +
+# Production stack for a single Docker VM: postgres + api +
 # frontend + an edge nginx doing TLS/routing for all three domains, plus
 # certbot for cert issuance/renewal. This whole directory is what gets
 # synced to the server — see README.md for first-time setup.
@@ -22,7 +22,7 @@ services:
   # Host-local only — protects against DB corruption/accidental data loss,
   # not against losing the instance itself. See README.md#backups for restore.
   backup:
-    image: prodrigestivill/postgres-backup-local:17-alpine
+    image: prodrigestivill/postgres-backup-local:18-alpine
     restart: unless-stopped
     depends_on:
       postgres:

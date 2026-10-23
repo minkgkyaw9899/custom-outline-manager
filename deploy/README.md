@@ -1,4 +1,8 @@
-# Deploying to a Lightsail instance
+# Deploying to a Docker VM
+
+This stack works on Lightsail or LightNode. For the `fleet-sg1` installation,
+see [the migration checklist](MIGRATE-LIGHTNODE.md) before changing deployment
+secrets or DNS.
 
 Single VM running Docker + Docker Compose, hosting Postgres, the API, the
 frontend, and an edge nginx that TLS-terminates and routes three domains:
@@ -13,8 +17,9 @@ frontend, and an edge nginx that TLS-terminates and routes three domains:
 
 1. **DNS**: point all three domains at the instance's static IP (A records,
    or AAAA if it has IPv6).
-2. **Lightsail firewall**: open TCP 80 and 443 (Networking tab → IPv4
-   Firewall). 80 is needed permanently, not just for the initial cert — it's
+2. **Provider and host firewalls**: allow TCP 80 and 443 (on Lightsail,
+   Networking tab → IPv4 Firewall). Both ports must be available on the VM.
+   80 is needed permanently, not just for the initial cert — it's
    where the ACME HTTP-01 challenge lands on every renewal.
 3. Install Docker + the Compose plugin on the instance, then copy this
    `deploy/` directory to it (the CI workflow does this on every deploy; for
@@ -51,7 +56,8 @@ GitHub secrets it needs.
 
 Config changes (`nginx/nginx.conf`, `docker-compose.yml` itself) also ship
 through that same sync, since the workflow rsyncs this whole directory to the
-server before pulling images. `.env` is excluded from that rsync and instead
+server before pulling images. `backups/` is excluded so deploys preserve local
+database backups. `.env` is excluded from that rsync and instead
 written fresh on every deploy from the `DEPLOY_ENV_FILE` GitHub secret (whole
 file contents, piped over SSH stdin — never interpolated into a shell
 string). Update that secret and redeploy to change any runtime value

@@ -102,7 +102,7 @@ jobs:
 
       - name: Sync deploy/ to the instance
         run: |
-          rsync -az --delete --exclude '.env' \
+          rsync -az --delete --exclude '.env' --exclude '/backups/' \
             -e "ssh -p ${{ vars.LIGHTSAIL_SSH_PORT || 22 }}" \
             deploy/ "${{ secrets.LIGHTSAIL_USER }}@${{ secrets.LIGHTSAIL_HOST }}:${{ vars.DEPLOY_DIR || '/opt/outline-manager' }}/"
 
