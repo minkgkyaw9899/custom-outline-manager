@@ -232,11 +232,12 @@ Given a top-up request `{add_gb, add_days}` for a key:
 
 ```
 new_limit_bytes = used_bytes + add_gb * 1e9                      // if add_gb > 0
-new_end_date    = max(now, end_date ?? now) + add_days days       // if add_days > 0
+new_end_date    = now + add_days days                           // if add_days > 0
 ```
 
 The prior `custom_limit_bytes` is intentionally not an input: the new ceiling
-is anchored to current usage. A dimension with a non-positive argument is left
+is anchored to current usage. Unused days do not carry over: each renewal
+starts a fresh period. A dimension with a non-positive argument is left
 untouched. Implemented in `models.RenewalTarget` and unit-tested there.
 
 Rationale: because Outline's limit is cumulative-since-ever, naively setting

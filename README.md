@@ -210,8 +210,9 @@ serialize as an array (`data: []`, never `null`), and every key carries live `st
 
 `add_gb` on `/renew` is a **relative top-up**: the new ceiling is
 `current_used_bytes + add_gb * 1e9`, guaranteeing a fresh `add_gb` of
-headroom regardless of prior usage. `add_days` extends `end_date` by that
-many days from `max(now, current_end_date)`.
+headroom regardless of prior usage. `add_days` resets `end_date` to that
+many days from now. Existing days do not carry over, so repeating a 30-day
+renewal leaves 30 days from the latest renewal, rather than 60 or 90.
 
 Deleting a key removes it from the Outline server first and fails with `502`
 if that can't be done — otherwise the key would keep working while

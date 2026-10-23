@@ -485,9 +485,9 @@ func DeriveKeyStatus(now time.Time, endDate *time.Time, customLimitBytes *int64,
 //
 // addGB is a *relative* top-up: the new ceiling is usedBytes + addGB, so the
 // holder always gets a fresh addGB of headroom regardless of prior usage.
-// addDays extends from max(now, current end date), so renewing early never
-// throws away unused time. A zero or negative value leaves that dimension
-// untouched.
+// addDays starts a fresh period from now. Existing days do not carry over,
+// so repeated renewals never accumulate time beyond the selected period.
+// A zero or negative value leaves that dimension untouched.
 func RenewalTarget(now time.Time, key Key, addGB float64, addDays int) (limitBytes *int64, endDate *time.Time) {
 	limitBytes, endDate = key.CustomLimitBytes, key.EndDate
 
@@ -496,11 +496,7 @@ func RenewalTarget(now time.Time, key Key, addGB float64, addDays int) (limitByt
 		limitBytes = &v
 	}
 	if addDays > 0 {
-		base := now
-		if key.EndDate != nil && key.EndDate.After(base) {
-			base = *key.EndDate
-		}
-		t := base.AddDate(0, 0, addDays)
+		t := now.AddDate(0, 0, addDays)
 		endDate = &t
 	}
 	return limitBytes, endDate

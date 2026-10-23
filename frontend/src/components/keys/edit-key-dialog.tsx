@@ -291,15 +291,8 @@ export function EditKeyDialog({
   })
 
   const extendedLimitBytes = keyItem ? keyItem.usedBytes + gb * BYTES_PER_GB : 0
-  // Days are added to whichever is later, today or the current end date, which
-  // is what the backend's RenewalTarget does.
-  const baseDate =
-    keyItem?.endDate && new Date(keyItem.endDate) > new Date()
-      ? new Date(keyItem.endDate)
-      : new Date()
-  const extendedEndDate = new Date(
-    baseDate.getTime() + days * 86_400_000
-  ).toISOString()
+  // Match RenewalTarget: start a fresh period without carrying over old days.
+  const extendedEndDate = new Date(Date.now() + days * 86_400_000).toISOString()
 
   const totalBytes = totalGb * BYTES_PER_GB
   const overspent =
@@ -435,7 +428,9 @@ export function EditKeyDialog({
                 </Field>
 
                 <Field data-invalid={!!errors.add_days || undefined}>
-                  <FieldLabel htmlFor="edit-key-days">Extend expiry</FieldLabel>
+                  <FieldLabel htmlFor="edit-key-days">
+                    Days from today
+                  </FieldLabel>
                   <InputGroup>
                     <InputGroupInput
                       id="edit-key-days"
@@ -455,7 +450,7 @@ export function EditKeyDialog({
                     {errors.add_days ??
                       (days < MIN_PLAN_DAYS
                         ? `A plan period is at least ${MIN_PLAN_DAYS} days.`
-                        : `New limit ${formatBytesCompact(extendedLimitBytes, { decimals: 1 })} · expires ${formatDateOnly(extendedEndDate)}.`)}
+                        : `New limit ${formatBytesCompact(extendedLimitBytes, { decimals: 1 })} · expires ${formatDateOnly(extendedEndDate)}. Existing days do not carry over.`)}
                   </FieldDescription>
                 </Field>
 

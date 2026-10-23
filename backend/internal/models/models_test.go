@@ -129,10 +129,34 @@ func TestRenewalTarget(t *testing.T) {
 		}
 	})
 
-	t.Run("renewing early extends from the existing end date", func(t *testing.T) {
+	t.Run("renewing early starts a fresh period from today", func(t *testing.T) {
 		future := now.AddDate(0, 0, 10)
 		_, end := RenewalTarget(now, Key{EndDate: &future}, 0, 30)
-		if want := future.AddDate(0, 0, 30); end == nil || !end.Equal(want) {
+		if want := now.AddDate(0, 0, 30); end == nil || !end.Equal(want) {
+			t.Fatalf("endDate = %v, want %v", end, want)
+		}
+	})
+
+	t.Run("repeated renewals do not accumulate days", func(t *testing.T) {
+		future := now.AddDate(0, 0, 90)
+		key := Key{EndDate: &future}
+		for renewal := 0; renewal < 3; renewal++ {
+			_, end := RenewalTarget(now, key, 0, 30)
+			if want := now.AddDate(0, 0, 30); end == nil || !end.Equal(want) {
+				t.Fatalf("renewal %d: endDate = %v, want %v", renewal+1, end, want)
+			}
+			key.EndDate = end
+		}
+		later := now.AddDate(0, 0, 5)
+		_, end := RenewalTarget(later, key, 0, 30)
+		if want := later.AddDate(0, 0, 30); end == nil || !end.Equal(want) {
+			t.Fatalf("later renewal: endDate = %v, want %v", end, want)
+		}
+	})
+
+	t.Run("renewing a key without expiry starts the selected period", func(t *testing.T) {
+		_, end := RenewalTarget(now, Key{}, 0, 60)
+		if want := now.AddDate(0, 0, 60); end == nil || !end.Equal(want) {
 			t.Fatalf("endDate = %v, want %v", end, want)
 		}
 	})
