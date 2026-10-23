@@ -606,8 +606,8 @@ type renewKeyRequest struct {
 
 // renewKey implements the "smart quota renewal & extension" logic: add_gb tops
 // up the limit relative to bytes already used (so the holder always gets a
-// fresh add_gb of headroom, regardless of history), and add_days extends
-// end_date from max(now, current end_date). See models.RenewalTarget.
+// fresh add_gb of headroom, regardless of history), and add_days starts a fresh
+// period from now without carrying over unused days. See models.RenewalTarget.
 func (a *API) renewKey(c fiber.Ctx) error {
 	id := c.Params("id")
 

@@ -448,11 +448,11 @@ export function mockExtendKey(
   store.keys = store.keys.map((key) => {
     if (key.id !== keyId) return key
     // Same rule as the backend's models.RenewalTarget: the added data is
-    // headroom on top of what is already used, and days extend from whichever
-    // is later, today or the current end date. Extending is therefore also how
+    // headroom on top of what is already used, and days start a fresh period
+    // from today without carrying over unused days. Renewing is also how
     // an expired key (switched off, Outline limit forced to zero) comes back.
     const customLimitBytes = key.usedBytes + Math.round(addGb * GB)
-    const daysLeft = Math.max(key.daysLeft ?? 0, 0) + addDays
+    const daysLeft = addDays
     return {
       ...key,
       customLimitBytes,

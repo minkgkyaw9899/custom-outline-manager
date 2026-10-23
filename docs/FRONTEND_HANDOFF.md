@@ -154,8 +154,8 @@ GET    /api/v1/keys/:id/renewals                 -> RenewalLog[]   (newest first
 
 Renewal math (already implemented, just for context on what the two inputs mean):
 `add_gb` → `new_limit_bytes = used_bytes + add_gb * 1e9` (relative top-up: always gives a fresh `add_gb`
-of headroom regardless of prior usage). `add_days` → `new_end_date = max(now, current_end_date) + add_days`
-(extending early never wastes remaining time). Renewal modal should have two independent optional number
+of headroom regardless of prior usage). `add_days` → `new_end_date = now + add_days`
+(starts a fresh period; unused days do not carry over). Renewal modal should have two independent optional number
 inputs, "Add GB" and "Add Days" — at least one must be > 0.
 
 ## Stats

@@ -182,7 +182,7 @@ function RenewalHistory({
           <TableRow>
             <TableHead>Applied</TableHead>
             <TableHead className="text-right">Added data</TableHead>
-            <TableHead className="text-right">Added days</TableHead>
+            <TableHead className="text-right">Plan days</TableHead>
             <TableHead className="text-right">New limit</TableHead>
             <TableHead className="text-right">New expiry</TableHead>
             <TableHead>Payment</TableHead>
