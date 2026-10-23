@@ -38,13 +38,20 @@ The workflow uses generic SSH and Docker; its existing secret names can stay.
 | --- | --- |
 | `LIGHTSAIL_HOST` | `130.94.43.251` |
 | `LIGHTSAIL_USER` | `root` |
-| `LIGHTSAIL_SSH_KEY` | Entire private key from `~/.ssh/id_light_node` |
+| `LIGHTSAIL_SSH_KEY` | Dedicated GitHub Actions deployment private key |
 | `DEPLOY_ENV_FILE` | Existing production environment configuration |
 | `TELEGRAM_*` | Existing bot configuration |
 
 `LIGHTSAIL_SSH_PORT` defaults to 22; `DEPLOY_DIR` defaults to
 `/opt/outline-manager`. The local alias and macOS Keychain settings are not
 available on GitHub Actions runners. Never commit private keys or `.env`.
+
+The Mac identity is passphrase-protected and remains unchanged. The owner
+approved a separate noninteractive CI identity for this server. Its public
+key uses the OpenSSH `restrict` option (no PTY, forwarding, agent forwarding,
+X11 forwarding, or user rc). It still permits root command execution, as
+required by the existing deployment workflow. Its private key belongs only
+in the repository secret, not in source control or deployment documentation.
 
 ## First installation
 
